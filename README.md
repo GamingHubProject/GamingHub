@@ -1,1 +1,57 @@
-# GamingHub
+# Gaming Hub Platform
+
+**v0.1.000** — Standalone modular Laravel platform for game communities.
+
+Gaming Hub connects games (Palworld, BDO, ARK, etc.) to the communities playing them. It's a
+Docker-based Laravel monolith built to run comfortably on a small VPS — not an Azuriom plugin,
+not a microservices stack.
+
+## Stack
+
+- **Framework:** Laravel 11
+- **Admin Dashboard:** [Filament](https://filamentphp.com) 3
+- **Auth:** Laravel Breeze (Blade stack) + [Spatie Laravel Permission](https://spatie.be/docs/laravel-permission)
+- **Database:** PostgreSQL 16
+- **Deployment:** Docker (dev + production compose files)
+
+## Features (Milestone 1)
+
+- User accounts (register, login, email verification) via Breeze
+- Role-based access control via Spatie Permission (`Admin`, `WebEditor`, `ContentEditor`, `User`)
+- Filament admin dashboard at `/admin`
+- Scaffolded domain models: `Game`, `Server`, `Instance`, `Provider`, `Asset`
+- Filament CRUD resources for Games, Servers, Users, and Roles
+- A game may have zero servers — publisher-hosted or community-only games are first-class
+
+This milestone is foundation-only. Game Integrations, Hub Extensions, the Capability Highway,
+Experience/page composition, and the asset file pipeline arrive in later milestones — see
+`GAMING_HUB_PLATFORM_ARCHITECTURE.md` for the full roadmap.
+
+## Quick Start
+
+```bash
+docker-compose up
+```
+
+Then visit `http://localhost:8010` (public site) or `http://localhost:8010/admin` (admin panel).
+
+Default admin login: `admin@local` / `local`
+
+See [INSTALL.md](INSTALL.md) for full setup steps and [DEVELOPMENT.md](DEVELOPMENT.md) for the
+day-to-day developer workflow.
+
+## File Structure
+
+```
+app/Models/              Game, Server, Instance, Provider, Asset, User
+app/Filament/Resources/  Admin CRUD resources
+database/migrations/     Schema for all models + Filament/Spatie tables
+database/seeders/        RoleSeeder + admin test user
+tests/Feature/Admin/     Admin panel + resource tests
+docker-compose.yml       Dev stack (app + Postgres)
+docker-compose.prod.yml  Production stack (app + Postgres + Nginx)
+```
+
+## Versioning
+
+`v{release}.{milestone}.{small-milestone}{hotfix}` — see `VERSION_BUMP_CHECKLIST.md`.

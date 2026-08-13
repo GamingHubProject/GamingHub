@@ -1,0 +1,29 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8010:8000"
+    environment:
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=gaming_hub
+      - DB_USERNAME=gaming_hub
+      - DB_PASSWORD=secret
+    volumes:
+      - .:/app
+    depends_on:
+      - postgres
+    command: php artisan serve --host=0.0.0.0 --port=8000
+  postgres:
+    image: postgres:16
+    environment:
+      - POSTGRES_DB=gaming_hub
+      - POSTGRES_USER=gaming_hub
+      - POSTGRES_PASSWORD=secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+volumes:
+  postgres_data:

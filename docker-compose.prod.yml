@@ -1,0 +1,40 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      - APP_ENV=production
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=${DB_DATABASE:-gaming_hub}
+      - DB_USERNAME=${DB_USERNAME:-gaming_hub}
+      - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - app_storage:/app/storage
+    depends_on:
+      - postgres
+    command: php artisan serve --host=0.0.0.0 --port=8000
+    expose:
+      - "8000"
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${DB_DATABASE:-gaming_hub}
+      - POSTGRES_USER=${DB_USERNAME:-gaming_hub}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+volumes:
+  postgres_data:
+  app_storage:
