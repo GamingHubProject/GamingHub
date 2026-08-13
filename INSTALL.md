@@ -69,11 +69,38 @@ docker-compose run --rm app php artisan test
 
 ## Production
 
+`docker-compose.prod.yml` builds from **`Dockerfile.prod`**, not the dev `Dockerfile`. It's a
+self-contained image: `composer install --no-dev` and `npm run build` run at *build time*, so
+the container needs no bind-mounted source and no manual setup step after deploy — this matters
+for any deployment (Portainer, a bare VPS, CI) where you can't `docker-compose run` one-off
+commands against a live host checkout.
+
+On container start, `docker/entrypoint.sh` runs `php artisan migrate --force` automatically,
+then execs the configured `php artisan serve` command. If `APP_KEY` isn't set, it generates one
+for that run only and prints a warning — set a permanent one (see below) or sessions/encrypted
+data won't survive a restart.
+
 ```bash
-cp .env .env.production   # set APP_ENV=production, real DB_PASSWORD, APP_KEY, etc.
-docker-compose -f docker-compose.prod.yml up -d
+export APP_KEY=$(docker run --rm gaming-hub-app php artisan key:generate --show)
+export DB_PASSWORD=<a real password>
+export APP_URL=https://your-domain.example
+
+docker-compose -f docker-compose.prod.yml up -d --build
 ```
 
-The production stack adds an Nginx reverse proxy in front of the app container and exposes
-port 80. Set `DB_PASSWORD` in your shell environment or an `.env` file read by Compose before
-starting.
+The stack adds an Nginx reverse proxy in front of `app` and exposes port 80.
+
+### Deploying via Portainer (Git repository stack)
+
+When you point a Portainer stack at this repo, Portainer clones it and runs
+`docker-compose -f docker-compose.prod.yml up` (set the compose path accordingly in the stack
+config) against that clone. Because `Dockerfile.prod` bakes in dependencies at build time, no
+extra steps are needed inside the container.
+
+- Set `APP_KEY`, `DB_PASSWORD`, and `APP_URL` as environment variables in the Portainer stack
+  editor (not committed to git — `.env` is gitignored on purpose).
+- Portainer does **not** auto-repull the repo on its own; after pushing new commits, use
+  "Pull and redeploy" (or re-create the stack) to pick them up — a stale clone from before code
+  existed in the repo is a common cause of "file not found" errors on first deploy.
+- If Postgres's default port 5432 (or the app's 8000, if not proxied through Nginx) is already
+  used by another stack on the host, remap it in `docker-compose.prod.yml` before deploying.
