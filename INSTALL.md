@@ -83,12 +83,24 @@ data won't survive a restart.
 ```bash
 export APP_KEY=$(docker run --rm gaming-hub-app php artisan key:generate --show)
 export DB_PASSWORD=<a real password>
-export APP_URL=https://your-domain.example
+export APP_PORT=8000          # host port app is published on directly (no proxy)
+export APP_URL=http://your-server-ip:8000
 
 docker-compose -f docker-compose.prod.yml up -d --build
 ```
 
-The stack adds an Nginx reverse proxy in front of `app` and exposes port 80.
+`docker-compose.prod.yml` is intentionally proxy-free — it publishes `app` directly on
+`APP_PORT`. For a domain with automatic HTTPS, put a reverse proxy (e.g. Caddy) in front of it;
+the `scripts/install-gaming-hub.sh` installer in the
+[Registry](https://github.com/GamingHubProject/Registry) repo sets this up for you, including
+prompting for a port or a domain, and creating the first administrator account via:
+
+```bash
+docker compose -f docker-compose.prod.yml exec app php artisan gaming-hub:admin
+```
+
+(prompts for name/email/password; re-running it on an existing email promotes that account to
+Admin instead of creating a duplicate.)
 
 ### Deploying via Portainer (Git repository stack)
 
@@ -97,10 +109,10 @@ When you point a Portainer stack at this repo, Portainer clones it and runs
 config) against that clone. Because `Dockerfile.prod` bakes in dependencies at build time, no
 extra steps are needed inside the container.
 
-- Set `APP_KEY`, `DB_PASSWORD`, and `APP_URL` as environment variables in the Portainer stack
-  editor (not committed to git — `.env` is gitignored on purpose).
+- Set `APP_KEY`, `DB_PASSWORD`, `APP_PORT`, and `APP_URL` as environment variables in the
+  Portainer stack editor (not committed to git — `.env` is gitignored on purpose).
 - Portainer does **not** auto-repull the repo on its own; after pushing new commits, use
   "Pull and redeploy" (or re-create the stack) to pick them up — a stale clone from before code
   existed in the repo is a common cause of "file not found" errors on first deploy.
-- If Postgres's default port 5432 (or the app's 8000, if not proxied through Nginx) is already
-  used by another stack on the host, remap it in `docker-compose.prod.yml` before deploying.
+- If Postgres's default port 5432 or `APP_PORT` is already used by another stack on the host,
+  change it before deploying.

@@ -22,7 +22,9 @@ database/seeders/                    RoleSeeder + DatabaseSeeder (admin user)
 tests/Feature/Admin/                 Filament resource + dashboard tests
 tests/Feature/                       Model and seeder tests
 docker-compose.yml                   Dev stack
-docker-compose.prod.yml              Prod stack (adds Nginx)
+docker-compose.prod.yml              Prod stack (self-contained image, no bind mount)
+Dockerfile.prod                      Production image (composer/npm build baked in)
+app/Console/Commands/                CreateAdminCommand (gaming-hub:admin)
 Dockerfile                           PHP 8.4 CLI image with Postgres/Intl/GD/Zip + Node
 ```
 

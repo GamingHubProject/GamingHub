@@ -49,7 +49,8 @@ database/migrations/     Schema for all models + Filament/Spatie tables
 database/seeders/        RoleSeeder + admin test user
 tests/Feature/Admin/     Admin panel + resource tests
 docker-compose.yml       Dev stack (app + Postgres)
-docker-compose.prod.yml  Production stack (app + Postgres + Nginx)
+docker-compose.prod.yml  Production stack (self-contained app image + Postgres)
+Dockerfile.prod          Production image (composer/npm build baked in, no bind mount)
 ```
 
 ## Versioning
