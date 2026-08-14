@@ -25,7 +25,16 @@ class ServerResource extends Resource
             ->schema([
                 Forms\Components\Select::make('game_id')
                     ->relationship('game', 'name')
-                    ->required(),
+                    ->required()
+                    ->live(),
+                Forms\Components\Select::make('server_group_id')
+                    ->label('Server group')
+                    ->relationship(
+                        'serverGroup',
+                        'name',
+                        fn ($query, Forms\Get $get) => $query->where('game_id', $get('game_id')),
+                    )
+                    ->helperText('Optional — group into a cluster (e.g. an ARK cluster).'),
                 Forms\Components\TextInput::make('name')
                     ->required()
                     ->maxLength(255),
@@ -62,6 +71,10 @@ class ServerResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('slug')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('serverGroup.name')
+                    ->label('Group')
+                    ->placeholder('—')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {

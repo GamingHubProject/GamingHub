@@ -7,20 +7,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Server extends Model
+class ServerGroup extends Model
 {
-    /** @use HasFactory<\Database\Factories\ServerFactory> */
+    /** @use HasFactory<\Database\Factories\ServerGroupFactory> */
     use HasFactory;
 
     protected $fillable = [
         'game_id',
-        'server_group_id',
         'name',
-        'slug',
         'description',
-        'status',
-        'max_players',
-        'current_players',
         'metadata',
     ];
 
@@ -36,18 +31,8 @@ class Server extends Model
         return $this->belongsTo(Game::class);
     }
 
-    public function serverGroup(): BelongsTo
+    public function servers(): HasMany
     {
-        return $this->belongsTo(ServerGroup::class);
-    }
-
-    public function instances(): HasMany
-    {
-        return $this->hasMany(Instance::class);
-    }
-
-    public function providers(): HasMany
-    {
-        return $this->hasMany(Provider::class);
+        return $this->hasMany(Server::class);
     }
 }

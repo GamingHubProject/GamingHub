@@ -1,6 +1,6 @@
 # Gaming Hub Platform
 
-**v0.1.000** — Standalone modular Laravel platform for game communities.
+**v0.2.000** — Standalone modular Laravel platform for game communities.
 
 Gaming Hub connects games (Palworld, BDO, ARK, etc.) to the communities playing them. It's a
 Docker-based Laravel monolith built to run comfortably on a small VPS — not an Azuriom plugin,
@@ -14,18 +14,30 @@ not a microservices stack.
 - **Database:** PostgreSQL 16
 - **Deployment:** Docker (dev + production compose files)
 
-## Features (Milestone 1)
+## Features
 
+**Milestone 1 — Platform foundation**
 - User accounts (register, login, email verification) via Breeze
 - Role-based access control via Spatie Permission (`Admin`, `WebEditor`, `ContentEditor`, `User`)
 - Filament admin dashboard at `/admin`
-- Scaffolded domain models: `Game`, `Server`, `Instance`, `Provider`, `Asset`
-- Filament CRUD resources for Games, Servers, Users, and Roles
+- Domain models: `Game`, `Server`, `Instance`, `Provider`, `Asset`
 - A game may have zero servers — publisher-hosted or community-only games are first-class
 
-This milestone is foundation-only. Game Integrations, Hub Extensions, the Capability Highway,
-Experience/page composition, and the asset file pipeline arrive in later milestones — see
-`GAMING_HUB_PLATFORM_ARCHITECTURE.md` for the full roadmap.
+**Milestone 2 — Game system**
+- Context Subject hierarchy: `ServerGroup` (optional server clustering, e.g. an ARK cluster) and
+  `Map` (game-scoped, independent of servers — e.g. a BDO grind route with no server)
+- Per-game configuration schema (`Game.configuration_schema`) — admins define typed settings
+  (decimal/integer/boolean/string, with min/max/default/requiresRestart) directly in the admin UI
+- `ConfigurationPreset`s (e.g. hardcore/casual/event) scoped per game
+- `Instance` admin form renders typed fields dynamically from its game's schema, with an
+  "Apply preset" action that copies a preset's values in before saving
+- Minimal `GameExtension` registry + `GameExtensionContract` — tracks known/enabled extensions
+  and defines what a real extension package will implement once package loading exists (that
+  lifecycle belongs to the separate Manager repo, not Platform)
+- Dashboard widgets: platform-wide stat counts and a servers-by-status chart
+
+Hub Extensions, the Capability Highway, Experience/page composition, and the asset file pipeline
+arrive in later milestones — see `GAMING_HUB_PLATFORM_ARCHITECTURE.md` for the full roadmap.
 
 ## Quick Start (local development)
 
@@ -63,8 +75,11 @@ you'd rather read it locally).
 ## File Structure
 
 ```
-app/Models/              Game, Server, Instance, Provider, Asset, User
+app/Models/              Game, Server, ServerGroup, Instance, Map, Provider, Asset,
+                          ConfigurationPreset, GameExtension, User
+app/Contracts/           GameExtensionContract (no implementation yet)
 app/Filament/Resources/  Admin CRUD resources
+app/Filament/Widgets/    Dashboard widgets (platform stats, servers-by-status chart)
 database/migrations/     Schema for all models + Filament/Spatie tables
 database/seeders/        RoleSeeder + admin test user
 tests/Feature/Admin/     Admin panel + resource tests

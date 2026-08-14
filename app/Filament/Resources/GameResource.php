@@ -44,6 +44,40 @@ class GameResource extends Resource
                     ->helperText('Does this game use servers, or is it community/publisher-hosted only?'),
                 Forms\Components\KeyValue::make('metadata')
                     ->columnSpanFull(),
+                Forms\Components\Repeater::make('configuration_schema')
+                    ->label('Configuration schema')
+                    ->helperText('Settings admins can tweak per server/instance (e.g. ExpRate). Presets and the Instance editor read this.')
+                    ->default([])
+                    ->schema([
+                        Forms\Components\TextInput::make('key')
+                            ->label('Setting key')
+                            ->required(),
+                        Forms\Components\Select::make('type')
+                            ->options([
+                                'decimal' => 'Decimal',
+                                'integer' => 'Integer',
+                                'boolean' => 'Boolean',
+                                'string' => 'String',
+                            ])
+                            ->required()
+                            ->default('decimal')
+                            ->live(),
+                        Forms\Components\TextInput::make('min')
+                            ->numeric()
+                            ->visible(fn (Forms\Get $get) => in_array($get('type'), ['decimal', 'integer'])),
+                        Forms\Components\TextInput::make('max')
+                            ->numeric()
+                            ->visible(fn (Forms\Get $get) => in_array($get('type'), ['decimal', 'integer'])),
+                        Forms\Components\TextInput::make('default')
+                            ->required(),
+                        Forms\Components\Toggle::make('requiresRestart')
+                            ->label('Requires restart'),
+                        Forms\Components\TextInput::make('description'),
+                    ])
+                    ->columns(3)
+                    ->columnSpanFull()
+                    ->collapsible()
+                    ->itemLabel(fn (array $state): ?string => $state['key'] ?? null),
             ]);
     }
 

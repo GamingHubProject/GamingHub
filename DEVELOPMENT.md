@@ -14,7 +14,9 @@ The examples below omit that prefix for readability — assume every `php artisa
 
 ```
 app/Models/                          Eloquent models
+app/Contracts/                       Interfaces with no implementation yet (e.g. GameExtensionContract)
 app/Filament/Resources/              Admin CRUD resources (list/form/table per model)
+app/Filament/Widgets/                Dashboard widgets (auto-discovered, no registration needed)
 app/Providers/Filament/              Panel configuration (AdminPanelProvider)
 database/migrations/                 Schema, in chronological order
 database/factories/                  Model factories used by tests and seeders
@@ -71,6 +73,11 @@ php artisan migrate              # apply new migrations
 php artisan migrate:fresh --seed # drop everything, re-migrate, re-seed (dev only)
 php artisan migrate:rollback     # undo the last batch
 ```
+
+Laravel tracks migrations by filename in the `migrations` table, not by content — if you edit a
+migration's `up()` *after* it already ran locally, `migrate` won't pick up the change (it's
+already marked done). Use `migrate:fresh` in dev to rebuild from the current files, or
+`migrate:rollback` + `migrate` if you only need to redo the last batch.
 
 ## Common tasks
 

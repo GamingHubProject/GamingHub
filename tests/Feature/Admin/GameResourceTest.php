@@ -79,4 +79,33 @@ class GameResourceTest extends TestCase
 
         $this->assertSame(0, $game->servers()->count());
     }
+
+    public function test_can_create_game_with_configuration_schema(): void
+    {
+        Livewire::test(CreateGame::class)
+            ->fillForm([
+                'name' => 'Palworld',
+                'slug' => 'palworld',
+                'status' => 'enabled',
+                'has_servers' => true,
+                'configuration_schema' => [
+                    [
+                        'key' => 'ExpRate',
+                        'type' => 'decimal',
+                        'min' => '0.1',
+                        'max' => '10',
+                        'default' => '1',
+                        'requiresRestart' => true,
+                        'description' => 'Creature experience multiplier',
+                    ],
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $game = Game::where('slug', 'palworld')->first();
+        $this->assertNotNull($game);
+        $this->assertSame('ExpRate', $game->configuration_schema[0]['key']);
+        $this->assertTrue($game->configuration_schema[0]['requiresRestart']);
+    }
 }
