@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3fd20afddc5282be7541d2a460394bec",
+    "content-hash": "3d1a451bd105d8c5df0baf01c9b01791",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -1487,11 +1487,17 @@
         },
         {
             "name": "gaminghubproject/core",
-            "version": "0.1.000",
+            "version": "0.1.010",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/GamingHubProject/Core.git",
+                "reference": "d8cb7d6c6665720e6742368cdd5e8a112e2685af"
+            },
             "dist": {
-                "type": "path",
-                "url": "../Core",
-                "reference": "3431fa6618fcf1d805952d86f5f9ab1352aa35d9"
+                "type": "zip",
+                "url": "https://api.github.com/repos/GamingHubProject/Core/zipball/d8cb7d6c6665720e6742368cdd5e8a112e2685af",
+                "reference": "d8cb7d6c6665720e6742368cdd5e8a112e2685af",
+                "shasum": ""
             },
             "require": {
                 "illuminate/database": "^11.0",
@@ -1530,10 +1536,11 @@
                 "MIT"
             ],
             "description": "Gaming Hub Core plugin: domain models (Games, Servers, Instances, Providers), capability decisions, and data normalization. Never speaks to connectors directly — that's Panel's job.",
-            "transport-options": {
-                "symlink": false,
-                "relative": true
-            }
+            "support": {
+                "source": "https://github.com/GamingHubProject/Core/tree/v0.1.010",
+                "issues": "https://github.com/GamingHubProject/Core/issues"
+            },
+            "time": "2026-08-14T11:58:05+00:00"
         },
         {
             "name": "graham-campbell/result-type",
