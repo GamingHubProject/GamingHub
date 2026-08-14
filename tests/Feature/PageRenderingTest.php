@@ -35,6 +35,29 @@ class PageRenderingTest extends TestCase
         $response->assertSee('Palworld');
     }
 
+    public function test_hero_block_renders_heading_and_cta(): void
+    {
+        Page::create([
+            'title' => 'Landing',
+            'slug' => 'landing',
+            'status' => 'published',
+            'blocks' => [
+                ['type' => 'hero', 'config' => [
+                    'heading' => 'Join the Adventure',
+                    'cta_label' => 'Play now',
+                    'cta_url' => 'https://example.com',
+                ]],
+            ],
+        ]);
+
+        $response = $this->get('/p/landing');
+
+        $response->assertOk();
+        $response->assertSee('Join the Adventure');
+        $response->assertSee('Play now');
+        $response->assertSee('https://example.com', false);
+    }
+
     public function test_draft_page_is_not_publicly_reachable(): void
     {
         Page::create(['title' => 'Draft', 'slug' => 'draft-page', 'status' => 'draft']);

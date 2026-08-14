@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Experience\BlockRegistry;
 use App\Experience\Blocks\GamesListBlock;
+use App\Experience\Blocks\HeroBlock;
 use App\Experience\Blocks\RichTextBlock;
 use App\Experience\Blocks\ServerStatusBlock;
 use Illuminate\Support\ServiceProvider;
@@ -28,5 +29,6 @@ class AppServiceProvider extends ServiceProvider
         $registry->register(RichTextBlock::class);
         $registry->register(GamesListBlock::class);
         $registry->register(ServerStatusBlock::class);
+        $registry->register(HeroBlock::class);
     }
 }
