@@ -3,15 +3,16 @@
 namespace App\Manager;
 
 /**
- * One entry from a registry file — metadata about a downloadable package,
- * not its installed state (that's InstalledPackage, tracked by whatever
- * consumes this library, e.g. Platform's own GameExtension model).
+ * One entry from a registry file — enough metadata to find and download a
+ * package. Deliberately does NOT carry dependency constraints: those live
+ * in the package's own PackageManifest (shipped inside its release zip),
+ * the same way a Composer package declares its own require block instead
+ * of a central index declaring it on the package's behalf. A registry
+ * entry can go stale relative to what a package actually needs; the
+ * manifest inside the release you just downloaded cannot.
  */
 final class ExtensionDefinition
 {
-    /**
-     * @param  array<string, string>  $requires  package id => version constraint
-     */
     public function __construct(
         public readonly string $id,
         public readonly string $name,
@@ -23,7 +24,6 @@ final class ExtensionDefinition
         public readonly string $checksumAsset,
         public readonly bool $verified,
         public readonly bool $official,
-        public readonly array $requires = [],
     ) {}
 
     public static function fromArray(array $data): self
@@ -45,7 +45,6 @@ final class ExtensionDefinition
             checksumAsset: $data['checksum_asset'] ?? 'SHA256SUMS',
             verified: $data['verified'] ?? false,
             official: $data['official'] ?? false,
-            requires: $data['requires'] ?? [],
         );
     }
 }

@@ -6,8 +6,10 @@ use Composer\Semver\Semver;
 
 /**
  * Wraps composer/semver to answer two questions: does a version satisfy a
- * constraint, and does a set of installed package versions satisfy an
- * extension's "requires"?
+ * constraint, and does a set of installed package versions satisfy a
+ * package's "requires"? Takes a plain requires array rather than an
+ * ExtensionDefinition — the requires being checked normally come from a
+ * PackageManifest (the package's own declaration), not the registry.
  */
 final class VersionResolver
 {
@@ -17,14 +19,15 @@ final class VersionResolver
     }
 
     /**
+     * @param  array<string, string>  $requires  package id => version constraint
      * @param  array<string, string>  $installedVersions  package id => installed version
      */
-    public function checkRequirements(ExtensionDefinition $extension, array $installedVersions): DependencyCheckResult
+    public function checkRequirements(array $requires, array $installedVersions): DependencyCheckResult
     {
         $missing = [];
         $mismatched = [];
 
-        foreach ($extension->requires as $packageId => $constraint) {
+        foreach ($requires as $packageId => $constraint) {
             if (! array_key_exists($packageId, $installedVersions)) {
                 $missing[] = $packageId;
 

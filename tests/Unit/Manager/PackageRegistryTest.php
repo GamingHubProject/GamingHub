@@ -22,15 +22,6 @@ class PackageRegistryTest extends TestCase
         $this->assertTrue($maps->official);
     }
 
-    public function test_parses_requires_constraints(): void
-    {
-        $registry = PackageRegistry::fromFile(__DIR__.'/fixtures/registry.json');
-
-        $trading = $registry->find('trading');
-
-        $this->assertSame(['maps' => '>=0.1.010'], $trading->requires);
-    }
-
     public function test_filters_by_category(): void
     {
         $registry = PackageRegistry::fromFile(__DIR__.'/fixtures/registry.json');

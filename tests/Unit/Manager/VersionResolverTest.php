@@ -2,7 +2,6 @@
 
 namespace Tests\Unit\Manager;
 
-use App\Manager\ExtensionDefinition;
 use App\Manager\VersionResolver;
 use PHPUnit\Framework\TestCase;
 
@@ -20,10 +19,9 @@ class VersionResolverTest extends TestCase
 
     public function test_requirements_satisfied_when_installed_versions_match(): void
     {
-        $extension = $this->pelican();
         $resolver = new VersionResolver;
 
-        $result = $resolver->checkRequirements($extension, [
+        $result = $resolver->checkRequirements($this->pelicanRequires(), [
             'gaming-hub-core' => '0.1.030',
             'gaming-hub-panel' => '0.1.000',
         ]);
@@ -35,10 +33,9 @@ class VersionResolverTest extends TestCase
 
     public function test_detects_missing_dependency(): void
     {
-        $extension = $this->pelican();
         $resolver = new VersionResolver;
 
-        $result = $resolver->checkRequirements($extension, [
+        $result = $resolver->checkRequirements($this->pelicanRequires(), [
             'gaming-hub-core' => '0.1.030',
         ]);
 
@@ -48,10 +45,9 @@ class VersionResolverTest extends TestCase
 
     public function test_detects_version_mismatch(): void
     {
-        $extension = $this->pelican();
         $resolver = new VersionResolver;
 
-        $result = $resolver->checkRequirements($extension, [
+        $result = $resolver->checkRequirements($this->pelicanRequires(), [
             'gaming-hub-core' => '0.1.001',
             'gaming-hub-panel' => '0.1.000',
         ]);
@@ -61,17 +57,12 @@ class VersionResolverTest extends TestCase
         $this->assertSame('0.1.001', $result->mismatched['gaming-hub-core']['installed']);
     }
 
-    private function pelican(): ExtensionDefinition
+    /** @return array<string, string> */
+    private function pelicanRequires(): array
     {
-        return ExtensionDefinition::fromArray([
-            'id' => 'pelican',
-            'name' => 'Pelican Connector',
-            'repository' => 'https://github.com/GamingHubProject/Panel-Connectors',
-            'release_asset' => 'pelican-v*.zip',
-            'requires' => [
-                'gaming-hub-core' => '>=0.1.010',
-                'gaming-hub-panel' => '*',
-            ],
-        ]);
+        return [
+            'gaming-hub-core' => '>=0.1.010',
+            'gaming-hub-panel' => '*',
+        ];
     }
 }

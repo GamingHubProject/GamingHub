@@ -1,6 +1,6 @@
 # Gaming Hub Platform
 
-**v0.1.051** — Standalone modular Laravel platform for game communities.
+**v0.1.052** — Standalone modular Laravel platform for game communities.
 
 Gaming Hub connects games (Palworld, BDO, ARK, etc.) to the communities playing them. It's a
 Docker-based Laravel monolith built to run comfortably on a small VPS — not an Azuriom plugin,
@@ -87,15 +87,21 @@ side.
   end-to-end, including what an unbound (`UNSUPPORTED`) capability looks like in the UI
 
 **Manager (integrated)**
-- `App\Manager\PackageRegistry` — parses a registry file (`extension_registry.json`/`games_registry.json`, the format the `Registry` repo
-  publishes) into `ExtensionDefinition`s
-- `App\Manager\VersionResolver` — checks an extension's `requires` constraints against installed
-  package versions (wraps `composer/semver`)
+- `App\Manager\PackageRegistry` — parses a registry file (`extension_registry.json`/
+  `games_registry.json`, the format the `Registry` repo publishes) into `ExtensionDefinition`s —
+  just enough to locate and download a package (id, repository, release/checksum asset names)
+- `App\Manager\PackageManifest` — a package's own `gaming-hub-extension.json`, shipped inside its
+  release zip. This, not the registry, is the authoritative source for what a package actually
+  requires — the same way a Composer package declares its own `require` instead of a central index
+  declaring it on the package's behalf. A registry entry can go stale relative to what a package
+  needs; the manifest inside the release you just downloaded cannot
+- `App\Manager\VersionResolver` — checks a `requires` array (normally a manifest's) against
+  installed package versions (wraps `composer/semver`)
 - `App\Manager\PackageDownloader` + `ChecksumVerifier` — downloads a release zip, verifies it
   against the registry's checksum manifest, and extracts it, refusing to install anything that
   fails verification
-- Not wired into the admin UI yet — this is the download/verify/dependency-check core with no
-  Filament resource on top yet, and no actual install/enable/disable flow calling it
+- Not wired into the admin UI yet — this is the download/verify/manifest-read/dependency-check
+  core with no Filament resource on top yet, and no actual install/enable/disable flow calling it
 
 Hub Extensions, real Connector packages, and the asset file pipeline arrive in later milestones —
 see `GAMING_HUB_PLATFORM_ARCHITECTURE.md` for the full roadmap.

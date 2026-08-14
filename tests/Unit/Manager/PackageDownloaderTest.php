@@ -4,6 +4,7 @@ namespace Tests\Unit\Manager;
 
 use App\Manager\ExtensionDefinition;
 use App\Manager\PackageDownloader;
+use App\Manager\PackageManifest;
 use Tests\Unit\Manager\Support\FakeHttpClient;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -67,6 +68,44 @@ class PackageDownloaderTest extends TestCase
         $this->assertFileExists($destination.'/composer.json');
         $this->assertFileExists($destination.'/src/Foo.php');
         $this->assertDirectoryDoesNotExist($destination.'/gaming-hub-core-0.1.010');
+    }
+
+    public function test_installed_packages_own_manifest_is_readable_afterward(): void
+    {
+        $extension = $this->coreExtension();
+        $version = '0.1.010';
+        $assetFilename = 'gaming-hub-core-v0.1.010.zip';
+
+        $zipPath = $this->buildFixtureZip($assetFilename, 'gaming-hub-core-0.1.010', [
+            'composer.json' => '{"name":"gaming-hub-core"}',
+            PackageManifest::FILENAME => json_encode([
+                'id' => 'gaming-hub-core',
+                'name' => 'Gaming Hub Core',
+                'version' => '0.1.010',
+                'requires' => ['php' => '>=8.2'],
+            ]),
+        ]);
+        $zipBytes = file_get_contents($zipPath);
+        $hash = hash_file('sha256', $zipPath);
+
+        $http = new FakeHttpClient;
+        $http->respond(
+            "https://github.com/GamingHubProject/Core/releases/download/v{$version}/{$assetFilename}",
+            $zipBytes
+        );
+        $http->respond(
+            "https://github.com/GamingHubProject/Core/releases/download/v{$version}/SHA256SUMS",
+            "{$hash}  {$assetFilename}\n"
+        );
+
+        $destination = $this->workDir.'/installed';
+        (new PackageDownloader($http))->install($extension, $version, $destination);
+
+        $manifest = PackageManifest::fromPackageDirectory($destination);
+
+        $this->assertNotNull($manifest);
+        $this->assertSame('0.1.010', $manifest->version);
+        $this->assertSame(['php' => '>=8.2'], $manifest->requires);
     }
 
     public function test_refuses_to_install_when_checksum_does_not_match(): void

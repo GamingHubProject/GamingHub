@@ -26,10 +26,7 @@
       "release_asset": "trading-v*.zip",
       "checksum_asset": "SHA256SUMS",
       "verified": true,
-      "official": true,
-      "requires": {
-        "maps": ">=0.1.010"
-      }
+      "official": true
     }
   ]
 }
