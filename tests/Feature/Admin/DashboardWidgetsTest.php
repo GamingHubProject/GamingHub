@@ -4,8 +4,8 @@ namespace Tests\Feature\Admin;
 
 use App\Filament\Widgets\PlatformOverviewWidget;
 use App\Filament\Widgets\ServersByStatusWidget;
-use App\Models\Game;
-use App\Models\Server;
+use GamingHub\Core\Models\Game;
+use GamingHub\Core\Models\Server;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;

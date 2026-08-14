@@ -5,7 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Filament\Resources\ConfigurationPresetResource\Pages\CreateConfigurationPreset;
 use App\Filament\Resources\ConfigurationPresetResource\Pages\ListConfigurationPresets;
 use App\Models\ConfigurationPreset;
-use App\Models\Game;
+use GamingHub\Core\Models\Game;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;

@@ -4,7 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Filament\Resources\MapResource\Pages\CreateMap;
 use App\Filament\Resources\MapResource\Pages\ListMaps;
-use App\Models\Game;
+use GamingHub\Core\Models\Game;
 use App\Models\Map;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;

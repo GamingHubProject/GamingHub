@@ -10,10 +10,10 @@ use App\Experience\Blocks\GamesListBlock;
 use App\Experience\Blocks\HeroBlock;
 use App\Experience\Blocks\RichTextBlock;
 use App\Experience\Blocks\ServerStatusBlock;
-use App\Models\Game;
-use App\Models\Instance;
+use GamingHub\Core\Models\Game;
+use GamingHub\Core\Models\Instance;
 use App\Models\Map;
-use App\Models\Server;
+use GamingHub\Core\Models\Server;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 

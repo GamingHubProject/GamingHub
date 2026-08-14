@@ -2,8 +2,8 @@
 
 namespace App\Experience;
 
-use App\Models\Game;
-use App\Models\Server;
+use GamingHub\Core\Models\Game;
+use GamingHub\Core\Models\Server;
 use App\Models\Theme;
 
 /**

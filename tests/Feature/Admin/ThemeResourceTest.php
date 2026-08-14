@@ -4,7 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Filament\Resources\ThemeResource\Pages\CreateTheme;
 use App\Filament\Resources\ThemeResource\Pages\ListThemes;
-use App\Models\Game;
+use GamingHub\Core\Models\Game;
 use App\Models\Theme;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;

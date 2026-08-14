@@ -4,7 +4,7 @@ namespace App\Experience\Blocks;
 
 use App\Capabilities\CapabilityGateway;
 use App\Contracts\BlockContract;
-use App\Models\Server;
+use GamingHub\Core\Models\Server;
 use Filament\Forms;
 use Illuminate\Contracts\View\View;
 

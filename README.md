@@ -1,10 +1,22 @@
 # Gaming Hub Platform
 
-**v0.1.010** — Standalone modular Laravel platform for game communities.
+**v0.1.040** — Standalone modular Laravel platform for game communities.
 
 Gaming Hub connects games (Palworld, BDO, ARK, etc.) to the communities playing them. It's a
 Docker-based Laravel monolith built to run comfortably on a small VPS — not an Azuriom plugin,
 not a microservices stack.
+
+## Architecture: Platform + Core
+
+As of v0.1.040, domain models live in a separate, independently-versioned package —
+[`GamingHubProject/Core`](https://github.com/GamingHubProject/Core) — required via Composer
+(`gaminghubproject/core`), not in this repo. Platform integrates Manager (package discovery) and
+Panel (connector routing) directly; Core owns `Game`/`Server`/`Instance`/`Provider` plus (in a
+later step) capability decisions and data normalization, and never composes UI, applies themes,
+manages assets, or speaks to connectors directly — that split exists so Core can ship updates
+independently without risking the monolith. `ServerGroup`, `Map`, `ConfigurationPreset`,
+`GameExtension`, `Page`, `Theme`, and `CapabilityBinding` stay in Platform and reference Core's
+models by foreign key rather than through a relation defined on the Core side.
 
 ## Stack
 

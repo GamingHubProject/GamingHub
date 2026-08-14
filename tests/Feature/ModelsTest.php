@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Asset;
-use App\Models\Game;
-use App\Models\Instance;
-use App\Models\Provider;
-use App\Models\Server;
+use GamingHub\Core\Models\Game;
+use GamingHub\Core\Models\Instance;
+use GamingHub\Core\Models\Provider;
+use GamingHub\Core\Models\Server;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

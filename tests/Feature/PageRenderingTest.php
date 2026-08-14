@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Experience\ThemeResolver;
-use App\Models\Game;
+use GamingHub\Core\Models\Game;
 use App\Models\Page;
 use App\Models\Theme;
 use Illuminate\Foundation\Testing\RefreshDatabase;

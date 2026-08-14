@@ -1,6 +1,6 @@
 {
     "name": "gaming-hub",
-    "version": "0.1.030",
+    "version": "0.1.040",
     "private": true,
     "type": "module",
     "scripts": {

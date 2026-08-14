@@ -4,7 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\GameResource\Pages;
 use App\Filament\Resources\GameResource\RelationManagers;
-use App\Models\Game;
+use GamingHub\Core\Models\Game;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;

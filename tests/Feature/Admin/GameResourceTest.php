@@ -5,7 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Filament\Resources\GameResource\Pages\CreateGame;
 use App\Filament\Resources\GameResource\Pages\EditGame;
 use App\Filament\Resources\GameResource\Pages\ListGames;
-use App\Models\Game;
+use GamingHub\Core\Models\Game;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;

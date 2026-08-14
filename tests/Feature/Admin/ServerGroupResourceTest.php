@@ -4,8 +4,8 @@ namespace Tests\Feature\Admin;
 
 use App\Filament\Resources\ServerGroupResource\Pages\CreateServerGroup;
 use App\Filament\Resources\ServerGroupResource\Pages\ListServerGroups;
-use App\Models\Game;
-use App\Models\Server;
+use GamingHub\Core\Models\Game;
+use GamingHub\Core\Models\Server;
 use App\Models\ServerGroup;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -54,7 +54,7 @@ class ServerGroupResourceTest extends TestCase
         $group = ServerGroup::factory()->create();
         $server = Server::factory()->create(['game_id' => $group->game_id, 'server_group_id' => $group->id]);
 
-        $this->assertTrue($server->serverGroup->is($group));
+        $this->assertSame($group->id, $server->server_group_id);
         $this->assertTrue($group->servers->contains($server));
     }
 
@@ -62,6 +62,6 @@ class ServerGroupResourceTest extends TestCase
     {
         $server = Server::factory()->create(['server_group_id' => null]);
 
-        $this->assertNull($server->serverGroup);
+        $this->assertNull($server->server_group_id);
     }
 }

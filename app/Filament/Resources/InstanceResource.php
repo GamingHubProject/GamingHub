@@ -4,8 +4,8 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\InstanceResource\Pages;
 use App\Models\ConfigurationPreset;
-use App\Models\Instance;
-use App\Models\Server;
+use GamingHub\Core\Models\Instance;
+use GamingHub\Core\Models\Server;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;

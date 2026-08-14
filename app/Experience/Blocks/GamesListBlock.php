@@ -3,7 +3,7 @@
 namespace App\Experience\Blocks;
 
 use App\Contracts\BlockContract;
-use App\Models\Game;
+use GamingHub\Core\Models\Game;
 use Filament\Forms;
 use Illuminate\Contracts\View\View;
 

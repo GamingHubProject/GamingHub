@@ -2,7 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\Server;
+use GamingHub\Core\Models\Server;
 use Filament\Widgets\ChartWidget;
 
 class ServersByStatusWidget extends ChartWidget

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use GamingHub\Core\Models\Game;
+use GamingHub\Core\Models\Server;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 

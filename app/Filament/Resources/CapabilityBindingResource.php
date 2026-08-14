@@ -4,10 +4,10 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\CapabilityBindingResource\Pages;
 use App\Models\CapabilityBinding;
-use App\Models\Game;
-use App\Models\Instance;
+use GamingHub\Core\Models\Game;
+use GamingHub\Core\Models\Instance;
 use App\Models\Map;
-use App\Models\Server;
+use GamingHub\Core\Models\Server;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;

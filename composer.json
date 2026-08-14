@@ -5,15 +5,25 @@
     "description": "Gaming Hub Platform — standalone modular Laravel platform for game communities.",
     "keywords": ["laravel", "gaming-hub"],
     "license": "MIT",
-    "version": "0.1.030",
+    "version": "0.1.040",
     "require": {
         "php": "^8.2",
         "filament/filament": "^3.2",
+        "gaminghubproject/core": "*",
         "laravel/breeze": "^2.4",
         "laravel/framework": "^11.31",
         "laravel/tinker": "^2.9",
         "spatie/laravel-permission": "^6.25"
     },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../Core",
+            "options": {
+                "symlink": false
+            }
+        }
+    ],
     "require-dev": {
         "fakerphp/faker": "^1.23",
         "laravel/pail": "^1.1",

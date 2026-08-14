@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7bc63dc3c3ed270e58d0dd3e194c47c4",
+    "content-hash": "349faadd482db68b7222bbe8dc27d905",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -1484,6 +1484,56 @@
                 }
             ],
             "time": "2025-12-03T09:33:47+00:00"
+        },
+        {
+            "name": "gaminghubproject/core",
+            "version": "0.1.000",
+            "dist": {
+                "type": "path",
+                "url": "../Core",
+                "reference": "3431fa6618fcf1d805952d86f5f9ab1352aa35d9"
+            },
+            "require": {
+                "illuminate/database": "^11.0",
+                "illuminate/support": "^11.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^9.0",
+                "phpunit/phpunit": "^11.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "GamingHub\\Core\\Providers\\CoreServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "GamingHub\\Core\\": "src/",
+                    "GamingHub\\Core\\Database\\Factories\\": "database/factories/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "GamingHub\\Core\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Gaming Hub Core plugin: domain models (Games, Servers, Instances, Providers), capability decisions, and data normalization. Never speaks to connectors directly — that's Panel's job.",
+            "transport-options": {
+                "symlink": false,
+                "relative": true
+            }
         },
         {
             "name": "graham-campbell/result-type",

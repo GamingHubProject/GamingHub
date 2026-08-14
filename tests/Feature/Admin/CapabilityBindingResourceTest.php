@@ -5,7 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Filament\Resources\CapabilityBindingResource\Pages\CreateCapabilityBinding;
 use App\Filament\Resources\CapabilityBindingResource\Pages\ListCapabilityBindings;
 use App\Models\CapabilityBinding;
-use App\Models\Server;
+use GamingHub\Core\Models\Server;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;

@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Models\Game;
+use GamingHub\Core\Models\Game;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**

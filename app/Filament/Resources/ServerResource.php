@@ -4,7 +4,8 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ServerResource\Pages;
 use App\Filament\Resources\ServerResource\RelationManagers;
-use App\Models\Server;
+use App\Models\ServerGroup;
+use GamingHub\Core\Models\Server;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -33,10 +34,10 @@ class ServerResource extends Resource
                     ->live(),
                 Forms\Components\Select::make('server_group_id')
                     ->label('Server group')
-                    ->relationship(
-                        'serverGroup',
-                        'name',
-                        fn ($query, Forms\Get $get) => $query->where('game_id', $get('game_id')),
+                    ->options(
+                        fn (Forms\Get $get) => $get('game_id')
+                            ? ServerGroup::where('game_id', $get('game_id'))->pluck('name', 'id')
+                            : []
                     )
                     ->helperText('Optional — group into a cluster (e.g. an ARK cluster).'),
                 Forms\Components\TextInput::make('name')
@@ -75,8 +76,9 @@ class ServerResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('slug')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('serverGroup.name')
+                Tables\Columns\TextColumn::make('server_group_id')
                     ->label('Group')
+                    ->formatStateUsing(fn (?int $state) => $state ? ServerGroup::find($state)?->name : null)
                     ->placeholder('—')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('status')
