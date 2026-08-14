@@ -1,6 +1,6 @@
 # Gaming Hub Platform
 
-**v0.1.070** — Standalone modular Laravel platform for game communities.
+**v0.1.080** — Standalone modular Laravel platform for game communities.
 
 Gaming Hub connects games (Palworld, BDO, ARK, etc.) to the communities playing them. It's a
 Docker-based Laravel monolith built to run comfortably on a small VPS — not an Azuriom plugin,
@@ -105,9 +105,10 @@ Core side.
   not behavior: installing records what's on disk and downloadable-verified, it does **not** load
   any package PHP code at runtime — that's a separate, harder problem (dynamic package loading)
   this deliberately doesn't attempt yet
-- "Install from registry" action on the Installed Packages list — admin provides a registry URL,
-  package ID, and the exact version to install (no "latest" guessing); verified for real against
-  the live (currently empty) `GamingHubProject/Registry` over actual HTTPS, not just in tests
+- **Browse Registry** page (Extensions → Browse Registry) — fetches a registry live and lists what's
+  there with description/category/already-installed version, Install button per row (asks only for
+  the exact version — no "latest" guessing). Replaced an earlier version of this that made admins
+  type an exact package ID blind into a form with no way to see what existed
 
 **Connectors — first real (non-manual) capability providers**
 - Core's `NormalizerContract` + `NormalizerRegistry` — the normalization side of the capability
@@ -133,9 +134,29 @@ Core side.
   with a fake HTTP layer proving the full path (binding → gateway → router → connector → raw
   payload → normalizer → `CapabilityValue`) for both Palworld-style and Pelican-style calls
 
+**Package lifecycle — made real, not decorative**
+- `InstalledPackage.status` now actually gates behavior. `ConnectorBackedProvider` checks (fresh,
+  on every resolution — not cached at boot) whether the `InstalledPackage` owning a given
+  normalizer is `enabled` before using it; if not, the capability reports `UNAVAILABLE`. Disabling
+  `palworld-integration` genuinely stops `server-status` from resolving for any server bound
+  through it; re-enabling restores it — proven with a live enable → disable → re-enable test
+  against the real gateway, not just a DB flag toggle
+- Pelican **"Discover servers"** row action (Capabilities → Connectors) — calls Pelican's real
+  `GET /api/client` and lists every server the API key can see (identifier + name), instead of
+  admins guessing/hand-typing a `server_identifier`
+- A real, live, installable package: `GamingHubProject/Games` (`games_registry.json` +
+  `/palworld/gaming-hub-extension.json`, tagged release `v0.1.000`) — genuinely discoverable via
+  Browse Registry, downloadable, checksum-verified, and dependency-checked
+  (`requires: {"gaming-hub-platform": ">=0.1.070"}`, checked against the real running version).
+  It's deliberately **manifest-only** — no PHP code, since dynamic package loading (safely
+  activating a downloaded package's own classes without a process restart) still doesn't exist.
+  The actual Palworld Connector/Normalizer code stays in Platform, gated on this exact package's
+  enabled status. See `Games/palworld/README.md` for the honest breakdown of what's real vs. not
+
 Hub Extensions and the asset file pipeline arrive in later milestones — see
-`GAMING_HUB_PLATFORM_ARCHITECTURE.md` for the full roadmap. Assets (icons etc.) are the deliberate
-next piece, not yet started.
+`GAMING_HUB_PLATFORM_ARCHITECTURE.md` for the full roadmap. Dynamic package loading (the mechanism
+that would let a downloaded package ship its own real code) and Assets (icons etc.) are the two
+deliberate next pieces, neither started.
 
 ## Quick Start (local development)
 

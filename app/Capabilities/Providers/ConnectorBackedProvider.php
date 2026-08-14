@@ -4,6 +4,7 @@ namespace App\Capabilities\Providers;
 
 use App\Connectors\ConnectorRegistry;
 use App\Models\ConnectorInstance;
+use App\Models\InstalledPackage;
 use GamingHub\Core\Capabilities\CapabilityValue;
 use GamingHub\Core\Contracts\CapabilityProviderContract;
 use GamingHub\Core\Models\CapabilityBinding;
@@ -21,6 +22,18 @@ use Throwable;
  */
 class ConnectorBackedProvider implements CapabilityProviderContract
 {
+    /**
+     * Which InstalledPackage owns each package-provided normalizer. Checked
+     * fresh on every resolution (not cached at boot) so disabling a package
+     * actually stops its capabilities from resolving on the very next call —
+     * this is what makes enable/disable real instead of a DB flag nothing
+     * reads.
+     */
+    protected const PACKAGE_OWNED_NORMALIZERS = [
+        'palworld-server-status' => 'palworld-integration',
+        'pelican-server-status' => 'pelican-connector',
+    ];
+
     public function __construct(
         protected ConnectorRegistry $connectors,
         protected NormalizerRegistry $normalizers,
@@ -46,6 +59,10 @@ class ConnectorBackedProvider implements CapabilityProviderContract
             return CapabilityValue::unavailable($binding->capability);
         }
 
+        if (! $this->normalizerPackageIsEnabled($normalizerId)) {
+            return CapabilityValue::unavailable($binding->capability);
+        }
+
         try {
             $connector = $this->connectors->get($instance->type);
             $raw = $connector->fetch($instance, $config['call'] ?? []);
@@ -53,6 +70,24 @@ class ConnectorBackedProvider implements CapabilityProviderContract
             return $this->normalizers->get($normalizerId)->normalize($raw);
         } catch (Throwable) {
             return CapabilityValue::unavailable($binding->capability);
+        }
+    }
+
+    protected function normalizerPackageIsEnabled(string $normalizerId): bool
+    {
+        $ownerSlug = self::PACKAGE_OWNED_NORMALIZERS[$normalizerId] ?? null;
+
+        if (! $ownerSlug) {
+            return true;
+        }
+
+        try {
+            return InstalledPackage::query()
+                ->where('slug', $ownerSlug)
+                ->where('status', 'enabled')
+                ->exists();
+        } catch (Throwable) {
+            return false;
         }
     }
 }

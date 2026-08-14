@@ -60,6 +60,12 @@ class AppServiceProvider extends ServiceProvider
         $connectors->register(RestConnector::class);
         $connectors->register(PelicanConnector::class);
 
+        // Normalizers are always registered here — being *registered* isn't
+        // the same as being *usable*. ConnectorBackedProvider checks the
+        // owning InstalledPackage's enabled status at resolution time (see
+        // ConnectorBackedProvider::PACKAGE_OWNED_NORMALIZERS), not here at
+        // boot, since boot happens once per process/test and can't react to
+        // an admin toggling enable/disable afterward.
         $normalizers = $this->app->make(NormalizerRegistry::class);
         $normalizers->register('palworld-server-status', new PalworldServerStatusNormalizer);
         $normalizers->register('pelican-server-status', new PelicanServerStatusNormalizer);

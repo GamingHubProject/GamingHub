@@ -2,13 +2,16 @@
 
 namespace App\Filament\Resources;
 
+use App\Connectors\PelicanConnector;
 use App\Filament\Resources\ConnectorInstanceResource\Pages;
 use App\Models\ConnectorInstance;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Throwable;
 
 class ConnectorInstanceResource extends Resource
 {
@@ -102,6 +105,44 @@ class ConnectorInstanceResource extends Resource
                     ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('discoverServers')
+                    ->label('Discover servers')
+                    ->icon('heroicon-o-magnifying-glass')
+                    ->visible(fn (ConnectorInstance $record) => $record->type === 'pelican')
+                    ->action(function (ConnectorInstance $record, PelicanConnector $pelican): void {
+                        try {
+                            $servers = $pelican->listServers($record);
+                        } catch (Throwable $e) {
+                            Notification::make()
+                                ->title('Could not reach Pelican')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        if (empty($servers)) {
+                            Notification::make()
+                                ->title('No servers found')
+                                ->body('This API key has no accessible servers on this panel.')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        $list = collect($servers)
+                            ->map(fn (array $s) => "{$s['name']} — identifier: {$s['identifier']}")
+                            ->implode("\n");
+
+                        Notification::make()
+                            ->title(count($servers).' server(s) found')
+                            ->body($list)
+                            ->success()
+                            ->persistent()
+                            ->send();
+                    }),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])

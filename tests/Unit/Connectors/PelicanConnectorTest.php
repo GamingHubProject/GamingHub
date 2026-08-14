@@ -48,4 +48,41 @@ class PelicanConnectorTest extends TestCase
         $this->expectException(RuntimeException::class);
         $connector->fetch($instance, ['server_identifier' => 'abc']);
     }
+
+    public function test_lists_servers_the_api_key_can_see(): void
+    {
+        $http = new FakeHttpRequester;
+        $http->willReturn(200, json_encode([
+            'object' => 'list',
+            'data' => [
+                ['object' => 'server', 'attributes' => ['identifier' => 'd3aac351', 'name' => 'EU-1 Palworld']],
+                ['object' => 'server', 'attributes' => ['identifier' => 'a1b2c3d4', 'name' => 'US-1 ARK']],
+            ],
+        ]));
+        $connector = new PelicanConnector($http);
+
+        $instance = new ConnectorInstance([
+            'base_url' => 'https://panel.example.test',
+            'credentials' => ['token' => 'ptlc_abc'],
+        ]);
+
+        $servers = $connector->listServers($instance);
+
+        $this->assertSame([
+            ['identifier' => 'd3aac351', 'name' => 'EU-1 Palworld'],
+            ['identifier' => 'a1b2c3d4', 'name' => 'US-1 ARK'],
+        ], $servers);
+        $this->assertSame('https://panel.example.test/api/client', $http->lastUrl());
+    }
+
+    public function test_lists_no_servers_gracefully(): void
+    {
+        $http = new FakeHttpRequester;
+        $http->willReturn(200, json_encode(['object' => 'list', 'data' => []]));
+        $connector = new PelicanConnector($http);
+
+        $instance = new ConnectorInstance(['base_url' => 'https://x', 'credentials' => ['token' => 't']]);
+
+        $this->assertSame([], $connector->listServers($instance));
+    }
 }

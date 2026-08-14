@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Capabilities\CapabilityGateway;
 use App\Connectors\HttpRequestContract;
 use App\Models\ConnectorInstance;
+use App\Models\InstalledPackage;
 use GamingHub\Core\Models\CapabilityBinding;
 use GamingHub\Core\Models\Server;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,6 +18,7 @@ class ConnectorBackedCapabilityTest extends TestCase
 
     public function test_server_status_flows_through_a_real_palworld_style_rest_call(): void
     {
+        InstalledPackage::factory()->create(['slug' => 'palworld-integration', 'status' => 'enabled']);
         $server = Server::factory()->create();
 
         $connector = ConnectorInstance::create([
@@ -58,6 +60,7 @@ class ConnectorBackedCapabilityTest extends TestCase
 
     public function test_server_status_flows_through_a_real_pelican_style_call(): void
     {
+        InstalledPackage::factory()->create(['slug' => 'pelican-connector', 'status' => 'enabled']);
         $server = Server::factory()->create();
 
         $connector = ConnectorInstance::create([
@@ -101,6 +104,7 @@ class ConnectorBackedCapabilityTest extends TestCase
 
     public function test_connector_failure_reports_unavailable_not_a_crash(): void
     {
+        InstalledPackage::factory()->create(['slug' => 'palworld-integration', 'status' => 'enabled']);
         $server = Server::factory()->create();
 
         $connector = ConnectorInstance::create([
@@ -130,5 +134,52 @@ class ConnectorBackedCapabilityTest extends TestCase
         $value = app(CapabilityGateway::class)->get('server-status', $server);
 
         $this->assertSame(\GamingHub\Core\Capabilities\CapabilityValue::UNAVAILABLE, $value->status);
+    }
+
+    public function test_disabling_the_owning_package_makes_the_capability_unavailable(): void
+    {
+        $package = InstalledPackage::factory()->create(['slug' => 'palworld-integration', 'status' => 'enabled']);
+        $server = Server::factory()->create();
+
+        $connector = ConnectorInstance::create([
+            'name' => 'Test Palworld REST',
+            'type' => 'rest',
+            'base_url' => 'http://palworld:8212',
+            'credentials' => ['username' => 'admin', 'password' => 'secret'],
+        ]);
+
+        $binding = CapabilityBinding::create([
+            'capability' => 'server-status',
+            'subject_type' => 'server',
+            'subject_id' => $server->id,
+            'provider' => 'connector',
+            'enabled' => true,
+            'value' => [
+                'connector_instance_id' => $connector->id,
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'normalizer' => 'palworld-server-status',
+            ],
+        ]);
+
+        $fake = new FakeHttpRequester;
+        $fake->willReturn(200, json_encode(['currentplayernum' => 7, 'maxplayernum' => 32]));
+        $this->app->instance(HttpRequestContract::class, $fake);
+
+        // Enabled: real data flows.
+        $gateway = app(CapabilityGateway::class);
+        $this->assertTrue($gateway->probe('server-status', $server)->isOk());
+
+        // Disable the package — the exact same binding, same connector, same
+        // live server, must now report UNAVAILABLE. This is what makes
+        // "disable" real instead of a DB flag nothing reads.
+        $package->update(['status' => 'disabled']);
+        $this->assertSame(
+            \GamingHub\Core\Capabilities\CapabilityValue::UNAVAILABLE,
+            $gateway->probe('server-status', $server)->status
+        );
+
+        // Re-enable: data returns.
+        $package->update(['status' => 'enabled']);
+        $this->assertTrue($gateway->probe('server-status', $server)->isOk());
     }
 }
