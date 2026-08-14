@@ -1,6 +1,6 @@
 # Gaming Hub Platform
 
-**v0.1.052** — Standalone modular Laravel platform for game communities.
+**v0.1.060** — Standalone modular Laravel platform for game communities.
 
 Gaming Hub connects games (Palworld, BDO, ARK, etc.) to the communities playing them. It's a
 Docker-based Laravel monolith built to run comfortably on a small VPS — not an Azuriom plugin,
@@ -23,9 +23,9 @@ invoking them. It asks Core's `CapabilityRouter` for the routing decision and de
 normalization to whichever provider Core resolves; `ManualProvider` (no external I/O) lives
 entirely in Core since it never speaks to a connector.
 
-`ServerGroup`, `Map`, `ConfigurationPreset`, `GameExtension`, `Page`, and `Theme` stay in Platform
-and reference Core's models by foreign key rather than through a relation defined on the Core
-side.
+`ServerGroup`, `Map`, `ConfigurationPreset`, `InstalledPackage`, `Page`, and `Theme` stay in
+Platform and reference Core's models by foreign key rather than through a relation defined on the
+Core side.
 
 ## Stack
 
@@ -52,9 +52,8 @@ side.
 - `ConfigurationPreset`s (e.g. hardcore/casual/event) scoped per game
 - `Instance` admin form renders typed fields dynamically from its game's schema, with an
   "Apply preset" action that copies a preset's values in before saving
-- Minimal `GameExtension` registry + `GameExtensionContract` — tracks known/enabled extensions
-  and defines what a real extension package will implement once package loading exists (that
-  lifecycle belongs to the separate Manager repo, not Platform)
+- `GameExtensionContract` — defines what a real Game Integration package will implement once
+  package loading exists (superseded as a registry by `InstalledPackage`, see Manager below)
 - Dashboard widgets: platform-wide stat counts and a servers-by-status chart
 
 **Milestone 3 — Experience/page composition**
@@ -100,8 +99,17 @@ side.
 - `App\Manager\PackageDownloader` + `ChecksumVerifier` — downloads a release zip, verifies it
   against the registry's checksum manifest, and extracts it, refusing to install anything that
   fails verification
-- Not wired into the admin UI yet — this is the download/verify/manifest-read/dependency-check
-  core with no Filament resource on top yet, and no actual install/enable/disable flow calling it
+- `App\Manager\PackageInstaller` ties it together: fetch registry → find package → download+verify
+  → read its manifest → check `requires` against what's already installed → record an
+  `InstalledPackage` row (`disabled` by default; admin enables it explicitly)
+- `InstalledPackage` model (Extensions → Installed Packages in admin) — bookkeeping for what's
+  installed, a Hub Extension (`game_id` null) or Game Integration (`game_id` set). This is state,
+  not behavior: installing records what's on disk and downloadable-verified, it does **not** load
+  any package PHP code at runtime — that's a separate, harder problem (dynamic package loading)
+  this deliberately doesn't attempt yet
+- "Install from registry" action on the Installed Packages list — admin provides a registry URL,
+  package ID, and the exact version to install (no "latest" guessing); verified for real against
+  the live (currently empty) `GamingHubProject/Registry` over actual HTTPS, not just in tests
 
 Hub Extensions, real Connector packages, and the asset file pipeline arrive in later milestones —
 see `GAMING_HUB_PLATFORM_ARCHITECTURE.md` for the full roadmap.

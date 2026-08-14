@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Capabilities\CapabilityGateway;
 use App\Experience\BlockRegistry;
+use App\Manager\CurlHttpClient;
+use App\Manager\HttpClientContract;
 use App\Experience\Blocks\GamesListBlock;
 use App\Experience\Blocks\HeroBlock;
 use App\Experience\Blocks\RichTextBlock;
@@ -27,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(BlockRegistry::class);
         $this->app->singleton(CapabilityRouter::class);
         $this->app->singleton(CapabilityGateway::class);
+        $this->app->bind(HttpClientContract::class, CurlHttpClient::class);
     }
 
     /**

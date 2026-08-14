@@ -2,45 +2,41 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\GameExtensionResource\Pages;
-use App\Filament\Resources\GameExtensionResource\RelationManagers;
-use App\Models\GameExtension;
+use App\Filament\Resources\InstalledPackageResource\Pages;
+use App\Models\InstalledPackage;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class GameExtensionResource extends Resource
+class InstalledPackageResource extends Resource
 {
-    protected static ?string $model = GameExtension::class;
+    protected static ?string $model = InstalledPackage::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-cube';
 
     protected static ?string $navigationGroup = 'Extensions';
 
-    protected static ?string $navigationLabel = 'Game Extensions';
+    protected static ?string $navigationLabel = 'Installed Packages';
+
+    protected static ?string $modelLabel = 'Installed Package';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Extension registry entry')
+                Forms\Components\Section::make('Package record')
                     ->description(
-                        'This tracks which Game Extension packages are known and enabled — it is not a '
-                        .'download/install tool (that belongs to the separate Manager package, not yet built). '
-                        .'The "slug" is the extension\'s stable technical ID, the same idea as a plugin\'s '
-                        .'machine name — it stays constant even if the display name changes. Once an '
-                        .'extension is bound to a Game below, manage that game\'s actual settings under '
-                        .'Games → Games, and its presets under Servers → Presets.'
+                        'Tracks what Manager has installed — a Hub Extension (no game) or a Game '
+                        .'Integration (bound to a game). This form edits the record directly; use '
+                        .'"Install from registry" on the list page to actually download a package.'
                     )
                     ->schema([
                         Forms\Components\TextInput::make('slug')
                             ->required()
                             ->maxLength(255)
-                            ->helperText('Stable machine identifier, e.g. "palworld-integration" — not a display name.'),
+                            ->helperText('Stable machine identifier, e.g. "palworld-integration".'),
                         Forms\Components\TextInput::make('name')
                             ->required()
                             ->maxLength(255),
@@ -58,11 +54,12 @@ class GameExtensionResource extends Resource
                         Forms\Components\Select::make('game_id')
                             ->label('Bound to game')
                             ->relationship('game', 'name')
-                            ->helperText('Optional — leave empty until this extension is bound to a specific game.'),
+                            ->helperText('Optional — only Game Integrations bind to a game.'),
                         Forms\Components\Textarea::make('description')
                             ->columnSpanFull(),
                         Forms\Components\KeyValue::make('manifest')
-                            ->helperText('Free-form package metadata (capabilities, provided widgets, etc.) for future use.')
+                            ->label('Requires (from manifest)')
+                            ->helperText('Dependency constraints read from the package\'s own gaming-hub-extension.json.')
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
@@ -85,6 +82,10 @@ class GameExtensionResource extends Resource
                 Tables\Columns\TextColumn::make('game.name')
                     ->label('Bound game')
                     ->placeholder('—'),
+                Tables\Columns\TextColumn::make('installed_at')
+                    ->dateTime()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -99,9 +100,9 @@ class GameExtensionResource extends Resource
             ])
             ->actions([
                 Tables\Actions\Action::make('toggle')
-                    ->label(fn (GameExtension $record) => $record->status === 'enabled' ? 'Disable' : 'Enable')
+                    ->label(fn (InstalledPackage $record) => $record->status === 'enabled' ? 'Disable' : 'Enable')
                     ->icon('heroicon-o-power')
-                    ->action(fn (GameExtension $record) => $record->update([
+                    ->action(fn (InstalledPackage $record) => $record->update([
                         'status' => $record->status === 'enabled' ? 'disabled' : 'enabled',
                     ])),
                 Tables\Actions\EditAction::make(),
@@ -124,9 +125,9 @@ class GameExtensionResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListGameExtensions::route('/'),
-            'create' => Pages\CreateGameExtension::route('/create'),
-            'edit' => Pages\EditGameExtension::route('/{record}/edit'),
+            'index' => Pages\ListInstalledPackages::route('/'),
+            'create' => Pages\CreateInstalledPackage::route('/create'),
+            'edit' => Pages\EditInstalledPackage::route('/{record}/edit'),
         ];
     }
 }
