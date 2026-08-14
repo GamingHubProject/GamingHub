@@ -2,11 +2,19 @@
 
 namespace App\Providers;
 
+use App\Capabilities\CapabilityGateway;
+use App\Capabilities\CapabilityRouter;
+use App\Capabilities\Providers\ManualProvider;
 use App\Experience\BlockRegistry;
 use App\Experience\Blocks\GamesListBlock;
 use App\Experience\Blocks\HeroBlock;
 use App\Experience\Blocks\RichTextBlock;
 use App\Experience\Blocks\ServerStatusBlock;
+use App\Models\Game;
+use App\Models\Instance;
+use App\Models\Map;
+use App\Models\Server;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -17,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(BlockRegistry::class);
+        $this->app->singleton(CapabilityRouter::class);
+        $this->app->singleton(CapabilityGateway::class);
     }
 
     /**
@@ -30,5 +40,16 @@ class AppServiceProvider extends ServiceProvider
         $registry->register(GamesListBlock::class);
         $registry->register(ServerStatusBlock::class);
         $registry->register(HeroBlock::class);
+
+        $this->app->make(CapabilityRouter::class)
+            ->registerProvider(new ManualProvider);
+
+        // Context Subjects a capability binding can be scoped to.
+        Relation::morphMap([
+            'game' => Game::class,
+            'server' => Server::class,
+            'instance' => Instance::class,
+            'map' => Map::class,
+        ]);
     }
 }

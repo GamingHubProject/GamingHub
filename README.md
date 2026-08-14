@@ -42,14 +42,30 @@ not a microservices stack.
 - `BlockRegistry` — the one registry for page-builder blocks; block classes implement
   `BlockContract` (id, label, Filament config schema, render) and register themselves in
   `AppServiceProvider`. Hub Extensions will register their own blocks here later the same way
-- Built-in blocks: Rich Text, Games List, Server Status (static — reads the last-saved DB status,
-  not a live capability probe; the Capability Gateway doesn't exist yet)
+- Built-in blocks: Hero, Rich Text, Games List, Server Status
 - `Theme` model with a `platform → game → server` hierarchy — each level only needs to set the
-  design tokens it wants to override, resolved and merged by `ThemeResolver`
+  design tokens it wants to override, resolved and merged by `ThemeResolver`; built-in blocks
+  render using the resolved `--color-primary` CSS variable
 - Public rendering at `/p/{slug}` — renders a published page's blocks in order with its resolved
   theme tokens applied as CSS variables
 
-Hub Extensions, the Capability Highway, and the asset file pipeline arrive in later milestones —
+**Milestone 4 — Capability Highway (Platform side only)**
+- `CapabilityGateway` — the single entry point for reading a capability (`get`/`inspect`/`probe`),
+  with distinct failure states (`OK`, `UNSUPPORTED`, `UNAVAILABLE`, `STALE`) and a freshness-aware
+  cache. `inspect()` is metadata-only and never fetches; `probe()` is an explicit runtime call
+- `CapabilityRouter` — the one registry of capability providers, and resolves a
+  `(capability, subject)` pair to its `CapabilityBinding`
+- `CapabilityBinding` — binds a capability to a Context Subject (Game/Server/Instance/Map, via a
+  morph map) with a named provider
+- `ManualProvider` — the only provider that exists so far: the bound value is whatever an admin
+  typed in. Real Connector packages (Pelican, RCON, …) will implement the same
+  `CapabilityProviderContract` once the package system (Manager/Panel) exists — deliberately not
+  built yet, since building real Connector loading before that system is solid is an explicit
+  anti-goal (see the Hard "Do Not" list)
+- `ServerStatusBlock` now reads through the gateway instead of the DB directly — proves the
+  highway end-to-end, including what an unbound (`UNSUPPORTED`) capability looks like in the UI
+
+Hub Extensions, real Connector packages, and the asset file pipeline arrive in later milestones —
 see `GAMING_HUB_PLATFORM_ARCHITECTURE.md` for the full roadmap.
 
 ## Quick Start (local development)
