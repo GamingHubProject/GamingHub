@@ -27,7 +27,7 @@ This milestone is foundation-only. Game Integrations, Hub Extensions, the Capabi
 Experience/page composition, and the asset file pipeline arrive in later milestones — see
 `GAMING_HUB_PLATFORM_ARCHITECTURE.md` for the full roadmap.
 
-## Quick Start
+## Quick Start (local development)
 
 ```bash
 docker-compose up
@@ -39,6 +39,26 @@ Default admin login: `admin@local` / `local`
 
 See [INSTALL.md](INSTALL.md) for full setup steps and [DEVELOPMENT.md](DEVELOPMENT.md) for the
 day-to-day developer workflow.
+
+## Production Install (VPS)
+
+One command sets up Docker (if missing), downloads a release, builds the self-contained
+production image, and starts it against PostgreSQL — works the same on **Ubuntu/Debian** and
+**Arch/CachyOS** (the installer detects `apt` vs `pacman` automatically):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/GamingHubProject/Registry/main/scripts/install-gaming-hub.sh | bash
+```
+
+It interactively asks for an install directory, port, database credentials, and timezone, then
+offers to configure a domain with automatic HTTPS (via Caddy) and create the first administrator
+account. Re-run it any time — the menu also offers a plain **update**, **HTTPS setup**, or
+**create/promote an admin account** on an existing install without redoing the full wizard, plus
+**uninstall**.
+
+Source: [`GamingHubProject/Registry`](https://github.com/GamingHubProject/Registry/blob/main/scripts/install-gaming-hub.sh)
+(reviewing a script before piping it into `bash` is always reasonable — download it first if
+you'd rather read it locally).
 
 ## File Structure
 
