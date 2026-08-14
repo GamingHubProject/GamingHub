@@ -50,4 +50,9 @@ class Server extends Model
     {
         return $this->hasMany(Provider::class);
     }
+
+    public function themes(): HasMany
+    {
+        return $this->hasMany(Theme::class);
+    }
 }

@@ -36,8 +36,21 @@ not a microservices stack.
   lifecycle belongs to the separate Manager repo, not Platform)
 - Dashboard widgets: platform-wide stat counts and a servers-by-status chart
 
-Hub Extensions, the Capability Highway, Experience/page composition, and the asset file pipeline
-arrive in later milestones — see `GAMING_HUB_PLATFORM_ARCHITECTURE.md` for the full roadmap.
+**Milestone 3 — Experience/page composition**
+- `Page` model: admin-composed pages (title, slug, optional game scope, draft/published status)
+  built from an ordered list of blocks — no code required to assemble one
+- `BlockRegistry` — the one registry for page-builder blocks; block classes implement
+  `BlockContract` (id, label, Filament config schema, render) and register themselves in
+  `AppServiceProvider`. Hub Extensions will register their own blocks here later the same way
+- Built-in blocks: Rich Text, Games List, Server Status (static — reads the last-saved DB status,
+  not a live capability probe; the Capability Gateway doesn't exist yet)
+- `Theme` model with a `platform → game → server` hierarchy — each level only needs to set the
+  design tokens it wants to override, resolved and merged by `ThemeResolver`
+- Public rendering at `/p/{slug}` — renders a published page's blocks in order with its resolved
+  theme tokens applied as CSS variables
+
+Hub Extensions, the Capability Highway, and the asset file pipeline arrive in later milestones —
+see `GAMING_HUB_PLATFORM_ARCHITECTURE.md` for the full roadmap.
 
 ## Quick Start (local development)
 

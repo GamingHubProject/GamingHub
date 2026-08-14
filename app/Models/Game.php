@@ -56,4 +56,14 @@ class Game extends Model
     {
         return $this->hasOne(GameExtension::class);
     }
+
+    public function pages(): HasMany
+    {
+        return $this->hasMany(Page::class);
+    }
+
+    public function themes(): HasMany
+    {
+        return $this->hasMany(Theme::class);
+    }
 }
