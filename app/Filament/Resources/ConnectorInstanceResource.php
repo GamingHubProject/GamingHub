@@ -72,14 +72,34 @@ class ConnectorInstanceResource extends Resource
                             ->disabled()
                             ->dehydrated()
                             ->helperText('Set automatically by "Test Connection" / "Discover Servers" — not hand-edited.'),
-                        Forms\Components\KeyValue::make('credentials')
-                            ->helperText(fn (Forms\Get $get) => match ($get('type')) {
-                                'pelican' => 'Key: "token" → your Pelican Client API key.',
-                                default => 'Palworld REST API: keys "username" (usually "admin") and '
-                                    .'"password" (the server\'s AdminPassword). Or for bearer/API-key '
-                                    .'REST APIs, use key "token".',
-                            })
-                            ->columnSpanFull(),
+                        Forms\Components\TextInput::make('pelican_token')
+                            ->label('API Token')
+                            ->password()
+                            ->revealable()
+                            ->visible(fn (Forms\Get $get) => $get('type') === 'pelican')
+                            ->helperText('Your Pelican Client API key (Account → API Credentials in the panel).'),
+                        Forms\Components\Select::make('rest_auth_style')
+                            ->label('Authentication')
+                            ->options([
+                                'basic' => 'Username + Password (e.g. Palworld: username "admin", password = AdminPassword)',
+                                'bearer' => 'Bearer Token',
+                            ])
+                            ->default('basic')
+                            ->live()
+                            ->visible(fn (Forms\Get $get) => $get('type') === 'rest'),
+                        Forms\Components\TextInput::make('rest_username')
+                            ->label('Username')
+                            ->visible(fn (Forms\Get $get) => $get('type') === 'rest' && $get('rest_auth_style') === 'basic'),
+                        Forms\Components\TextInput::make('rest_password')
+                            ->label('Password')
+                            ->password()
+                            ->revealable()
+                            ->visible(fn (Forms\Get $get) => $get('type') === 'rest' && $get('rest_auth_style') === 'basic'),
+                        Forms\Components\TextInput::make('rest_token')
+                            ->label('Bearer Token')
+                            ->password()
+                            ->revealable()
+                            ->visible(fn (Forms\Get $get) => $get('type') === 'rest' && $get('rest_auth_style') === 'bearer'),
                     ])
                     ->columns(2),
             ]);

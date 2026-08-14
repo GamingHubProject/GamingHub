@@ -34,13 +34,63 @@ class ConnectorInstanceResourceTest extends TestCase
                 'name' => 'Our Pelican',
                 'type' => 'pelican',
                 'base_url' => 'https://panel.test',
-                'status' => 'untested',
-                'credentials' => ['token' => 'ptlc_abc'],
+                'pelican_token' => 'ptlc_abc',
             ])
             ->call('create')
             ->assertHasNoFormErrors();
 
         $this->assertDatabaseHas('connector_instances', ['name' => 'Our Pelican', 'type' => 'pelican']);
+        $connector = ConnectorInstance::where('name', 'Our Pelican')->firstOrFail();
+        $this->assertSame(['token' => 'ptlc_abc'], $connector->credentials);
+    }
+
+    public function test_can_create_a_rest_connector_with_basic_auth(): void
+    {
+        Livewire::test(CreateConnectorInstance::class)
+            ->fillForm([
+                'name' => 'Our Palworld',
+                'type' => 'rest',
+                'base_url' => 'http://palworld:8212',
+                'rest_auth_style' => 'basic',
+                'rest_username' => 'admin',
+                'rest_password' => 'secret',
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $connector = ConnectorInstance::where('name', 'Our Palworld')->firstOrFail();
+        $this->assertSame(['username' => 'admin', 'password' => 'secret'], $connector->credentials);
+    }
+
+    public function test_can_create_a_rest_connector_with_bearer_auth(): void
+    {
+        Livewire::test(CreateConnectorInstance::class)
+            ->fillForm([
+                'name' => 'Our API',
+                'type' => 'rest',
+                'base_url' => 'https://api.test',
+                'rest_auth_style' => 'bearer',
+                'rest_token' => 'abc123',
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $connector = ConnectorInstance::where('name', 'Our API')->firstOrFail();
+        $this->assertSame(['token' => 'abc123'], $connector->credentials);
+    }
+
+    public function test_editing_a_connector_prefills_the_right_typed_fields(): void
+    {
+        $connector = ConnectorInstance::create([
+            'name' => 'Our Pelican',
+            'type' => 'pelican',
+            'base_url' => 'https://panel.test',
+            'credentials' => ['token' => 'ptlc_abc'],
+            'status' => 'untested',
+        ]);
+
+        Livewire::test(\App\Filament\Resources\ConnectorInstanceResource\Pages\EditConnectorInstance::class, ['record' => $connector->id])
+            ->assertFormSet(['pelican_token' => 'ptlc_abc']);
     }
 
     public function test_discover_servers_action_lists_real_servers_and_marks_ok(): void
