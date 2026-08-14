@@ -17,7 +17,13 @@ class ConfigurationPresetResource extends Resource
 {
     protected static ?string $model = ConfigurationPreset::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-adjustments-horizontal';
+
+    protected static ?string $navigationGroup = 'Servers';
+
+    protected static ?string $navigationLabel = 'Presets';
+
+    protected static ?int $navigationSort = 3;
 
     public static function form(Form $form): Form
     {

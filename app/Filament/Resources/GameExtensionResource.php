@@ -17,39 +17,55 @@ class GameExtensionResource extends Resource
 {
     protected static ?string $model = GameExtension::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-cube';
+
+    protected static ?string $navigationGroup = 'Extensions';
+
+    protected static ?string $navigationLabel = 'Game Extensions';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('slug')
-                    ->required()
-                    ->maxLength(255)
-                    ->helperText('Stable machine identifier, e.g. "palworld-integration".'),
-                Forms\Components\TextInput::make('name')
-                    ->required()
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('version')
-                    ->required()
-                    ->maxLength(255)
-                    ->default('0.1.000'),
-                Forms\Components\Select::make('status')
-                    ->options([
-                        'enabled' => 'Enabled',
-                        'disabled' => 'Disabled',
+                Forms\Components\Section::make('Extension registry entry')
+                    ->description(
+                        'This tracks which Game Extension packages are known and enabled — it is not a '
+                        .'download/install tool (that belongs to the separate Manager package, not yet built). '
+                        .'The "slug" is the extension\'s stable technical ID, the same idea as a plugin\'s '
+                        .'machine name — it stays constant even if the display name changes. Once an '
+                        .'extension is bound to a Game below, manage that game\'s actual settings under '
+                        .'Games → Games, and its presets under Servers → Presets.'
+                    )
+                    ->schema([
+                        Forms\Components\TextInput::make('slug')
+                            ->required()
+                            ->maxLength(255)
+                            ->helperText('Stable machine identifier, e.g. "palworld-integration" — not a display name.'),
+                        Forms\Components\TextInput::make('name')
+                            ->required()
+                            ->maxLength(255),
+                        Forms\Components\TextInput::make('version')
+                            ->required()
+                            ->maxLength(255)
+                            ->default('0.1.000'),
+                        Forms\Components\Select::make('status')
+                            ->options([
+                                'enabled' => 'Enabled',
+                                'disabled' => 'Disabled',
+                            ])
+                            ->required()
+                            ->default('disabled'),
+                        Forms\Components\Select::make('game_id')
+                            ->label('Bound to game')
+                            ->relationship('game', 'name')
+                            ->helperText('Optional — leave empty until this extension is bound to a specific game.'),
+                        Forms\Components\Textarea::make('description')
+                            ->columnSpanFull(),
+                        Forms\Components\KeyValue::make('manifest')
+                            ->helperText('Free-form package metadata (capabilities, provided widgets, etc.) for future use.')
+                            ->columnSpanFull(),
                     ])
-                    ->required()
-                    ->default('disabled'),
-                Forms\Components\Select::make('game_id')
-                    ->label('Bound to game')
-                    ->relationship('game', 'name')
-                    ->helperText('Optional — leave empty until this extension is bound to a specific game.'),
-                Forms\Components\Textarea::make('description')
-                    ->columnSpanFull(),
-                Forms\Components\KeyValue::make('manifest')
-                    ->helperText('Free-form package metadata (capabilities, provided widgets, etc.) for future use.')
-                    ->columnSpanFull(),
+                    ->columns(2),
             ]);
     }
 
