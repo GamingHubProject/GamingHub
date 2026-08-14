@@ -6,9 +6,10 @@ use InvalidArgumentException;
 use JsonException;
 
 /**
- * Parses a registry.json (the format the Registry repo publishes) into
- * typed ExtensionDefinitions. This is read-only metadata about what's
- * available to install — it does not know what's actually installed.
+ * Parses a registry file (extension_registry.json / games_registry.json —
+ * same "packages" array shape) into typed ExtensionDefinitions. This is
+ * read-only metadata about what's available to install — it does not know
+ * what's actually installed.
  */
 final class PackageRegistry
 {
@@ -25,7 +26,7 @@ final class PackageRegistry
         try {
             $data = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
-            throw new InvalidArgumentException('registry.json is not valid JSON: '.$e->getMessage(), previous: $e);
+            throw new InvalidArgumentException('Registry file is not valid JSON: '.$e->getMessage(), previous: $e);
         }
 
         if (($data['schema'] ?? null) !== 1) {
@@ -34,7 +35,7 @@ final class PackageRegistry
 
         $registry = new self($data['id'] ?? '', $data['name'] ?? '');
 
-        foreach ($data['extensions'] ?? [] as $entry) {
+        foreach ($data['packages'] ?? [] as $entry) {
             $registry->add(ExtensionDefinition::fromArray($entry));
         }
 

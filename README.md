@@ -1,6 +1,6 @@
 # Gaming Hub Platform
 
-**v0.1.050** — Standalone modular Laravel platform for game communities.
+**v0.1.051** — Standalone modular Laravel platform for game communities.
 
 Gaming Hub connects games (Palworld, BDO, ARK, etc.) to the communities playing them. It's a
 Docker-based Laravel monolith built to run comfortably on a small VPS — not an Azuriom plugin,
@@ -87,7 +87,7 @@ side.
   end-to-end, including what an unbound (`UNSUPPORTED`) capability looks like in the UI
 
 **Manager (integrated)**
-- `App\Manager\PackageRegistry` — parses a `registry.json` (the format the `Registry` repo
+- `App\Manager\PackageRegistry` — parses a registry file (`extension_registry.json`/`games_registry.json`, the format the `Registry` repo
   publishes) into `ExtensionDefinition`s
 - `App\Manager\VersionResolver` — checks an extension's `requires` constraints against installed
   package versions (wraps `composer/semver`)

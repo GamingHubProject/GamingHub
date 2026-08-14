@@ -12,40 +12,41 @@ class PackageRegistryTest extends TestCase
     {
         $registry = PackageRegistry::fromFile(__DIR__.'/fixtures/registry.json');
 
-        $this->assertTrue($registry->has('gaming-hub-core'));
-        $this->assertTrue($registry->has('pelican'));
+        $this->assertTrue($registry->has('maps'));
+        $this->assertTrue($registry->has('trading'));
         $this->assertFalse($registry->has('does-not-exist'));
 
-        $core = $registry->find('gaming-hub-core');
-        $this->assertSame('Gaming Hub Core', $core->name);
-        $this->assertSame('gaming-hub-core-v*.zip', $core->releaseAsset);
-        $this->assertTrue($core->official);
+        $maps = $registry->find('maps');
+        $this->assertSame('Maps', $maps->name);
+        $this->assertSame('maps-v*.zip', $maps->releaseAsset);
+        $this->assertTrue($maps->official);
     }
 
     public function test_parses_requires_constraints(): void
     {
         $registry = PackageRegistry::fromFile(__DIR__.'/fixtures/registry.json');
 
-        $pelican = $registry->find('pelican');
+        $trading = $registry->find('trading');
 
-        $this->assertSame(['gaming-hub-core' => '>=0.1.010', 'gaming-hub-panel' => '*'], $pelican->requires);
+        $this->assertSame(['maps' => '>=0.1.010'], $trading->requires);
     }
 
     public function test_filters_by_category(): void
     {
         $registry = PackageRegistry::fromFile(__DIR__.'/fixtures/registry.json');
 
-        $connectors = $registry->byCategory('Connectors');
+        $hubExtensions = $registry->byCategory('Hub Extensions');
 
-        $this->assertCount(1, $connectors);
-        $this->assertArrayHasKey('pelican', $connectors);
+        $this->assertCount(2, $hubExtensions);
+        $this->assertArrayHasKey('maps', $hubExtensions);
+        $this->assertArrayHasKey('trading', $hubExtensions);
     }
 
     public function test_rejects_unsupported_schema(): void
     {
         $this->expectException(InvalidArgumentException::class);
 
-        PackageRegistry::fromJson(json_encode(['schema' => 2, 'extensions' => []]));
+        PackageRegistry::fromJson(json_encode(['schema' => 2, 'packages' => []]));
     }
 
     public function test_rejects_extension_missing_required_field(): void
@@ -54,7 +55,7 @@ class PackageRegistryTest extends TestCase
 
         PackageRegistry::fromJson(json_encode([
             'schema' => 1,
-            'extensions' => [['id' => 'broken']],
+            'packages' => [['id' => 'broken']],
         ]));
     }
 }

@@ -3,7 +3,7 @@
 namespace App\Manager;
 
 /**
- * One entry from a registry.json — metadata about a downloadable package,
+ * One entry from a registry file — metadata about a downloadable package,
  * not its installed state (that's InstalledPackage, tracked by whatever
  * consumes this library, e.g. Platform's own GameExtension model).
  */
