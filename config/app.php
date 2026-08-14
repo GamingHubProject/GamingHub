@@ -17,6 +17,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Gaming Hub Platform Version
+    |--------------------------------------------------------------------------
+    |
+    | Bumped alongside composer.json/package.json/plugin.json on every change,
+    | per the project's v{release}.{milestone}.{small-milestone}{hotfix}
+    | convention. Shown in the admin dashboard.
+    |
+    */
+
+    'version' => env('APP_VERSION', 'dev'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

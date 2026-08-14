@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use Composer\InstalledVersions;
 use GamingHub\Core\Models\Game;
 use GamingHub\Core\Models\Instance;
 use GamingHub\Core\Models\Server;
@@ -26,6 +27,19 @@ class PlatformOverviewWidget extends BaseWidget
                 ->icon('heroicon-o-squares-2x2'),
             Stat::make('Users', User::count())
                 ->icon('heroicon-o-users'),
+            Stat::make('Version', 'v'.config('app.version'))
+                ->description('Core '.$this->coreVersion())
+                ->icon('heroicon-o-tag')
+                ->color('gray'),
         ];
+    }
+
+    protected function coreVersion(): string
+    {
+        try {
+            return 'v'.ltrim(InstalledVersions::getPrettyVersion('gaminghubproject/core') ?? 'unknown', 'v');
+        } catch (\OutOfBoundsException) {
+            return 'unknown';
+        }
     }
 }
