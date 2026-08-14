@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "id": "test-registry",
+  "name": "Test Registry",
+  "homepage": "https://example.test",
+  "extensions": [
+    {
+      "id": "gaming-hub-core",
+      "name": "Gaming Hub Core",
+      "description": "Gaming Hub Core",
+      "author": "GamingHubProject",
+      "category": "Core",
+      "repository": "https://github.com/GamingHubProject/Core",
+      "release_asset": "gaming-hub-core-v*.zip",
+      "checksum_asset": "SHA256SUMS",
+      "verified": true,
+      "official": true
+    },
+    {
+      "id": "pelican",
+      "name": "Gaming Hub Pelican Connector",
+      "description": "Pelican connector",
+      "author": "GamingHubProject",
+      "category": "Connectors",
+      "repository": "https://github.com/GamingHubProject/Panel-Connectors",
+      "release_asset": "pelican-v*.zip",
+      "checksum_asset": "SHA256SUMS",
+      "verified": true,
+      "official": true,
+      "requires": {
+        "gaming-hub-core": ">=0.1.010",
+        "gaming-hub-panel": "*"
+      }
+    }
+  ]
+}
