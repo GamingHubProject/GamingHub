@@ -3,10 +3,10 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\CapabilityBindingResource\Pages;
-use App\Models\CapabilityBinding;
+use App\Models\Map;
+use GamingHub\Core\Models\CapabilityBinding;
 use GamingHub\Core\Models\Game;
 use GamingHub\Core\Models\Instance;
-use App\Models\Map;
 use GamingHub\Core\Models\Server;
 use Filament\Forms;
 use Filament\Forms\Form;

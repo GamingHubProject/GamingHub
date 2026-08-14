@@ -4,7 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Filament\Resources\CapabilityBindingResource\Pages\CreateCapabilityBinding;
 use App\Filament\Resources\CapabilityBindingResource\Pages\ListCapabilityBindings;
-use App\Models\CapabilityBinding;
+use GamingHub\Core\Models\CapabilityBinding;
 use GamingHub\Core\Models\Server;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;

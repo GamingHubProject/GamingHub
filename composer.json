@@ -5,7 +5,7 @@
     "description": "Gaming Hub Platform — standalone modular Laravel platform for game communities.",
     "keywords": ["laravel", "gaming-hub"],
     "license": "MIT",
-    "version": "0.1.040",
+    "version": "0.1.041",
     "require": {
         "php": "^8.2",
         "filament/filament": "^3.2",

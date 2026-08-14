@@ -3,16 +3,16 @@
 namespace App\Providers;
 
 use App\Capabilities\CapabilityGateway;
-use App\Capabilities\CapabilityRouter;
-use App\Capabilities\Providers\ManualProvider;
 use App\Experience\BlockRegistry;
 use App\Experience\Blocks\GamesListBlock;
 use App\Experience\Blocks\HeroBlock;
 use App\Experience\Blocks\RichTextBlock;
 use App\Experience\Blocks\ServerStatusBlock;
+use App\Models\Map;
+use GamingHub\Core\Capabilities\CapabilityRouter;
+use GamingHub\Core\Capabilities\Providers\ManualProvider;
 use GamingHub\Core\Models\Game;
 use GamingHub\Core\Models\Instance;
-use App\Models\Map;
 use GamingHub\Core\Models\Server;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;

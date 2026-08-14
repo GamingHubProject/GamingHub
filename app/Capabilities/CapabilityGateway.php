@@ -2,13 +2,18 @@
 
 namespace App\Capabilities;
 
+use GamingHub\Core\Capabilities\CapabilityRouter;
+use GamingHub\Core\Capabilities\CapabilityValue;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * The single entry point Hub Extensions use to read a capability. They never
- * know or care whether the value came from REST, RCON, a database, or a
- * manually-entered admin value — that's CapabilityRouter's job.
+ * The single entry point Hub Extensions use to read a capability — Platform
+ * acting as Panel. They never know or care whether the value came from
+ * REST, RCON, a database, or a manually-entered admin value. This class
+ * owns orchestration/caching only; the decision of *which* provider serves
+ * a capability is Core's CapabilityRouter, and normalization is the
+ * provider's own job (see GamingHub\Core\Contracts\CapabilityProviderContract).
  *
  * inspect() is metadata-only and never triggers a live fetch. probe() is an
  * explicit runtime call that always hits the provider. get() is the normal

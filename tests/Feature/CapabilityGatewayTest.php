@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Capabilities\CapabilityGateway;
-use App\Capabilities\CapabilityValue;
-use App\Models\CapabilityBinding;
+use GamingHub\Core\Capabilities\CapabilityValue;
+use GamingHub\Core\Models\CapabilityBinding;
 use GamingHub\Core\Models\Server;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

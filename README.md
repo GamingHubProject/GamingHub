@@ -1,6 +1,6 @@
 # Gaming Hub Platform
 
-**v0.1.040** — Standalone modular Laravel platform for game communities.
+**v0.1.041** — Standalone modular Laravel platform for game communities.
 
 Gaming Hub connects games (Palworld, BDO, ARK, etc.) to the communities playing them. It's a
 Docker-based Laravel monolith built to run comfortably on a small VPS — not an Azuriom plugin,
@@ -8,15 +8,24 @@ not a microservices stack.
 
 ## Architecture: Platform + Core
 
-As of v0.1.040, domain models live in a separate, independently-versioned package —
+Domain models and capability decisions live in a separate, independently-versioned package —
 [`GamingHubProject/Core`](https://github.com/GamingHubProject/Core) — required via Composer
 (`gaminghubproject/core`), not in this repo. Platform integrates Manager (package discovery) and
-Panel (connector routing) directly; Core owns `Game`/`Server`/`Instance`/`Provider` plus (in a
-later step) capability decisions and data normalization, and never composes UI, applies themes,
-manages assets, or speaks to connectors directly — that split exists so Core can ship updates
-independently without risking the monolith. `ServerGroup`, `Map`, `ConfigurationPreset`,
-`GameExtension`, `Page`, `Theme`, and `CapabilityBinding` stay in Platform and reference Core's
-models by foreign key rather than through a relation defined on the Core side.
+Panel (connector routing) directly; Core owns `Game`/`Server`/`Instance`/`Provider`,
+`CapabilityBinding` (the capability routing/definition data), `CapabilityRouter` (decides which
+provider serves a capability), and normalization — and never composes UI, applies themes, manages
+assets, or speaks to connectors directly. That split exists so Core can ship updates independently
+without risking the monolith.
+
+Platform's `CapabilityGateway` (`app/Capabilities/CapabilityGateway.php`) is the actual entry
+point Extensions call — it acts as Panel: orchestration, caching, and (once real Connectors exist)
+invoking them. It asks Core's `CapabilityRouter` for the routing decision and delegates
+normalization to whichever provider Core resolves; `ManualProvider` (no external I/O) lives
+entirely in Core since it never speaks to a connector.
+
+`ServerGroup`, `Map`, `ConfigurationPreset`, `GameExtension`, `Page`, and `Theme` stay in Platform
+and reference Core's models by foreign key rather than through a relation defined on the Core
+side.
 
 ## Stack
 
@@ -61,21 +70,21 @@ models by foreign key rather than through a relation defined on the Core side.
 - Public rendering at `/p/{slug}` — renders a published page's blocks in order with its resolved
   theme tokens applied as CSS variables
 
-**Milestone 4 — Capability Highway (Platform side only)**
-- `CapabilityGateway` — the single entry point for reading a capability (`get`/`inspect`/`probe`),
-  with distinct failure states (`OK`, `UNSUPPORTED`, `UNAVAILABLE`, `STALE`) and a freshness-aware
-  cache. `inspect()` is metadata-only and never fetches; `probe()` is an explicit runtime call
-- `CapabilityRouter` — the one registry of capability providers, and resolves a
+**Milestone 4 — Capability Highway**
+- Platform's `CapabilityGateway` — the single entry point for reading a capability
+  (`get`/`inspect`/`probe`), with distinct failure states (`OK`, `UNSUPPORTED`, `UNAVAILABLE`,
+  `STALE`) and a freshness-aware cache. `inspect()` is metadata-only and never fetches; `probe()`
+  is an explicit runtime call
+- Core's `CapabilityRouter` — the one registry of capability providers, and resolves a
   `(capability, subject)` pair to its `CapabilityBinding`
-- `CapabilityBinding` — binds a capability to a Context Subject (Game/Server/Instance/Map, via a
-  morph map) with a named provider
-- `ManualProvider` — the only provider that exists so far: the bound value is whatever an admin
-  typed in. Real Connector packages (Pelican, RCON, …) will implement the same
-  `CapabilityProviderContract` once the package system (Manager/Panel) exists — deliberately not
-  built yet, since building real Connector loading before that system is solid is an explicit
-  anti-goal (see the Hard "Do Not" list)
-- `ServerStatusBlock` now reads through the gateway instead of the DB directly — proves the
-  highway end-to-end, including what an unbound (`UNSUPPORTED`) capability looks like in the UI
+- Core's `CapabilityBinding` — binds a capability to a Context Subject (Game/Server/Instance/Map,
+  via a morph map registered by Platform) with a named provider
+- Core's `ManualProvider` — the only provider that exists so far: the bound value is whatever an
+  admin typed in, no external I/O involved. A real Connector-backed provider (Pelican, RCON, …)
+  will split differently — Panel invokes the connector, Core normalizes the raw payload — since
+  Core never speaks to a connector directly
+- `ServerStatusBlock` reads through the gateway instead of the DB directly — proves the highway
+  end-to-end, including what an unbound (`UNSUPPORTED`) capability looks like in the UI
 
 Hub Extensions, real Connector packages, and the asset file pipeline arrive in later milestones —
 see `GAMING_HUB_PLATFORM_ARCHITECTURE.md` for the full roadmap.
