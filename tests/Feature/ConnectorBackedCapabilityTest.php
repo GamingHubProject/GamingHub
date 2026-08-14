@@ -67,7 +67,7 @@ class ConnectorBackedCapabilityTest extends TestCase
             'name' => 'Test Pelican',
             'type' => 'pelican',
             'base_url' => 'https://panel.test',
-            'credentials' => ['token' => 'ptlc_test'],
+            'credentials' => ['application_token' => 'ptla_admin', 'client_token' => 'ptlc_test'],
         ]);
 
         CapabilityBinding::create([

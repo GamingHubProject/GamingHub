@@ -26,7 +26,8 @@ class EditConnectorInstance extends EditRecord
         $credentials = $data['credentials'] ?? [];
 
         if (($data['type'] ?? null) === 'pelican') {
-            $data['pelican_token'] = $credentials['token'] ?? null;
+            $data['pelican_application_token'] = $credentials['application_token'] ?? null;
+            $data['pelican_client_token'] = $credentials['client_token'] ?? null;
         } elseif (array_key_exists('token', $credentials)) {
             $data['rest_auth_style'] = 'bearer';
             $data['rest_token'] = $credentials['token'] ?? null;
@@ -42,13 +43,17 @@ class EditConnectorInstance extends EditRecord
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $data['credentials'] = $data['type'] === 'pelican'
-            ? ['token' => $data['pelican_token'] ?? null]
+            ? [
+                'application_token' => $data['pelican_application_token'] ?? null,
+                'client_token' => $data['pelican_client_token'] ?? null,
+            ]
             : (($data['rest_auth_style'] ?? 'basic') === 'bearer'
                 ? ['token' => $data['rest_token'] ?? null]
                 : ['username' => $data['rest_username'] ?? null, 'password' => $data['rest_password'] ?? null]);
 
         unset(
-            $data['pelican_token'],
+            $data['pelican_application_token'],
+            $data['pelican_client_token'],
             $data['rest_auth_style'],
             $data['rest_username'],
             $data['rest_password'],

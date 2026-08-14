@@ -1,6 +1,6 @@
 # Gaming Hub Platform
 
-**v0.1.082** — Standalone modular Laravel platform for game communities.
+**v0.1.083** — Standalone modular Laravel platform for game communities.
 
 Gaming Hub connects games (Palworld, BDO, ARK, etc.) to the communities playing them. It's a
 Docker-based Laravel monolith built to run comfortably on a small VPS — not an Azuriom plugin,
@@ -117,11 +117,21 @@ Core side.
   — the same capability can come from differently-shaped raw payloads (a game's own API vs. a
   hosting panel's generic one)
 - `App\Connectors\ConnectorContract` + `RestConnector` (generic authenticated REST — Basic or
-  Bearer auth from the instance's credentials) + `PelicanConnector` (Pelican's real Client API,
-  `GET /api/client/servers/{id}/resources`) + `ConnectorRegistry`. Connectors return raw data only
-  — never normalize, never know what a game's data means
+  Bearer auth, exact fields per auth style, from the instance's credentials) + `PelicanConnector` +
+  `ConnectorRegistry`. Connectors return raw data only — never normalize, never know what a game's
+  data means
+- **Pelican genuinely needs two separate keys, not one** — verified against real docs and a real
+  third-party integration (ClientXCMS's Pelican module), not assumed: an **Application API Key**
+  (admin-scoped, `GET /api/application/servers`, sees every server on the panel regardless of
+  owner — what real discovery needs) and an optional **Client API Key** (user-scoped,
+  `GET /api/client/servers/{id}/resources`, only sees servers that key's own account owns — needed
+  for live resource stats, which the Application API doesn't expose at all). `listServers()` uses
+  the Application key; `fetch()` uses the Client key; each throws a specific error naming which key
+  is missing rather than a generic "no credentials" message
 - `ConnectorInstance` model (Capabilities → Connectors in admin) — one credentialed connection to
-  an external system, e.g. "this server's Palworld REST API" or "our Pelican panel"
+  an external system, e.g. "this server's Palworld REST API" or "our Pelican panel." Credentials
+  are real labeled fields per auth style (Basic username/password, Bearer token, or Pelican's two
+  keys) — not a KeyValue field where getting an exact JSON key name wrong silently breaks it
 - `App\Capabilities\Providers\ConnectorBackedProvider` — the bridge: implements Core's
   `CapabilityProviderContract`, calls the right Connector via `ConnectorRegistry`, hands the raw
   result to the binding's declared normalizer. Lives in Platform (not Core) since it's the one
