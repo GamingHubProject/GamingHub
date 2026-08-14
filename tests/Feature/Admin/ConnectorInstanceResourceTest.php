@@ -43,12 +43,13 @@ class ConnectorInstanceResourceTest extends TestCase
         $this->assertDatabaseHas('connector_instances', ['name' => 'Our Pelican', 'type' => 'pelican']);
     }
 
-    public function test_discover_servers_action_lists_real_servers(): void
+    public function test_discover_servers_action_lists_real_servers_and_marks_ok(): void
     {
         $connector = ConnectorInstance::factory()->create([
             'type' => 'pelican',
             'base_url' => 'https://panel.test',
             'credentials' => ['token' => 'ptlc_abc'],
+            'status' => 'untested',
         ]);
 
         $fake = new FakeHttpRequester;
@@ -62,5 +63,67 @@ class ConnectorInstanceResourceTest extends TestCase
         Livewire::test(ListConnectorInstances::class)
             ->callTableAction('discoverServers', $connector)
             ->assertSuccessful();
+
+        $this->assertSame('ok', $connector->fresh()->status);
+    }
+
+    public function test_discover_servers_marks_error_on_failure(): void
+    {
+        $connector = ConnectorInstance::factory()->create([
+            'type' => 'pelican',
+            'base_url' => 'https://panel.test',
+            'credentials' => [],
+            'status' => 'untested',
+        ]);
+
+        $this->app->instance(HttpRequestContract::class, new FakeHttpRequester);
+
+        Livewire::test(ListConnectorInstances::class)
+            ->callTableAction('discoverServers', $connector)
+            ->assertSuccessful();
+
+        $this->assertSame('error', $connector->fresh()->status);
+    }
+
+    public function test_test_connection_action_marks_ok_on_success(): void
+    {
+        $connector = ConnectorInstance::factory()->create([
+            'type' => 'rest',
+            'base_url' => 'http://palworld:8212',
+            'test_endpoint' => '/v1/api/info',
+            'credentials' => ['username' => 'admin', 'password' => 'secret'],
+            'status' => 'untested',
+        ]);
+
+        $fake = new FakeHttpRequester;
+        $fake->willReturn(200, json_encode(['version' => '1.0', 'servername' => 'My Server']));
+        $this->app->instance(HttpRequestContract::class, $fake);
+
+        Livewire::test(ListConnectorInstances::class)
+            ->callTableAction('testConnection', $connector)
+            ->assertSuccessful();
+
+        $this->assertSame('ok', $connector->fresh()->status);
+        $this->assertSame('http://palworld:8212/v1/api/info', $fake->lastUrl());
+    }
+
+    public function test_test_connection_action_marks_error_on_failure(): void
+    {
+        $connector = ConnectorInstance::factory()->create([
+            'type' => 'rest',
+            'base_url' => 'http://palworld:8212',
+            'credentials' => [],
+            'status' => 'untested',
+        ]);
+
+        $fake = new FakeHttpRequester;
+        $fake->willReturn(401, 'Unauthorized');
+        $this->app->instance(HttpRequestContract::class, $fake);
+
+        Livewire::test(ListConnectorInstances::class)
+            ->callTableAction('testConnection', $connector)
+            ->assertSuccessful();
+
+        $this->assertSame('error', $connector->fresh()->status);
     }
 }

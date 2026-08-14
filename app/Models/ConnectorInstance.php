@@ -20,6 +20,7 @@ class ConnectorInstance extends Model
         'name',
         'type',
         'base_url',
+        'test_endpoint',
         'credentials',
         'status',
     ];

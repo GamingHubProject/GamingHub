@@ -48,7 +48,13 @@ class BrowseRegistry extends Page implements HasActions, HasForms
         $this->refreshRegistry();
     }
 
-    public function refreshRegistry(): void
+    /**
+     * The initial page load calls this silently (the rendered list/empty
+     * state/error message IS the feedback). The "Refresh" button calls the
+     * $notify=true variant below so clicking it always visibly confirms
+     * something happened, even when the result is "still nothing here."
+     */
+    public function refreshRegistry(bool $notify = false): void
     {
         try {
             $registry = PackageRegistry::fromJson(app(HttpClientContract::class)->get($this->registryUrl));
@@ -56,6 +62,14 @@ class BrowseRegistry extends Page implements HasActions, HasForms
         } catch (Throwable $e) {
             $this->packages = [];
             $this->error = $e->getMessage();
+
+            if ($notify) {
+                Notification::make()
+                    ->title('Could not load this registry')
+                    ->body($e->getMessage())
+                    ->danger()
+                    ->send();
+            }
 
             return;
         }
@@ -73,6 +87,20 @@ class BrowseRegistry extends Page implements HasActions, HasForms
             ])
             ->values()
             ->all();
+
+        if ($notify) {
+            Notification::make()
+                ->title(count($this->packages) > 0
+                    ? count($this->packages).' package(s) found'
+                    : 'Registry loaded — nothing published there yet')
+                ->success()
+                ->send();
+        }
+    }
+
+    public function refresh(): void
+    {
+        $this->refreshRegistry(notify: true);
     }
 
     public function installAction(): Action

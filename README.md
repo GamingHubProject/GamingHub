@@ -1,6 +1,6 @@
 # Gaming Hub Platform
 
-**v0.1.080** — Standalone modular Laravel platform for game communities.
+**v0.1.081** — Standalone modular Laravel platform for game communities.
 
 Gaming Hub connects games (Palworld, BDO, ARK, etc.) to the communities playing them. It's a
 Docker-based Laravel monolith built to run comfortably on a small VPS — not an Azuriom plugin,

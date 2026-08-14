@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Connectors\PelicanConnector;
+use App\Connectors\RestConnector;
 use App\Filament\Resources\ConnectorInstanceResource\Pages;
 use App\Models\ConnectorInstance;
 use Filament\Forms;
@@ -53,6 +54,13 @@ class ConnectorInstanceResource extends Resource
                                 'pelican' => 'Your Pelican panel URL, e.g. https://panel.example.com',
                                 default => 'e.g. http://your-server-ip:8212 for Palworld\'s REST API',
                             }),
+                        Forms\Components\TextInput::make('test_endpoint')
+                            ->label('Test endpoint')
+                            ->visible(fn (Forms\Get $get) => $get('type') === 'rest')
+                            ->helperText(
+                                'A lightweight GET endpoint used only by "Test Connection" to check auth/'
+                                .'reachability — e.g. "/v1/api/info" for Palworld. Not used by capability bindings.'
+                            ),
                         Forms\Components\Select::make('status')
                             ->options([
                                 'untested' => 'Untested',
@@ -60,7 +68,10 @@ class ConnectorInstanceResource extends Resource
                                 'error' => 'Error',
                             ])
                             ->default('untested')
-                            ->required(),
+                            ->required()
+                            ->disabled()
+                            ->dehydrated()
+                            ->helperText('Set automatically by "Test Connection" / "Discover Servers" — not hand-edited.'),
                         Forms\Components\KeyValue::make('credentials')
                             ->helperText(fn (Forms\Get $get) => match ($get('type')) {
                                 'pelican' => 'Key: "token" → your Pelican Client API key.',
@@ -105,6 +116,33 @@ class ConnectorInstanceResource extends Resource
                     ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('testConnection')
+                    ->label('Test connection')
+                    ->icon('heroicon-o-signal')
+                    ->visible(fn (ConnectorInstance $record) => $record->type === 'rest')
+                    ->action(function (ConnectorInstance $record, RestConnector $rest): void {
+                        try {
+                            $rest->fetch($record, ['endpoint' => $record->test_endpoint ?: '/']);
+                        } catch (Throwable $e) {
+                            $record->update(['status' => 'error']);
+
+                            Notification::make()
+                                ->title('Connection failed')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        $record->update(['status' => 'ok']);
+
+                        Notification::make()
+                            ->title('Connection OK')
+                            ->body("Reached {$record->base_url} and got a valid JSON response.")
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\Action::make('discoverServers')
                     ->label('Discover servers')
                     ->icon('heroicon-o-magnifying-glass')
@@ -113,6 +151,8 @@ class ConnectorInstanceResource extends Resource
                         try {
                             $servers = $pelican->listServers($record);
                         } catch (Throwable $e) {
+                            $record->update(['status' => 'error']);
+
                             Notification::make()
                                 ->title('Could not reach Pelican')
                                 ->body($e->getMessage())
@@ -122,9 +162,11 @@ class ConnectorInstanceResource extends Resource
                             return;
                         }
 
+                        $record->update(['status' => 'ok']);
+
                         if (empty($servers)) {
                             Notification::make()
-                                ->title('No servers found')
+                                ->title('Connected, but no servers found')
                                 ->body('This API key has no accessible servers on this panel.')
                                 ->warning()
                                 ->send();

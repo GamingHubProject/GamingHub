@@ -96,6 +96,29 @@ class BrowseRegistryTest extends TestCase
             ->assertSet('packages', []);
     }
 
+    public function test_clicking_refresh_always_shows_a_notification(): void
+    {
+        $fake = new FakeHttpClient;
+        $fake->respond($this->registryUrl, json_encode([
+            'schema' => 1, 'id' => 'test', 'name' => 'Test', 'packages' => [],
+        ]));
+        $this->app->instance(HttpClientContract::class, $fake);
+
+        Livewire::test(BrowseRegistry::class)
+            ->call('refresh')
+            ->assertNotified();
+    }
+
+    public function test_clicking_refresh_notifies_on_failure_too(): void
+    {
+        $fake = new FakeHttpClient; // no response configured -> throws
+        $this->app->instance(HttpClientContract::class, $fake);
+
+        Livewire::test(BrowseRegistry::class)
+            ->call('refresh')
+            ->assertNotified();
+    }
+
     public function test_clicking_install_downloads_verifies_and_records_the_package(): void
     {
         $zipUrl = 'https://github.com/GamingHubProject/Hub-Extensions/releases/download/v0.1.000/maps-v0.1.000.zip';

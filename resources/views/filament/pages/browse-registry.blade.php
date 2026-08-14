@@ -8,8 +8,9 @@
                 class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm"
             />
         </div>
-        <x-filament::button wire:click="refreshRegistry" color="gray">
-            Refresh
+        <x-filament::button wire:click="refresh" wire:loading.attr="disabled" color="gray">
+            <span wire:loading.remove wire:target="refresh">Refresh</span>
+            <span wire:loading wire:target="refresh">Loading…</span>
         </x-filament::button>
     </div>
 
