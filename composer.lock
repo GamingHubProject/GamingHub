@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b0855b531833d4602a0a7893fba80461",
+    "content-hash": "60b80b08ea0f4ac87ed1f7454dc8a2d8",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -1564,16 +1564,16 @@
         },
         {
             "name": "gaminghubproject/core",
-            "version": "0.1.010",
+            "version": "0.1.011",
             "source": {
                 "type": "git",
                 "url": "https://github.com/GamingHubProject/Core.git",
-                "reference": "d8cb7d6c6665720e6742368cdd5e8a112e2685af"
+                "reference": "aaea976534df9e233bf0586ce5b3c758b3e94a0d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/GamingHubProject/Core/zipball/d8cb7d6c6665720e6742368cdd5e8a112e2685af",
-                "reference": "d8cb7d6c6665720e6742368cdd5e8a112e2685af",
+                "url": "https://api.github.com/repos/GamingHubProject/Core/zipball/aaea976534df9e233bf0586ce5b3c758b3e94a0d",
+                "reference": "aaea976534df9e233bf0586ce5b3c758b3e94a0d",
                 "shasum": ""
             },
             "require": {
@@ -1614,10 +1614,10 @@
             ],
             "description": "Gaming Hub Core plugin: domain models (Games, Servers, Instances, Providers), capability decisions, and data normalization. Never speaks to connectors directly — that's Panel's job.",
             "support": {
-                "source": "https://github.com/GamingHubProject/Core/tree/v0.1.010",
+                "source": "https://github.com/GamingHubProject/Core/tree/v0.1.011",
                 "issues": "https://github.com/GamingHubProject/Core/issues"
             },
-            "time": "2026-08-14T11:58:05+00:00"
+            "time": "2026-08-14T13:33:46+00:00"
         },
         {
             "name": "graham-campbell/result-type",

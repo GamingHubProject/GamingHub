@@ -1,6 +1,6 @@
 # Gaming Hub Platform
 
-**v0.1.060** — Standalone modular Laravel platform for game communities.
+**v0.1.070** — Standalone modular Laravel platform for game communities.
 
 Gaming Hub connects games (Palworld, BDO, ARK, etc.) to the communities playing them. It's a
 Docker-based Laravel monolith built to run comfortably on a small VPS — not an Azuriom plugin,
@@ -78,10 +78,8 @@ Core side.
   `(capability, subject)` pair to its `CapabilityBinding`
 - Core's `CapabilityBinding` — binds a capability to a Context Subject (Game/Server/Instance/Map,
   via a morph map registered by Platform) with a named provider
-- Core's `ManualProvider` — the only provider that exists so far: the bound value is whatever an
-  admin typed in, no external I/O involved. A real Connector-backed provider (Pelican, RCON, …)
-  will split differently — Panel invokes the connector, Core normalizes the raw payload — since
-  Core never speaks to a connector directly
+- Core's `ManualProvider` — the bound value is whatever an admin typed in, no external I/O
+  involved. Real Connector-backed providers arrived in the section below
 - `ServerStatusBlock` reads through the gateway instead of the DB directly — proves the highway
   end-to-end, including what an unbound (`UNSUPPORTED`) capability looks like in the UI
 
@@ -111,8 +109,33 @@ Core side.
   package ID, and the exact version to install (no "latest" guessing); verified for real against
   the live (currently empty) `GamingHubProject/Registry` over actual HTTPS, not just in tests
 
-Hub Extensions, real Connector packages, and the asset file pipeline arrive in later milestones —
-see `GAMING_HUB_PLATFORM_ARCHITECTURE.md` for the full roadmap.
+**Connectors — first real (non-manual) capability providers**
+- Core's `NormalizerContract` + `NormalizerRegistry` — the normalization side of the capability
+  highway. Core never fetches raw data itself; it only shapes what Platform hands it. Which
+  normalizer applies to a binding is an explicit choice in the binding's config, not auto-inferred
+  — the same capability can come from differently-shaped raw payloads (a game's own API vs. a
+  hosting panel's generic one)
+- `App\Connectors\ConnectorContract` + `RestConnector` (generic authenticated REST — Basic or
+  Bearer auth from the instance's credentials) + `PelicanConnector` (Pelican's real Client API,
+  `GET /api/client/servers/{id}/resources`) + `ConnectorRegistry`. Connectors return raw data only
+  — never normalize, never know what a game's data means
+- `ConnectorInstance` model (Capabilities → Connectors in admin) — one credentialed connection to
+  an external system, e.g. "this server's Palworld REST API" or "our Pelican panel"
+- `App\Capabilities\Providers\ConnectorBackedProvider` — the bridge: implements Core's
+  `CapabilityProviderContract`, calls the right Connector via `ConnectorRegistry`, hands the raw
+  result to the binding's declared normalizer. Lives in Platform (not Core) since it's the one
+  place allowed to touch a Connector
+- `App\Normalizers\PalworldServerStatusNormalizer` (real shape: Palworld's own
+  `GET /v1/api/metrics`) and `PelicanServerStatusNormalizer` (real shape: Pelican's resources
+  response) — both parse actual documented API shapes, not placeholders
+- `CapabilityBindingResource` now supports `provider = connector`: pick a Connector, a call config
+  (endpoint/method for REST, server identifier for Pelican), and a normalizer — verified end-to-end
+  with a fake HTTP layer proving the full path (binding → gateway → router → connector → raw
+  payload → normalizer → `CapabilityValue`) for both Palworld-style and Pelican-style calls
+
+Hub Extensions and the asset file pipeline arrive in later milestones — see
+`GAMING_HUB_PLATFORM_ARCHITECTURE.md` for the full roadmap. Assets (icons etc.) are the deliberate
+next piece, not yet started.
 
 ## Quick Start (local development)
 

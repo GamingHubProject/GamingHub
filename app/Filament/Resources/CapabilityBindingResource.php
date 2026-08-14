@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\CapabilityBindingResource\Pages;
+use App\Models\ConnectorInstance;
 use App\Models\Map;
 use GamingHub\Core\Models\CapabilityBinding;
 use GamingHub\Core\Models\Game;
@@ -50,10 +51,9 @@ class CapabilityBindingResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Binding')
                     ->description(
-                        'Binds a capability to a subject with a real provider — right now only '
-                        .'"manual" exists, so the value is whatever you type below. Real Connector '
-                        .'providers (Pelican, RCON, etc.) will plug into this exact same binding '
-                        .'once the package system exists.'
+                        'Binds a capability to a subject with a provider — "manual" is a value you '
+                        .'type in yourself; "connector" calls a real external system (see '
+                        .'Capabilities → Connectors) and normalizes what comes back.'
                     )
                     ->schema([
                         Forms\Components\Select::make('capability')
@@ -80,15 +80,46 @@ class CapabilityBindingResource extends Resource
                             ->required()
                             ->searchable(),
                         Forms\Components\Select::make('provider')
-                            ->options(['manual' => 'Manual (admin-entered value)'])
+                            ->options([
+                                'manual' => 'Manual (admin-entered value)',
+                                'connector' => 'Connector (real external call)',
+                            ])
                             ->default('manual')
-                            ->required(),
+                            ->required()
+                            ->live(),
                         Forms\Components\Toggle::make('enabled')
                             ->default(true),
-                        Forms\Components\KeyValue::make('value')
+                        Forms\Components\KeyValue::make('manual_value')
                             ->label('Value')
                             ->helperText('Shape depends on the capability — e.g. server-status: online, players, uptime.')
+                            ->visible(fn (Get $get) => $get('provider') === 'manual')
+                            ->dehydrated(fn (Get $get) => $get('provider') === 'manual')
                             ->columnSpanFull(),
+                        Forms\Components\Select::make('connector_instance_id')
+                            ->label('Connector')
+                            ->options(fn () => ConnectorInstance::query()->pluck('name', 'id'))
+                            ->required()
+                            ->visible(fn (Get $get) => $get('provider') === 'connector')
+                            ->dehydrated(fn (Get $get) => $get('provider') === 'connector')
+                            ->helperText('Manage these under Capabilities → Connectors.'),
+                        Forms\Components\KeyValue::make('connector_call')
+                            ->label('Call config')
+                            ->visible(fn (Get $get) => $get('provider') === 'connector')
+                            ->dehydrated(fn (Get $get) => $get('provider') === 'connector')
+                            ->helperText(
+                                'REST: key "endpoint" (e.g. /v1/api/metrics), optional "method". '
+                                .'Pelican: key "server_identifier".'
+                            ),
+                        Forms\Components\Select::make('connector_normalizer')
+                            ->label('Normalizer')
+                            ->options([
+                                'palworld-server-status' => 'Palworld — Server Status',
+                                'pelican-server-status' => 'Pelican — Server Status',
+                            ])
+                            ->required()
+                            ->visible(fn (Get $get) => $get('provider') === 'connector')
+                            ->dehydrated(fn (Get $get) => $get('provider') === 'connector')
+                            ->helperText('Which normalizer parses this connector\'s raw response.'),
                     ])
                     ->columns(2),
             ]);
