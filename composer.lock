@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "52baa34881857db509961f0a428b2bf1",
+    "content-hash": "70543ad6bfce75d441c24b50d5999ee1",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -1564,16 +1564,16 @@
         },
         {
             "name": "gaminghubproject/core",
-            "version": "0.1.030",
+            "version": "dev-stage-a-capability-registry",
             "source": {
                 "type": "git",
                 "url": "https://github.com/GamingHubProject/Core.git",
-                "reference": "d0930b72f01521d23918cc6e80d573ba17b7267f"
+                "reference": "714b608425b533b308cde0167268c819571a3a7e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/GamingHubProject/Core/zipball/d0930b72f01521d23918cc6e80d573ba17b7267f",
-                "reference": "d0930b72f01521d23918cc6e80d573ba17b7267f",
+                "url": "https://api.github.com/repos/GamingHubProject/Core/zipball/714b608425b533b308cde0167268c819571a3a7e",
+                "reference": "714b608425b533b308cde0167268c819571a3a7e",
                 "shasum": ""
             },
             "require": {
@@ -1596,7 +1596,8 @@
             "autoload": {
                 "psr-4": {
                     "GamingHub\\Core\\": "src/",
-                    "GamingHub\\Core\\Database\\Factories\\": "database/factories/"
+                    "GamingHub\\Core\\Database\\Factories\\": "database/factories/",
+                    "GamingHub\\Core\\Database\\Seeders\\": "database/seeders/"
                 }
             },
             "autoload-dev": {
@@ -1614,10 +1615,10 @@
             ],
             "description": "Gaming Hub Core plugin: domain models (Games, Servers, Instances, Providers), capability decisions, and data normalization. Never speaks to connectors directly — that's Panel's job.",
             "support": {
-                "source": "https://github.com/GamingHubProject/Core/tree/v0.1.030",
+                "source": "https://github.com/GamingHubProject/Core/tree/stage-a-capability-registry",
                 "issues": "https://github.com/GamingHubProject/Core/issues"
             },
-            "time": "2026-08-15T04:35:15+00:00"
+            "time": "2026-08-15T14:13:03+00:00"
         },
         {
             "name": "graham-campbell/result-type",
@@ -10246,7 +10247,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "gaminghubproject/core": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

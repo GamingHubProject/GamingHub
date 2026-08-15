@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Filament\Resources\ServerResource\RelationManagers\ProvidersRelationManager;
 use App\Models\ConnectorInstance;
 use App\Models\User;
+use GamingHub\Core\Models\Capability;
 use GamingHub\Core\Models\Provider;
 use GamingHub\Core\Models\Server;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -143,5 +144,53 @@ class ProvidersRelationManagerTest extends TestCase
             ->assertHasNoTableActionErrors();
 
         $this->assertSame(0, Provider::where('server_id', $server->id)->firstOrFail()->priority);
+    }
+
+    public function test_can_add_a_manual_provider_from_the_capability_registry(): void
+    {
+        Capability::create(['id' => 'server-status', 'name' => 'Server Status']);
+        $server = Server::factory()->create();
+
+        Livewire::test(ProvidersRelationManager::class, [
+            'ownerRecord' => $server,
+            'pageClass' => \App\Filament\Resources\ServerResource\Pages\EditServer::class,
+        ])
+            ->mountTableAction('create')
+            ->setTableActionData([
+                'type' => 'manual',
+                'capability' => 'server-status',
+                'value' => ['online' => 'true', 'players' => '4'],
+                'status' => 'connected',
+            ])
+            ->callMountedTableAction()
+            ->assertHasNoTableActionErrors();
+
+        $provider = Provider::where('server_id', $server->id)->firstOrFail();
+        $this->assertSame('manual', $provider->type);
+        $this->assertNull($provider->connector_instance_id);
+        $this->assertSame('server-status', $provider->config['capability']);
+        $this->assertSame('true', $provider->config['value']['online']);
+    }
+
+    public function test_editing_a_manual_provider_prefills_capability_and_value(): void
+    {
+        Capability::create(['id' => 'server-status', 'name' => 'Server Status']);
+        $server = Server::factory()->create();
+        $provider = Provider::factory()->create([
+            'server_id' => $server->id,
+            'type' => 'manual',
+            'connector_instance_id' => null,
+            'config' => ['capability' => 'server-status', 'value' => ['online' => 'true']],
+        ]);
+
+        Livewire::test(ProvidersRelationManager::class, [
+            'ownerRecord' => $server,
+            'pageClass' => \App\Filament\Resources\ServerResource\Pages\EditServer::class,
+        ])
+            ->mountTableAction('edit', $provider)
+            ->assertTableActionDataSet([
+                'capability' => 'server-status',
+                'value' => ['online' => 'true'],
+            ]);
     }
 }

@@ -7,7 +7,6 @@ use App\Capabilities\Providers\ConnectorBackedProvider;
 use App\Connectors\ConnectorRegistry;
 use App\Connectors\CurlHttpRequester;
 use App\Connectors\HttpRequestContract;
-use App\Connectors\PelicanConnector;
 use App\Connectors\RestConnector;
 use App\Experience\BlockRegistry;
 use App\Experience\Blocks\GamesListBlock;
@@ -17,6 +16,7 @@ use App\Experience\Blocks\ServerStatusBlock;
 use App\Manager\CurlHttpClient;
 use App\Manager\HttpClientContract;
 use App\Models\Map;
+use GamingHub\Core\Capabilities\CapabilityRegistry;
 use GamingHub\Core\Capabilities\CapabilityRouter;
 use GamingHub\Core\Capabilities\Providers\ManualProvider;
 use GamingHub\Core\Models\Game;
@@ -36,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(BlockRegistry::class);
+        $this->app->singleton(CapabilityRegistry::class);
         $this->app->singleton(CapabilityRouter::class);
         $this->app->singleton(CapabilityGateway::class);
         $this->app->singleton(ConnectorRegistry::class);
@@ -58,7 +59,18 @@ class AppServiceProvider extends ServiceProvider
 
         $connectors = $this->app->make(ConnectorRegistry::class);
         $connectors->register(RestConnector::class);
-        $connectors->register(PelicanConnector::class);
+
+        // Pelican is no longer hardcoded here — it's registered as a
+        // Connector package (storage/app/packages/pelican-connector/
+        // connector.json) and loaded by PackageLoader instead, the same
+        // way any other installed Connector would be. Deliberately NOT
+        // called eagerly here: boot() runs on every artisan command,
+        // including `migrate` on a brand-new database before
+        // installed_packages exists yet — PackageLoader::loadConnectorPackages()
+        // queries that table, so calling it unconditionally at boot would
+        // break a fresh install. ConnectorRegistry::get() calls it lazily
+        // on a cache miss instead, which only ever happens once real
+        // capability resolution is underway (well after migrations).
 
         // Normalizers are always registered here — being *registered* isn't
         // the same as being *usable*. ConnectorBackedProvider checks the

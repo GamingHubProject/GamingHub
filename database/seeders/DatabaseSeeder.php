@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use GamingHub\Core\Database\Seeders\CapabilitySeeder;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -14,6 +15,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(RoleSeeder::class);
+        $this->call(CapabilitySeeder::class);
 
         $admin = User::factory()->create([
             'name' => 'Admin',

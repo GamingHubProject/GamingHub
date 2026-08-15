@@ -1,0 +1,9 @@
+{
+    "name": "Widget Status (test fixture)",
+    "class": "GamingHubFixtures\\WidgetStatus\\WidgetStatusConnector",
+    "autoload": {
+        "prefix": "GamingHubFixtures\\WidgetStatus\\",
+        "path": "src"
+    },
+    "capabilities": ["server-status"]
+}

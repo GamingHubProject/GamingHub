@@ -19,10 +19,10 @@ use Illuminate\Database\Eloquent\Model;
  *
  * For a Server, resolution walks its Providers as a priority stack (see
  * Provider.priority, admin-reorderable in ProvidersRelationManager — "REST
- * above Pelican above defaults"): each provider is tried in order, its
- * normalizer decides whether it even serves the requested capability, and
- * fields are merged so a lower-priority provider only fills gaps rather
- * than overwriting a field a higher-priority one already answered. A
+ * above Pelican above a Manual entry"): each provider is tried in order —
+ * connector-backed or manual, dispatched via Provider.type — and fields are
+ * merged so a lower-priority provider only fills gaps rather than
+ * overwriting a field a higher-priority one already answered. A persisted
  * CapabilityBinding is not part of that stack and is never generated on a
  * Provider's behalf — it is one plain admin-entered "default" value sitting
  * below the whole provider stack, used only when no provider answers.
@@ -132,10 +132,23 @@ class CapabilityGateway
 
     /**
      * Null means this provider is simply not relevant to the requested
-     * capability (its normalizer serves something else) — distinct from an
-     * UNAVAILABLE fetch failure, which still counts as "tried".
+     * capability — distinct from an UNAVAILABLE fetch failure, which still
+     * counts as "tried". Dispatches on Provider.type: each type builds its
+     * own in-memory CapabilityBinding (never persisted — this is the
+     * priority stack itself, not the separate CapabilityBinding table) and
+     * hands it to that type's registered CapabilityProviderContract, so
+     * adding a third provider type later means one more match arm here,
+     * not a rewrite of probe()/hasSupport().
      */
     protected function probeProvider(Provider $provider, string $capability): ?CapabilityValue
+    {
+        return match ($provider->type) {
+            'manual' => $this->probeManualProvider($provider, $capability),
+            default => $this->probeConnectorProvider($provider, $capability),
+        };
+    }
+
+    protected function probeConnectorProvider(Provider $provider, string $capability): ?CapabilityValue
     {
         $normalizerId = $provider->config['normalizer'] ?? null;
 
@@ -161,10 +174,34 @@ class CapabilityGateway
         return $this->router->providerFor('connector')->fetch($binding);
     }
 
+    protected function probeManualProvider(Provider $provider, string $capability): ?CapabilityValue
+    {
+        if (($provider->config['capability'] ?? null) !== $capability) {
+            return null;
+        }
+
+        $binding = new CapabilityBinding([
+            'capability' => $capability,
+            'provider' => 'manual',
+            'enabled' => true,
+            'value' => $provider->config['value'] ?? [],
+        ]);
+
+        return $this->router->providerFor('manual')->fetch($binding);
+    }
+
     protected function hasSupport(string $capability, Model $subject): bool
     {
         if ($subject instanceof Server) {
             foreach ($this->providerStack($subject) as $provider) {
+                if ($provider->type === 'manual') {
+                    if (($provider->config['capability'] ?? null) === $capability) {
+                        return true;
+                    }
+
+                    continue;
+                }
+
                 $normalizerId = $provider->config['normalizer'] ?? null;
 
                 if ($normalizerId && $this->normalizers->has($normalizerId)
