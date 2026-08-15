@@ -21,6 +21,8 @@ class ConnectorInstance extends Model
         'type',
         'base_url',
         'test_endpoint',
+        'poll_interval_seconds',
+        'last_polled_at',
         'credentials',
         'status',
         'discovered_servers',
@@ -31,6 +33,13 @@ class ConnectorInstance extends Model
         return [
             'credentials' => 'encrypted:array',
             'discovered_servers' => 'array',
+            'last_polled_at' => 'datetime',
         ];
+    }
+
+    public function isDueForPoll(): bool
+    {
+        return ! $this->last_polled_at
+            || $this->last_polled_at->diffInSeconds(now()) >= $this->poll_interval_seconds;
     }
 }

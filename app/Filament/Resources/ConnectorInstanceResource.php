@@ -61,6 +61,13 @@ class ConnectorInstanceResource extends Resource
                                 'A lightweight GET endpoint used only by "Test Connection" to check auth/'
                                 .'reachability — e.g. "/v1/api/info" for Palworld. Not used by capability bindings.'
                             ),
+                        Forms\Components\TextInput::make('poll_interval_seconds')
+                            ->label('Auto-refresh every (seconds)')
+                            ->numeric()
+                            ->minValue(5)
+                            ->default(30)
+                            ->required()
+                            ->helperText('How often the background poller re-checks servers using this connector.'),
                         Forms\Components\Select::make('status')
                             ->options([
                                 'untested' => 'Untested',

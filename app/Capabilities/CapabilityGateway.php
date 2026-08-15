@@ -4,6 +4,8 @@ namespace App\Capabilities;
 
 use GamingHub\Core\Capabilities\CapabilityRouter;
 use GamingHub\Core\Capabilities\CapabilityValue;
+use GamingHub\Core\Models\CapabilityBinding;
+use GamingHub\Core\Models\Provider;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Database\Eloquent\Model;
 
@@ -66,23 +68,62 @@ class CapabilityGateway
         return CapabilityValue::unavailable($capability);
     }
 
+    /**
+     * A (capability, subject) pair can have several bindings at once — e.g.
+     * a server's "server-status" served by both a Pelican provider (cpu/
+     * memory) and a Palworld REST provider (players). Each binding is
+     * fetched, and results are merged field-by-field in priority order: the
+     * first binding to set a key wins that key, so a lower-priority provider
+     * fills in gaps rather than overwriting what a higher-priority one
+     * already answered. Each binding's own Provider row (if any — tracked
+     * via source_provider_id) gets its status/last_check updated from that
+     * individual fetch, independent of the merged result.
+     */
     public function probe(string $capability, Model $subject): CapabilityValue
     {
-        $binding = $this->router->findBinding($capability, $subject);
+        $bindings = $this->router->findBindings($capability, $subject);
 
-        if (! $binding) {
+        if ($bindings->isEmpty()) {
             $value = CapabilityValue::unsupported($capability);
             $this->writeCache($capability, $subject, $value);
 
             return $value;
         }
 
-        $provider = $this->router->providerFor($binding->provider);
-        $value = $provider->fetch($binding);
+        $mergedData = [];
+        $anyOk = false;
 
-        $this->writeCache($capability, $subject, $value);
+        foreach ($bindings as $binding) {
+            $provider = $this->router->providerFor($binding->provider);
+            $value = $provider->fetch($binding);
 
-        return $value;
+            $this->syncProviderStatus($binding, $value);
+
+            if ($value->isOk()) {
+                $anyOk = true;
+                $mergedData += $value->data;
+            }
+        }
+
+        $merged = $anyOk
+            ? CapabilityValue::ok($capability, $mergedData)
+            : CapabilityValue::unavailable($capability);
+
+        $this->writeCache($capability, $subject, $merged);
+
+        return $merged;
+    }
+
+    protected function syncProviderStatus(CapabilityBinding $binding, CapabilityValue $value): void
+    {
+        if (! $binding->source_provider_id) {
+            return;
+        }
+
+        Provider::where('id', $binding->source_provider_id)->update([
+            'status' => $value->isOk() ? 'connected' : 'error',
+            'last_check' => now(),
+        ]);
     }
 
     protected function readCache(string $capability, Model $subject): ?CapabilityValue

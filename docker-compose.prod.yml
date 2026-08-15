@@ -21,6 +21,29 @@ services:
       - postgres
     ports:
       - "${APP_PORT:-8000}:8000"
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    environment:
+      - APP_NAME=${APP_NAME:-Gaming Hub}
+      - APP_ENV=production
+      - APP_KEY=${APP_KEY}
+      - APP_URL=${APP_URL:-http://localhost}
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=${DB_DATABASE:-gaming_hub}
+      - DB_USERNAME=${DB_USERNAME:-gaming_hub}
+      - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - app_storage:/app/storage
+    depends_on:
+      - postgres
+      - app
+    entrypoint: []
+    command: php artisan gaming-hub:poll-providers
   postgres:
     image: postgres:16
     restart: unless-stopped
