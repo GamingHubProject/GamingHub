@@ -17,14 +17,14 @@ use App\Experience\Blocks\ServerStatusBlock;
 use App\Manager\CurlHttpClient;
 use App\Manager\HttpClientContract;
 use App\Models\Map;
-use App\Normalizers\PalworldServerStatusNormalizer;
-use App\Normalizers\PelicanServerStatusNormalizer;
 use GamingHub\Core\Capabilities\CapabilityRouter;
 use GamingHub\Core\Capabilities\Providers\ManualProvider;
 use GamingHub\Core\Models\Game;
 use GamingHub\Core\Models\Instance;
 use GamingHub\Core\Models\Server;
 use GamingHub\Core\Normalizers\NormalizerRegistry;
+use GamingHub\Core\Normalizers\PalworldServerStatusNormalizer;
+use GamingHub\Core\Normalizers\PelicanServerStatusNormalizer;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 

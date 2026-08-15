@@ -10,9 +10,10 @@ use Illuminate\Contracts\View\View;
 
 /**
  * Reads the "server-status" capability through the Capability Gateway. If
- * no CapabilityBinding exists for this server, the gateway returns
- * UNSUPPORTED — that's expected until an admin binds one (or, later, a real
- * Connector is installed) and is not an error state to fix in this block.
+ * this server has no Provider (and no manual default) answering it, the
+ * gateway returns UNSUPPORTED — that's expected until an admin adds a
+ * provider under the server's edit page, and is not an error state to fix
+ * in this block.
  */
 class ServerStatusBlock implements BlockContract
 {

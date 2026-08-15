@@ -6,7 +6,6 @@ use App\Capabilities\CapabilityGateway;
 use App\Connectors\HttpRequestContract;
 use App\Models\ConnectorInstance;
 use App\Models\InstalledPackage;
-use GamingHub\Core\Models\CapabilityBinding;
 use GamingHub\Core\Models\Provider;
 use GamingHub\Core\Models\Server;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,6 +17,8 @@ use Tests\Unit\Connectors\Support\FakeHttpRequester;
  * once — e.g. Pelican (cpu/memory, process-level) and a Palworld REST
  * provider (players, game-level). Neither should overwrite the other's
  * fields; priority only breaks ties when both providers set the *same* key.
+ * This is the Provider priority stack itself — no CapabilityBinding
+ * involved, Provider.config carries everything CapabilityGateway needs.
  */
 class MultiProviderMergeTest extends TestCase
 {
@@ -40,20 +41,11 @@ class MultiProviderMergeTest extends TestCase
 
         $pelicanProvider = Provider::factory()->create([
             'server_id' => $server->id, 'connector_instance_id' => $pelican->id, 'priority' => 0,
+            'config' => ['normalizer' => 'pelican-server-status', 'call' => ['server_identifier' => 'srv1']],
         ]);
         $palworldProvider = Provider::factory()->create([
             'server_id' => $server->id, 'connector_instance_id' => $palworld->id, 'priority' => 1,
-        ]);
-
-        CapabilityBinding::create([
-            'capability' => 'server-status', 'subject_type' => 'server', 'subject_id' => $server->id,
-            'provider' => 'connector', 'priority' => 0, 'source_provider_id' => $pelicanProvider->id, 'enabled' => true,
-            'value' => ['connector_instance_id' => $pelican->id, 'call' => ['server_identifier' => 'srv1'], 'normalizer' => 'pelican-server-status'],
-        ]);
-        CapabilityBinding::create([
-            'capability' => 'server-status', 'subject_type' => 'server', 'subject_id' => $server->id,
-            'provider' => 'connector', 'priority' => 1, 'source_provider_id' => $palworldProvider->id, 'enabled' => true,
-            'value' => ['connector_instance_id' => $palworld->id, 'call' => ['endpoint' => '/v1/api/metrics'], 'normalizer' => 'palworld-server-status'],
+            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
         ]);
 
         $fake = new FakeHttpRequester;
@@ -97,20 +89,11 @@ class MultiProviderMergeTest extends TestCase
 
         $pelicanProvider = Provider::factory()->create([
             'server_id' => $server->id, 'connector_instance_id' => $pelican->id, 'priority' => 0,
+            'config' => ['normalizer' => 'pelican-server-status', 'call' => ['server_identifier' => 'srv1']],
         ]);
         $palworldProvider = Provider::factory()->create([
             'server_id' => $server->id, 'connector_instance_id' => $palworld->id, 'priority' => 1,
-        ]);
-
-        CapabilityBinding::create([
-            'capability' => 'server-status', 'subject_type' => 'server', 'subject_id' => $server->id,
-            'provider' => 'connector', 'priority' => 0, 'source_provider_id' => $pelicanProvider->id, 'enabled' => true,
-            'value' => ['connector_instance_id' => $pelican->id, 'call' => ['server_identifier' => 'srv1'], 'normalizer' => 'pelican-server-status'],
-        ]);
-        CapabilityBinding::create([
-            'capability' => 'server-status', 'subject_type' => 'server', 'subject_id' => $server->id,
-            'provider' => 'connector', 'priority' => 1, 'source_provider_id' => $palworldProvider->id, 'enabled' => true,
-            'value' => ['connector_instance_id' => $palworld->id, 'call' => ['endpoint' => '/v1/api/metrics'], 'normalizer' => 'palworld-server-status'],
+            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
         ]);
 
         $fake = new FakeHttpRequester;
@@ -126,5 +109,28 @@ class MultiProviderMergeTest extends TestCase
 
         $this->assertSame('error', $pelicanProvider->fresh()->status);
         $this->assertSame('connected', $palworldProvider->fresh()->status);
+    }
+
+    public function test_a_provider_whose_normalizer_serves_a_different_capability_is_skipped(): void
+    {
+        InstalledPackage::factory()->create(['slug' => 'palworld-integration', 'status' => 'enabled']);
+        $server = Server::factory()->create();
+
+        $connector = ConnectorInstance::create([
+            'name' => 'Palworld REST', 'type' => 'rest', 'base_url' => 'http://palworld:8212',
+            'credentials' => ['username' => 'admin', 'password' => 'secret'],
+        ]);
+        Provider::factory()->create([
+            'server_id' => $server->id, 'connector_instance_id' => $connector->id,
+            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
+        ]);
+
+        $fake = new FakeHttpRequester;
+        $fake->willReturn(200, json_encode(['currentplayernum' => 5, 'maxplayernum' => 20]));
+        $this->app->instance(HttpRequestContract::class, $fake);
+
+        $value = app(CapabilityGateway::class)->probe('player-positions', $server);
+
+        $this->assertSame(\GamingHub\Core\Capabilities\CapabilityValue::UNSUPPORTED, $value->status);
     }
 }

@@ -31,8 +31,8 @@ class ConnectorInstanceResource extends Resource
                 Forms\Components\Section::make('Connection')
                     ->description(
                         'A credentialed connection to one external system — e.g. one Palworld '
-                        .'server\'s REST API, or one Pelican panel. Bind capabilities to this '
-                        .'under Capabilities → Bindings.'
+                        .'server\'s REST API, or one Pelican panel. Use it as a provider under a '
+                        .'Server\'s edit page → Providers.'
                     )
                     ->schema([
                         Forms\Components\TextInput::make('name')

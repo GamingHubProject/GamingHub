@@ -6,19 +6,29 @@ use GamingHub\Core\Capabilities\CapabilityRouter;
 use GamingHub\Core\Capabilities\CapabilityValue;
 use GamingHub\Core\Models\CapabilityBinding;
 use GamingHub\Core\Models\Provider;
+use GamingHub\Core\Models\Server;
+use GamingHub\Core\Normalizers\NormalizerRegistry;
 use Illuminate\Contracts\Cache\Repository as Cache;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * The single entry point Hub Extensions use to read a capability — Platform
  * acting as Panel. They never know or care whether the value came from
- * REST, RCON, a database, or a manually-entered admin value. This class
- * owns orchestration/caching only; the decision of *which* provider serves
- * a capability is Core's CapabilityRouter, and normalization is the
- * provider's own job (see GamingHub\Core\Contracts\CapabilityProviderContract).
+ * REST, RCON, a database, or a manually-entered admin value.
+ *
+ * For a Server, resolution walks its Providers as a priority stack (see
+ * Provider.priority, admin-reorderable in ProvidersRelationManager — "REST
+ * above Pelican above defaults"): each provider is tried in order, its
+ * normalizer decides whether it even serves the requested capability, and
+ * fields are merged so a lower-priority provider only fills gaps rather
+ * than overwriting a field a higher-priority one already answered. A
+ * CapabilityBinding is not part of that stack and is never generated on a
+ * Provider's behalf — it is one plain admin-entered "default" value sitting
+ * below the whole provider stack, used only when no provider answers.
  *
  * inspect() is metadata-only and never triggers a live fetch. probe() is an
- * explicit runtime call that always hits the provider. get() is the normal
+ * explicit runtime call that always hits providers. get() is the normal
  * convenience path: return a fresh cached value if there is one, otherwise
  * probe.
  */
@@ -29,6 +39,7 @@ class CapabilityGateway
 
     public function __construct(
         protected CapabilityRouter $router,
+        protected NormalizerRegistry $normalizers,
         protected Cache $cache,
     ) {}
 
@@ -56,74 +67,114 @@ class CapabilityGateway
                 : CapabilityValue::stale($capability, $cached->data, $cached->resolvedAt);
         }
 
-        $binding = $this->router->findBinding($capability, $subject);
-
-        if (! $binding) {
+        if (! $this->hasSupport($capability, $subject)) {
             return CapabilityValue::unsupported($capability);
         }
 
-        // Bound (supported) but no cached value exists — inspect() never
-        // fetches, so a value that hasn't been probed yet is indistinguishable
-        // from one whose provider is currently down: both are UNAVAILABLE.
+        // Supported but no cached value exists — inspect() never fetches, so
+        // a value that hasn't been probed yet is indistinguishable from one
+        // whose provider is currently down: both are UNAVAILABLE.
         return CapabilityValue::unavailable($capability);
     }
 
-    /**
-     * A (capability, subject) pair can have several bindings at once — e.g.
-     * a server's "server-status" served by both a Pelican provider (cpu/
-     * memory) and a Palworld REST provider (players). Each binding is
-     * fetched, and results are merged field-by-field in priority order: the
-     * first binding to set a key wins that key, so a lower-priority provider
-     * fills in gaps rather than overwriting what a higher-priority one
-     * already answered. Each binding's own Provider row (if any — tracked
-     * via source_provider_id) gets its status/last_check updated from that
-     * individual fetch, independent of the merged result.
-     */
     public function probe(string $capability, Model $subject): CapabilityValue
     {
-        $bindings = $this->router->findBindings($capability, $subject);
-
-        if ($bindings->isEmpty()) {
-            $value = CapabilityValue::unsupported($capability);
-            $this->writeCache($capability, $subject, $value);
-
-            return $value;
-        }
-
         $mergedData = [];
         $anyOk = false;
 
-        foreach ($bindings as $binding) {
-            $provider = $this->router->providerFor($binding->provider);
-            $value = $provider->fetch($binding);
+        if ($subject instanceof Server) {
+            foreach ($this->providerStack($subject) as $provider) {
+                $value = $this->probeProvider($provider, $capability);
 
-            $this->syncProviderStatus($binding, $value);
+                if ($value === null) {
+                    continue; // this provider's normalizer doesn't serve this capability at all
+                }
 
-            if ($value->isOk()) {
-                $anyOk = true;
-                $mergedData += $value->data;
+                $provider->update(['status' => $value->isOk() ? 'connected' : 'error', 'last_check' => now()]);
+
+                if ($value->isOk()) {
+                    $anyOk = true;
+                    $mergedData += $value->data;
+                }
             }
         }
 
-        $merged = $anyOk
-            ? CapabilityValue::ok($capability, $mergedData)
-            : CapabilityValue::unavailable($capability);
+        // Bottom of the stack: one admin-entered "default", no I/O.
+        $binding = $this->router->findBinding($capability, $subject);
+
+        if ($binding) {
+            $defaultValue = $this->router->providerFor($binding->provider)->fetch($binding);
+
+            if ($defaultValue->isOk()) {
+                $anyOk = true;
+                $mergedData += $defaultValue->data;
+            }
+        }
+
+        $merged = match (true) {
+            $anyOk => CapabilityValue::ok($capability, $mergedData),
+            $this->hasSupport($capability, $subject) => CapabilityValue::unavailable($capability),
+            default => CapabilityValue::unsupported($capability),
+        };
 
         $this->writeCache($capability, $subject, $merged);
 
         return $merged;
     }
 
-    protected function syncProviderStatus(CapabilityBinding $binding, CapabilityValue $value): void
+    /**
+     * @return Collection<int, Provider>
+     */
+    protected function providerStack(Server $server): Collection
     {
-        if (! $binding->source_provider_id) {
-            return;
+        return Provider::where('server_id', $server->id)->orderBy('priority')->orderBy('id')->get();
+    }
+
+    /**
+     * Null means this provider is simply not relevant to the requested
+     * capability (its normalizer serves something else) — distinct from an
+     * UNAVAILABLE fetch failure, which still counts as "tried".
+     */
+    protected function probeProvider(Provider $provider, string $capability): ?CapabilityValue
+    {
+        $normalizerId = $provider->config['normalizer'] ?? null;
+
+        if (! $normalizerId || ! $this->normalizers->has($normalizerId)) {
+            return null;
         }
 
-        Provider::where('id', $binding->source_provider_id)->update([
-            'status' => $value->isOk() ? 'connected' : 'error',
-            'last_check' => now(),
+        if ($this->normalizers->get($normalizerId)->capability() !== $capability) {
+            return null;
+        }
+
+        $binding = new CapabilityBinding([
+            'capability' => $capability,
+            'provider' => 'connector',
+            'enabled' => true,
+            'value' => [
+                'connector_instance_id' => $provider->connector_instance_id,
+                'call' => $provider->config['call'] ?? [],
+                'normalizer' => $normalizerId,
+            ],
         ]);
+
+        return $this->router->providerFor('connector')->fetch($binding);
+    }
+
+    protected function hasSupport(string $capability, Model $subject): bool
+    {
+        if ($subject instanceof Server) {
+            foreach ($this->providerStack($subject) as $provider) {
+                $normalizerId = $provider->config['normalizer'] ?? null;
+
+                if ($normalizerId && $this->normalizers->has($normalizerId)
+                    && $this->normalizers->get($normalizerId)->capability() === $capability) {
+                    return true;
+                }
+            }
+        }
+
+        return (bool) $this->router->findBinding($capability, $subject);
     }
 
     protected function readCache(string $capability, Model $subject): ?CapabilityValue

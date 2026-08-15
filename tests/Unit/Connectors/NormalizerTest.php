@@ -2,9 +2,9 @@
 
 namespace Tests\Unit\Connectors;
 
-use App\Normalizers\PalworldServerStatusNormalizer;
-use App\Normalizers\PelicanServerStatusNormalizer;
 use GamingHub\Core\Capabilities\CapabilityValue;
+use GamingHub\Core\Normalizers\PalworldServerStatusNormalizer;
+use GamingHub\Core\Normalizers\PelicanServerStatusNormalizer;
 use PHPUnit\Framework\TestCase;
 
 class NormalizerTest extends TestCase
@@ -31,6 +31,11 @@ class NormalizerTest extends TestCase
         $value = (new PalworldServerStatusNormalizer)->normalize(['unexpected' => true]);
 
         $this->assertSame(CapabilityValue::UNAVAILABLE, $value->status);
+    }
+
+    public function test_palworld_normalizer_declares_its_capability(): void
+    {
+        $this->assertSame('server-status', (new PalworldServerStatusNormalizer)->capability());
     }
 
     public function test_pelican_normalizer_parses_real_resources_shape(): void
@@ -68,5 +73,10 @@ class NormalizerTest extends TestCase
         $value = (new PelicanServerStatusNormalizer)->normalize(['unexpected' => true]);
 
         $this->assertSame(CapabilityValue::UNAVAILABLE, $value->status);
+    }
+
+    public function test_pelican_normalizer_declares_its_capability(): void
+    {
+        $this->assertSame('server-status', (new PelicanServerStatusNormalizer)->capability());
     }
 }

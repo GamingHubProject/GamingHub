@@ -1,6 +1,6 @@
 # Gaming Hub Platform
 
-**v0.1.100** — Standalone modular Laravel platform for game communities.
+**v0.1.110** — Standalone modular Laravel platform for game communities.
 
 Gaming Hub connects games (Palworld, BDO, ARK, etc.) to the communities playing them. It's a
 Docker-based Laravel monolith built to run comfortably on a small VPS — not an Azuriom plugin,
@@ -157,33 +157,36 @@ Core side.
   and if it's Pelican, a second select shows that connector's actual discovered UUIDs to pick
   from — never a blind identifier to type in
 
-**Multi-provider merge + background auto-refresh**
-- A `(capability, subject)` pair can now have more than one `CapabilityBinding` — e.g. a server's
-  `server-status` served by both a Pelican provider (cpu/memory, process-level) and a Palworld REST
-  provider (players, game-level). `CapabilityGateway::probe()` fetches every binding and merges
-  their data **field-by-field in priority order**: the first provider to set a key wins that key, so
-  a lower-priority provider fills gaps instead of overwriting what a higher-priority one already
-  answered — Pelican's cpu/memory never blanks out Palworld's player count, or vice versa
-- `Provider.priority` (drag-reorderable in `ProvidersRelationManager`) and the matching
-  `CapabilityBinding.priority` it drives control merge order; `CapabilityBinding.source_provider_id`
-  is a soft reference back to the `Provider` that created it, so Platform can sync or remove exactly
-  one binding per provider
-- **"Add provider" now actually wires into the capability system** — previously it only wrote a
-  `Provider` row with no connection to `CapabilityBinding` at all. Adding/editing a provider now
-  auto-creates/updates its `CapabilityBinding` (capability, call config, normalizer); deleting a
-  provider removes it
-- Each `CapabilityGateway::probe()` call updates the originating `Provider.status`
-  (connected/error) from that individual fetch, independent of the merged result — this is what
-  makes Provider status automated instead of a hand-set dropdown
-- **`gaming-hub:poll-providers`** — a long-running daemon command (own container, service
-  `scheduler` in both compose files) that wakes every second and probes each `ConnectorInstance`
-  once its own `poll_interval_seconds` has elapsed (admin-configurable per connector, default 30s).
-  Refreshes `Server.status`/`current_players`/`max_players`/`cpu_usage_percent`/`memory_usage_bytes`
-  from the merged capability data. Laravel's built-in scheduler tops out at once-a-minute
-  resolution — too coarse for a per-connector "refresh every N seconds" setting — so this runs as
-  its own process instead
-- Dropped the old one-binding-per-`(capability, subject)` unique constraint on
-  `capability_bindings` now that several providers can legitimately share a capability
+**Provider priority stack — the real routing mechanism, not CapabilityBinding**
+- Reworked after review: a `CapabilityBinding` record auto-generated per `Provider` behind the
+  scenes was the wrong shape — it added an indirection nobody edited directly and duplicated what
+  `Provider` already knew. **`Provider` is now the routing entry itself.** `CapabilityGateway`
+  queries `Server->providers()` directly, ordered by `Provider.priority` (drag-reorderable in
+  `ProvidersRelationManager` — "REST above Pelican above defaults"), and walks the stack: each
+  provider's chosen normalizer declares which capability it serves (`NormalizerContract::capability()`),
+  so a provider is skipped entirely if it doesn't answer the capability being requested
+- Fields still merge, not overwrite: the first (highest-priority) provider to set a key wins that
+  key, so a lower-priority provider only fills gaps — Pelican's cpu/memory (process-level) never
+  blanks out Palworld's player count (game-level), or vice versa
+- `CapabilityBinding` goes back to being what its name says: **one plain admin-entered "default"
+  value**, sitting below the whole provider stack, used only when no provider answers. It is never
+  generated on a Provider's behalf and has no priority/provider-linking columns of its own anymore
+- Removed the "Edit Capability Binding" admin form entirely (`CapabilityBindingResource` and its
+  Create/Edit/List pages) — there is no separate binding to hand-configure for provider-backed
+  data now; "Add provider" on a Server's edit page is the whole UI
+- **Normalizers moved into Core** (`GamingHub\Core\Normalizers\PalworldServerStatusNormalizer`,
+  `PelicanServerStatusNormalizer`) — they were sitting in Platform (`App\Normalizers`), which
+  violated the documented Core/Platform split (data normalization is explicitly Core's job).
+  Platform's `AppServiceProvider` still decides *when* one is registered/enabled; it no longer
+  authors the normalization logic itself
+- Each provider's own fetch still updates its `Provider.status` (connected/error) independent of
+  the merged result — unchanged, this is what makes status automated instead of a hand-set dropdown
+- **`gaming-hub:poll-providers`** — unchanged: a long-running daemon command (own container,
+  service `scheduler` in both compose files) that wakes every second and probes each
+  `ConnectorInstance` once its own `poll_interval_seconds` has elapsed (admin-configurable per
+  connector, default 30s), refreshing `Server.status`/`current_players`/`max_players`/
+  `cpu_usage_percent`/`memory_usage_bytes` from the provider stack. Laravel's built-in scheduler
+  tops out at once-a-minute resolution — too coarse for a per-connector "every N seconds" setting
 
 **Package lifecycle — made real, not decorative**
 - `InstalledPackage.status` now actually gates behavior. `ConnectorBackedProvider` checks (fresh,

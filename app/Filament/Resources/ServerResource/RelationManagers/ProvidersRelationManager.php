@@ -9,8 +9,6 @@ use Filament\Forms\Get;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
-use GamingHub\Core\Models\CapabilityBinding;
-use GamingHub\Core\Models\Provider;
 
 /**
  * "Add provider" on a Server's edit page — bind this server to a
@@ -20,20 +18,18 @@ use GamingHub\Core\Models\Provider;
  * (Provider itself only holds a soft connector_instance_id reference — see
  * its docblock in Core for why).
  *
- * Each Provider drives its own CapabilityBinding (kept in sync here, see
- * syncBinding/removeBinding) so "Add provider" actually wires into the real
- * capability system instead of being a disconnected list. Priority controls
- * both drag-reorder here and the merge order CapabilityGateway uses when
- * more than one provider answers the same capability for this server — e.g.
- * a Pelican provider (cpu/memory) and a Palworld REST provider (players)
- * both feed "server-status" without either one overwriting the other's
- * fields (see CapabilityGateway::probe()).
+ * This IS the routing mechanism — not a separately-maintained
+ * CapabilityBinding. This drag-reorderable list ("REST above Pelican above
+ * defaults") is exactly the priority CapabilityGateway::probe() walks: it
+ * queries Provider rows for this server directly, in this order, merging
+ * fields so a lower-priority provider only fills gaps a higher-priority one
+ * left open rather than overwriting them.
  */
 class ProvidersRelationManager extends RelationManager
 {
     protected static string $relationship = 'providers';
 
-    /** Which normalizer(s) a connector type can drive — and the capability/call config each implies. */
+    /** Which normalizer(s) a connector type can drive, and the label shown for each in the "Provides" select. */
     protected const NORMALIZERS_BY_TYPE = [
         'pelican' => [
             'pelican-server-status' => 'Server Status (CPU / Memory / Online)',
@@ -41,6 +37,11 @@ class ProvidersRelationManager extends RelationManager
         'rest' => [
             'palworld-server-status' => 'Palworld — Server Status (Players / Online)',
         ],
+    ];
+
+    /** The REST call each normalizer expects — Pelican's call config is built from the picked UUID instead, see packConfig(). */
+    protected const REST_CALL_BY_NORMALIZER = [
+        'palworld-server-status' => ['endpoint' => '/v1/api/metrics'],
     ];
 
     public function form(Form $form): Form
@@ -71,7 +72,7 @@ class ProvidersRelationManager extends RelationManager
                     ->numeric()
                     ->default(0)
                     ->required()
-                    ->helperText('Lower number = tried/merged first when another provider answers the same field.'),
+                    ->helperText('Lower number = tried first, and wins any field another provider also answers. Drag rows below to reorder.'),
                 Forms\Components\Select::make('status')
                     ->options([
                         'connected' => 'Connected',
@@ -116,16 +117,13 @@ class ProvidersRelationManager extends RelationManager
             ->headerActions([
                 Tables\Actions\CreateAction::make()
                     ->label('Add provider')
-                    ->mutateFormDataUsing(fn (array $data) => self::packConfig($data))
-                    ->after(fn ($record) => self::syncBinding($record)),
+                    ->mutateFormDataUsing(fn (array $data) => self::packConfig($data)),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->mutateRecordDataUsing(fn (array $data) => self::unpackConfig($data))
-                    ->mutateFormDataUsing(fn (array $data) => self::packConfig($data))
-                    ->after(fn ($record) => self::syncBinding($record)),
-                Tables\Actions\DeleteAction::make()
-                    ->before(fn ($record) => self::removeBinding($record)),
+                    ->mutateFormDataUsing(fn (array $data) => self::packConfig($data)),
+                Tables\Actions\DeleteAction::make(),
             ]);
     }
 
@@ -136,9 +134,17 @@ class ProvidersRelationManager extends RelationManager
 
     protected static function packConfig(array $data): array
     {
+        $normalizerId = $data['normalizer'] ?? null;
+        $connectorType = self::connectorType($data['connector_instance_id'] ?? null);
+
+        $call = $connectorType === 'pelican'
+            ? array_filter(['server_identifier' => $data['server_identifier'] ?? null])
+            : (self::REST_CALL_BY_NORMALIZER[$normalizerId] ?? []);
+
         $data['config'] = array_filter([
             'server_identifier' => $data['server_identifier'] ?? null,
-            'normalizer' => $data['normalizer'] ?? null,
+            'normalizer' => $normalizerId,
+            'call' => $call ?: null,
         ]);
 
         unset($data['server_identifier'], $data['normalizer']);
@@ -152,47 +158,5 @@ class ProvidersRelationManager extends RelationManager
         $data['normalizer'] = $data['config']['normalizer'] ?? null;
 
         return $data;
-    }
-
-    /**
-     * Every normalizer currently in use maps to the "server-status"
-     * capability — different providers contribute different fields within
-     * it (see the class docblock). If a normalizer ever needs its own
-     * capability, look it up here instead of assuming.
-     */
-    protected static function syncBinding(Provider $record): void
-    {
-        $connector = ConnectorInstance::find($record->connector_instance_id);
-        $normalizerId = $record->config['normalizer'] ?? null;
-
-        if (! $connector || ! $normalizerId) {
-            return;
-        }
-
-        $call = $connector->type === 'pelican'
-            ? ['server_identifier' => $record->config['server_identifier'] ?? null]
-            : ['endpoint' => '/v1/api/metrics'];
-
-        CapabilityBinding::updateOrCreate(
-            ['source_provider_id' => $record->id],
-            [
-                'capability' => 'server-status',
-                'subject_type' => 'server',
-                'subject_id' => $record->server_id,
-                'provider' => 'connector',
-                'priority' => $record->priority,
-                'enabled' => true,
-                'value' => [
-                    'connector_instance_id' => $connector->id,
-                    'call' => $call,
-                    'normalizer' => $normalizerId,
-                ],
-            ]
-        );
-    }
-
-    protected static function removeBinding(Provider $record): void
-    {
-        CapabilityBinding::where('source_provider_id', $record->id)->delete();
     }
 }

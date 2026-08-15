@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Connectors\HttpRequestContract;
 use App\Models\ConnectorInstance;
 use App\Models\InstalledPackage;
-use GamingHub\Core\Models\CapabilityBinding;
 use GamingHub\Core\Models\Provider;
 use GamingHub\Core\Models\Server;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,11 +27,7 @@ class PollProvidersCommandTest extends TestCase
         ]);
         $provider = Provider::factory()->create([
             'server_id' => $server->id, 'connector_instance_id' => $connector->id, 'status' => 'disconnected',
-        ]);
-        CapabilityBinding::create([
-            'capability' => 'server-status', 'subject_type' => 'server', 'subject_id' => $server->id,
-            'provider' => 'connector', 'source_provider_id' => $provider->id, 'enabled' => true,
-            'value' => ['connector_instance_id' => $connector->id, 'call' => ['endpoint' => '/v1/api/metrics'], 'normalizer' => 'palworld-server-status'],
+            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
         ]);
 
         $fake = new FakeHttpRequester;
@@ -61,11 +56,9 @@ class PollProvidersCommandTest extends TestCase
             'poll_interval_seconds' => 300,
             'last_polled_at' => now(),
         ]);
-        $provider = Provider::factory()->create(['server_id' => $server->id, 'connector_instance_id' => $connector->id]);
-        CapabilityBinding::create([
-            'capability' => 'server-status', 'subject_type' => 'server', 'subject_id' => $server->id,
-            'provider' => 'connector', 'source_provider_id' => $provider->id, 'enabled' => true,
-            'value' => ['connector_instance_id' => $connector->id, 'call' => ['endpoint' => '/v1/api/metrics'], 'normalizer' => 'palworld-server-status'],
+        Provider::factory()->create([
+            'server_id' => $server->id, 'connector_instance_id' => $connector->id,
+            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
         ]);
 
         $fake = new FakeHttpRequester;

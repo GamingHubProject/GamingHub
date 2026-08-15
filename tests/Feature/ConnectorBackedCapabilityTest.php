@@ -6,7 +6,7 @@ use App\Capabilities\CapabilityGateway;
 use App\Connectors\HttpRequestContract;
 use App\Models\ConnectorInstance;
 use App\Models\InstalledPackage;
-use GamingHub\Core\Models\CapabilityBinding;
+use GamingHub\Core\Models\Provider;
 use GamingHub\Core\Models\Server;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -28,17 +28,10 @@ class ConnectorBackedCapabilityTest extends TestCase
             'credentials' => ['username' => 'admin', 'password' => 'secret'],
         ]);
 
-        CapabilityBinding::create([
-            'capability' => 'server-status',
-            'subject_type' => 'server',
-            'subject_id' => $server->id,
-            'provider' => 'connector',
-            'enabled' => true,
-            'value' => [
-                'connector_instance_id' => $connector->id,
-                'call' => ['endpoint' => '/v1/api/metrics'],
-                'normalizer' => 'palworld-server-status',
-            ],
+        Provider::factory()->create([
+            'server_id' => $server->id,
+            'connector_instance_id' => $connector->id,
+            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
         ]);
 
         $fake = new FakeHttpRequester;
@@ -70,17 +63,10 @@ class ConnectorBackedCapabilityTest extends TestCase
             'credentials' => ['application_token' => 'ptla_admin', 'client_token' => 'ptlc_test'],
         ]);
 
-        CapabilityBinding::create([
-            'capability' => 'server-status',
-            'subject_type' => 'server',
-            'subject_id' => $server->id,
-            'provider' => 'connector',
-            'enabled' => true,
-            'value' => [
-                'connector_instance_id' => $connector->id,
-                'call' => ['server_identifier' => 'srv123'],
-                'normalizer' => 'pelican-server-status',
-            ],
+        Provider::factory()->create([
+            'server_id' => $server->id,
+            'connector_instance_id' => $connector->id,
+            'config' => ['normalizer' => 'pelican-server-status', 'call' => ['server_identifier' => 'srv123']],
         ]);
 
         $fake = new FakeHttpRequester;
@@ -114,17 +100,10 @@ class ConnectorBackedCapabilityTest extends TestCase
             'credentials' => [],
         ]);
 
-        CapabilityBinding::create([
-            'capability' => 'server-status',
-            'subject_type' => 'server',
-            'subject_id' => $server->id,
-            'provider' => 'connector',
-            'enabled' => true,
-            'value' => [
-                'connector_instance_id' => $connector->id,
-                'call' => ['endpoint' => '/v1/api/metrics'],
-                'normalizer' => 'palworld-server-status',
-            ],
+        Provider::factory()->create([
+            'server_id' => $server->id,
+            'connector_instance_id' => $connector->id,
+            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
         ]);
 
         $fake = new FakeHttpRequester;
@@ -148,17 +127,10 @@ class ConnectorBackedCapabilityTest extends TestCase
             'credentials' => ['username' => 'admin', 'password' => 'secret'],
         ]);
 
-        $binding = CapabilityBinding::create([
-            'capability' => 'server-status',
-            'subject_type' => 'server',
-            'subject_id' => $server->id,
-            'provider' => 'connector',
-            'enabled' => true,
-            'value' => [
-                'connector_instance_id' => $connector->id,
-                'call' => ['endpoint' => '/v1/api/metrics'],
-                'normalizer' => 'palworld-server-status',
-            ],
+        Provider::factory()->create([
+            'server_id' => $server->id,
+            'connector_instance_id' => $connector->id,
+            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
         ]);
 
         $fake = new FakeHttpRequester;
@@ -169,7 +141,7 @@ class ConnectorBackedCapabilityTest extends TestCase
         $gateway = app(CapabilityGateway::class);
         $this->assertTrue($gateway->probe('server-status', $server)->isOk());
 
-        // Disable the package — the exact same binding, same connector, same
+        // Disable the package — the exact same provider, same connector, same
         // live server, must now report UNAVAILABLE. This is what makes
         // "disable" real instead of a DB flag nothing reads.
         $package->update(['status' => 'disabled']);

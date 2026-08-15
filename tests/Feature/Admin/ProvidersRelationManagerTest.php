@@ -5,7 +5,6 @@ namespace Tests\Feature\Admin;
 use App\Filament\Resources\ServerResource\RelationManagers\ProvidersRelationManager;
 use App\Models\ConnectorInstance;
 use App\Models\User;
-use GamingHub\Core\Models\CapabilityBinding;
 use GamingHub\Core\Models\Provider;
 use GamingHub\Core\Models\Server;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -55,12 +54,8 @@ class ProvidersRelationManagerTest extends TestCase
         $this->assertSame($connector->id, $provider->connector_instance_id);
         $this->assertSame('d3aac351', $provider->config['server_identifier']);
         $this->assertSame('connected', $provider->status);
-
-        $binding = CapabilityBinding::where('source_provider_id', $provider->id)->firstOrFail();
-        $this->assertSame('server-status', $binding->capability);
-        $this->assertSame($server->id, $binding->subject_id);
-        $this->assertSame('pelican-server-status', $binding->value['normalizer']);
-        $this->assertSame('d3aac351', $binding->value['call']['server_identifier']);
+        $this->assertSame('pelican-server-status', $provider->config['normalizer']);
+        $this->assertSame('d3aac351', $provider->config['call']['server_identifier']);
     }
 
     public function test_can_add_a_rest_provider_without_a_uuid(): void
@@ -83,25 +78,18 @@ class ProvidersRelationManagerTest extends TestCase
 
         $provider = Provider::where('server_id', $server->id)->firstOrFail();
         $this->assertSame($connector->id, $provider->connector_instance_id);
-        $this->assertSame(['normalizer' => 'palworld-server-status'], $provider->config);
-
-        $binding = CapabilityBinding::where('source_provider_id', $provider->id)->firstOrFail();
-        $this->assertSame('/v1/api/metrics', $binding->value['call']['endpoint']);
+        $this->assertSame('palworld-server-status', $provider->config['normalizer']);
+        $this->assertSame('/v1/api/metrics', $provider->config['call']['endpoint']);
     }
 
-    public function test_deleting_a_provider_removes_its_capability_binding(): void
+    public function test_deleting_a_provider_removes_it(): void
     {
         $server = Server::factory()->create();
         $connector = ConnectorInstance::factory()->create(['type' => 'rest']);
         $provider = Provider::factory()->create([
             'server_id' => $server->id,
             'connector_instance_id' => $connector->id,
-            'config' => ['normalizer' => 'palworld-server-status'],
-        ]);
-        CapabilityBinding::create([
-            'capability' => 'server-status', 'subject_type' => 'server', 'subject_id' => $server->id,
-            'provider' => 'connector', 'source_provider_id' => $provider->id, 'enabled' => true,
-            'value' => ['connector_instance_id' => $connector->id, 'call' => ['endpoint' => '/v1/api/metrics'], 'normalizer' => 'palworld-server-status'],
+            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
         ]);
 
         Livewire::test(ProvidersRelationManager::class, [
@@ -111,7 +99,6 @@ class ProvidersRelationManagerTest extends TestCase
             ->callTableAction('delete', $provider);
 
         $this->assertDatabaseMissing('providers', ['id' => $provider->id]);
-        $this->assertDatabaseMissing('capability_bindings', ['source_provider_id' => $provider->id]);
     }
 
     public function test_editing_a_provider_prefills_the_uuid(): void
@@ -135,5 +122,26 @@ class ProvidersRelationManagerTest extends TestCase
         ])
             ->mountTableAction('edit', $provider)
             ->assertTableActionDataSet(['server_identifier' => 'd3aac351']);
+    }
+
+    public function test_priority_is_reorderable_and_defaults_to_zero(): void
+    {
+        $server = Server::factory()->create();
+        $connector = ConnectorInstance::factory()->create(['type' => 'rest']);
+
+        Livewire::test(ProvidersRelationManager::class, [
+            'ownerRecord' => $server,
+            'pageClass' => \App\Filament\Resources\ServerResource\Pages\EditServer::class,
+        ])
+            ->mountTableAction('create')
+            ->setTableActionData([
+                'connector_instance_id' => $connector->id,
+                'normalizer' => 'palworld-server-status',
+                'status' => 'connected',
+            ])
+            ->callMountedTableAction()
+            ->assertHasNoTableActionErrors();
+
+        $this->assertSame(0, Provider::where('server_id', $server->id)->firstOrFail()->priority);
     }
 }
