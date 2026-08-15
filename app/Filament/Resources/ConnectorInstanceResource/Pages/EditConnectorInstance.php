@@ -28,6 +28,9 @@ class EditConnectorInstance extends EditRecord
         if (($data['type'] ?? null) === 'pelican') {
             $data['pelican_application_token'] = $credentials['application_token'] ?? null;
             $data['pelican_client_token'] = $credentials['client_token'] ?? null;
+            $data['discovered_servers_display'] = collect($data['discovered_servers'] ?? [])
+                ->mapWithKeys(fn (array $s) => [$s['identifier'] => $s['name']])
+                ->all();
         } elseif (array_key_exists('token', $credentials)) {
             $data['rest_auth_style'] = 'bearer';
             $data['rest_token'] = $credentials['token'] ?? null;

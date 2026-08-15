@@ -113,6 +113,15 @@ class ConnectorInstanceResource extends Resource
                             ->password()
                             ->revealable()
                             ->visible(fn (Forms\Get $get) => $get('type') === 'rest' && $get('rest_auth_style') === 'bearer'),
+                        Forms\Components\KeyValue::make('discovered_servers_display')
+                            ->label('Discovered servers (UUIDs)')
+                            ->visible(fn (Forms\Get $get) => $get('type') === 'pelican' && filled($get('discovered_servers_display')))
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->keyLabel('UUID')
+                            ->valueLabel('Name')
+                            ->helperText('From the last "Discover Servers" run. Click that action again to refresh.')
+                            ->columnSpanFull(),
                     ])
                     ->columns(2),
             ]);
@@ -136,6 +145,14 @@ class ConnectorInstanceResource extends Resource
                         'error' => 'danger',
                         default => 'gray',
                     }),
+                Tables\Columns\TextColumn::make('discovered_servers')
+                    ->label('Discovered')
+                    ->formatStateUsing(function ($state) {
+                        $servers = is_string($state) ? json_decode($state, true) : $state;
+
+                        return filled($servers) ? count($servers).' server(s)' : '—';
+                    })
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
@@ -195,7 +212,7 @@ class ConnectorInstanceResource extends Resource
                             return;
                         }
 
-                        $record->update(['status' => 'ok']);
+                        $record->update(['status' => 'ok', 'discovered_servers' => $servers]);
 
                         if (empty($servers)) {
                             Notification::make()

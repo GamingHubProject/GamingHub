@@ -1,6 +1,6 @@
 # Gaming Hub Platform
 
-**v0.1.083** — Standalone modular Laravel platform for game communities.
+**v0.1.090** — Standalone modular Laravel platform for game communities.
 
 Gaming Hub connects games (Palworld, BDO, ARK, etc.) to the communities playing them. It's a
 Docker-based Laravel monolith built to run comfortably on a small VPS — not an Azuriom plugin,
@@ -143,6 +143,19 @@ Core side.
   (endpoint/method for REST, server identifier for Pelican), and a normalizer — verified end-to-end
   with a fake HTTP layer proving the full path (binding → gateway → router → connector → raw
   payload → normalizer → `CapabilityValue`) for both Palworld-style and Pelican-style calls
+- Discovered Pelican servers are now persisted (`ConnectorInstance.discovered_servers`), not just
+  shown in a one-time toast — visible as a read-only list on the connector's edit page and reused
+  wherever a UUID needs picking
+
+**Providers — a Server's binding to a Connector**
+- Core's `Provider` (Milestone 1 scaffolding, never wired to any UI or given real records) is
+  redesigned to reference a Platform `ConnectorInstance` by a plain soft `connector_instance_id`
+  column instead of duplicating its own `type`/`credentials` — same soft-reference pattern
+  `CapabilityBinding` already uses, since Core must never know about Platform's models
+- **"Add provider" on a Server's edit page** (`ProvidersRelationManager`) — pick a connection
+  (any configured `ConnectorInstance`, "later every other added provider" as more types arrive),
+  and if it's Pelican, a second select shows that connector's actual discovered UUIDs to pick
+  from — never a blind identifier to type in
 
 **Package lifecycle — made real, not decorative**
 - `InstalledPackage.status` now actually gates behavior. `ConnectorBackedProvider` checks (fresh,

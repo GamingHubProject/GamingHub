@@ -139,6 +139,29 @@ class ConnectorInstanceResourceTest extends TestCase
             ->assertSuccessful();
 
         $this->assertSame('ok', $connector->fresh()->status);
+        $this->assertSame(
+            [['identifier' => 'd3aac351', 'name' => 'EU-1 Palworld']],
+            $connector->fresh()->discovered_servers
+        );
+    }
+
+    public function test_discovered_servers_are_shown_on_the_edit_form(): void
+    {
+        $connector = ConnectorInstance::create([
+            'name' => 'Our Pelican',
+            'type' => 'pelican',
+            'base_url' => 'https://panel.test',
+            'credentials' => ['application_token' => 'ptla_admin'],
+            'status' => 'ok',
+            'discovered_servers' => [
+                ['identifier' => 'd3aac351', 'name' => 'EU-1 Palworld'],
+            ],
+        ]);
+
+        Livewire::test(\App\Filament\Resources\ConnectorInstanceResource\Pages\EditConnectorInstance::class, ['record' => $connector->id])
+            ->assertFormSet([
+                'discovered_servers_display' => ['d3aac351' => 'EU-1 Palworld'],
+            ]);
     }
 
     public function test_discover_servers_marks_error_on_failure(): void

@@ -37,16 +37,17 @@ class ModelsTest extends TestCase
         $this->assertTrue($provider->server->is($server));
     }
 
-    public function test_provider_credentials_are_encrypted_in_database(): void
+    public function test_provider_stores_a_soft_reference_to_a_connector_instance(): void
     {
+        // connector_instance_id is a plain column, not an Eloquent relation —
+        // Core must never know about Platform's ConnectorInstance model.
         $provider = Provider::factory()->create([
-            'credentials' => ['token' => 'super-secret'],
+            'connector_instance_id' => 42,
+            'config' => ['server_identifier' => 'd3aac351'],
         ]);
 
-        $raw = \DB::table('providers')->where('id', $provider->id)->value('credentials');
-
-        $this->assertStringNotContainsString('super-secret', $raw);
-        $this->assertSame('super-secret', $provider->fresh()->credentials['token']);
+        $this->assertSame(42, $provider->fresh()->connector_instance_id);
+        $this->assertSame('d3aac351', $provider->fresh()->config['server_identifier']);
     }
 
     public function test_asset_id_is_unique(): void

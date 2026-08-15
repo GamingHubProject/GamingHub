@@ -23,12 +23,14 @@ class ConnectorInstance extends Model
         'test_endpoint',
         'credentials',
         'status',
+        'discovered_servers',
     ];
 
     protected function casts(): array
     {
         return [
             'credentials' => 'encrypted:array',
+            'discovered_servers' => 'array',
         ];
     }
 }
