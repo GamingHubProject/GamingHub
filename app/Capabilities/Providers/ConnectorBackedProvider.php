@@ -17,8 +17,8 @@ use Throwable;
  * to Core's normalizer registry. Lives in Platform (not Core) specifically
  * because it's the one place allowed to touch a Connector.
  *
- * Binding's `value` JSON holds the connector config:
- * {"connector_instance_id": 5, "call": {"endpoint": "/v1/api/metrics"}, "normalizer": "palworld-server-status"}
+ * Binding's `value` JSON holds the connector config, e.g.:
+ * {"connector_instance_id": 5, "call": {"endpoint": "/v1/api/metrics"}, "normalizer": "field-mapping", "capability": "server-status", "field_map": {"currentplayernum": "players"}}
  */
 class ConnectorBackedProvider implements CapabilityProviderContract
 {
@@ -27,10 +27,11 @@ class ConnectorBackedProvider implements CapabilityProviderContract
      * fresh on every resolution (not cached at boot) so disabling a package
      * actually stops its capabilities from resolving on the very next call —
      * this is what makes enable/disable real instead of a DB flag nothing
-     * reads.
+     * reads. A normalizer id with no entry here (e.g. 'field-mapping') is
+     * always enabled — it's a generic, built-in normalizer, not owned by
+     * any installable package, the same way Manual isn't either.
      */
     protected const PACKAGE_OWNED_NORMALIZERS = [
-        'palworld-server-status' => 'palworld-integration',
         'pelican-server-status' => 'pelican-connector',
     ];
 
@@ -67,7 +68,7 @@ class ConnectorBackedProvider implements CapabilityProviderContract
             $connector = $this->connectors->get($instance->type);
             $raw = $connector->fetch($instance, $config['call'] ?? []);
 
-            return $this->normalizers->get($normalizerId)->normalize($raw);
+            return $this->normalizers->get($normalizerId)->normalize($raw, $config);
         } catch (Throwable) {
             return CapabilityValue::unavailable($binding->capability);
         }

@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Connectors\HttpRequestContract;
 use App\Models\ConnectorInstance;
-use App\Models\InstalledPackage;
 use GamingHub\Core\Models\Provider;
 use GamingHub\Core\Models\Server;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,17 +16,21 @@ class PollProvidersCommandTest extends TestCase
 
     public function test_a_single_tick_refreshes_due_servers_and_marks_connectors_polled(): void
     {
-        InstalledPackage::factory()->create(['slug' => 'palworld-integration', 'status' => 'enabled']);
         $server = Server::factory()->create(['current_players' => null, 'max_players' => null, 'status' => 'offline']);
 
         $connector = ConnectorInstance::create([
-            'name' => 'Palworld REST', 'type' => 'rest', 'base_url' => 'http://palworld:8212',
+            'name' => 'Game REST API', 'type' => 'rest', 'base_url' => 'http://game-server:8212',
             'credentials' => ['username' => 'admin', 'password' => 'secret'],
             'poll_interval_seconds' => 30,
         ]);
         $provider = Provider::factory()->create([
             'server_id' => $server->id, 'connector_instance_id' => $connector->id, 'status' => 'disconnected',
-            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'field_map' => ['currentplayernum' => 'players', 'maxplayernum' => 'max_players'],
+            ],
         ]);
 
         $fake = new FakeHttpRequester;
@@ -47,18 +50,22 @@ class PollProvidersCommandTest extends TestCase
 
     public function test_a_connector_not_yet_due_is_skipped(): void
     {
-        InstalledPackage::factory()->create(['slug' => 'palworld-integration', 'status' => 'enabled']);
         $server = Server::factory()->create(['current_players' => 1]);
 
         $connector = ConnectorInstance::create([
-            'name' => 'Palworld REST', 'type' => 'rest', 'base_url' => 'http://palworld:8212',
+            'name' => 'Game REST API', 'type' => 'rest', 'base_url' => 'http://game-server:8212',
             'credentials' => ['username' => 'admin', 'password' => 'secret'],
             'poll_interval_seconds' => 300,
             'last_polled_at' => now(),
         ]);
         Provider::factory()->create([
             'server_id' => $server->id, 'connector_instance_id' => $connector->id,
-            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'field_map' => ['currentplayernum' => 'players', 'maxplayernum' => 'max_players'],
+            ],
         ]);
 
         $fake = new FakeHttpRequester;

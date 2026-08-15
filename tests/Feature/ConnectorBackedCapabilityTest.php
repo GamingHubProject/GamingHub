@@ -16,22 +16,26 @@ class ConnectorBackedCapabilityTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_server_status_flows_through_a_real_palworld_style_rest_call(): void
+    public function test_server_status_flows_through_a_real_rest_call_via_an_admin_defined_field_mapping(): void
     {
-        InstalledPackage::factory()->create(['slug' => 'palworld-integration', 'status' => 'enabled']);
         $server = Server::factory()->create();
 
         $connector = ConnectorInstance::create([
-            'name' => 'Test Palworld REST',
+            'name' => 'Test Game REST API',
             'type' => 'rest',
-            'base_url' => 'http://palworld:8212',
+            'base_url' => 'http://game-server:8212',
             'credentials' => ['username' => 'admin', 'password' => 'secret'],
         ]);
 
         Provider::factory()->create([
             'server_id' => $server->id,
             'connector_instance_id' => $connector->id,
-            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'field_map' => ['currentplayernum' => 'players', 'maxplayernum' => 'max_players'],
+            ],
         ]);
 
         $fake = new FakeHttpRequester;
@@ -48,7 +52,7 @@ class ConnectorBackedCapabilityTest extends TestCase
         $this->assertTrue($value->isOk());
         $this->assertSame(7, $value->data['players']);
         $this->assertSame(32, $value->data['max_players']);
-        $this->assertSame('http://palworld:8212/v1/api/metrics', $fake->lastUrl());
+        $this->assertSame('http://game-server:8212/v1/api/metrics', $fake->lastUrl());
     }
 
     public function test_server_status_flows_through_a_real_pelican_style_call(): void
@@ -90,7 +94,6 @@ class ConnectorBackedCapabilityTest extends TestCase
 
     public function test_connector_failure_reports_unavailable_not_a_crash(): void
     {
-        InstalledPackage::factory()->create(['slug' => 'palworld-integration', 'status' => 'enabled']);
         $server = Server::factory()->create();
 
         $connector = ConnectorInstance::create([
@@ -103,7 +106,12 @@ class ConnectorBackedCapabilityTest extends TestCase
         Provider::factory()->create([
             'server_id' => $server->id,
             'connector_instance_id' => $connector->id,
-            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'field_map' => ['currentplayernum' => 'players'],
+            ],
         ]);
 
         $fake = new FakeHttpRequester;
@@ -117,24 +125,26 @@ class ConnectorBackedCapabilityTest extends TestCase
 
     public function test_disabling_the_owning_package_makes_the_capability_unavailable(): void
     {
-        $package = InstalledPackage::factory()->create(['slug' => 'palworld-integration', 'status' => 'enabled']);
+        $package = InstalledPackage::factory()->create(['slug' => 'pelican-connector', 'status' => 'enabled']);
         $server = Server::factory()->create();
 
         $connector = ConnectorInstance::create([
-            'name' => 'Test Palworld REST',
-            'type' => 'rest',
-            'base_url' => 'http://palworld:8212',
-            'credentials' => ['username' => 'admin', 'password' => 'secret'],
+            'name' => 'Test Pelican',
+            'type' => 'pelican',
+            'base_url' => 'https://panel.test',
+            'credentials' => ['application_token' => 'ptla_admin', 'client_token' => 'ptlc_test'],
         ]);
 
         Provider::factory()->create([
             'server_id' => $server->id,
             'connector_instance_id' => $connector->id,
-            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
+            'config' => ['normalizer' => 'pelican-server-status', 'call' => ['server_identifier' => 'srv123']],
         ]);
 
         $fake = new FakeHttpRequester;
-        $fake->willReturn(200, json_encode(['currentplayernum' => 7, 'maxplayernum' => 32]));
+        $fake->willReturn(200, json_encode([
+            'attributes' => ['current_state' => 'running', 'resources' => ['memory_bytes' => 1, 'cpu_absolute' => 1]],
+        ]));
         $this->app->instance(HttpRequestContract::class, $fake);
 
         // Enabled: real data flows.

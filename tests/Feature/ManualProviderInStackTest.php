@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Capabilities\CapabilityGateway;
 use App\Connectors\HttpRequestContract;
 use App\Models\ConnectorInstance;
-use App\Models\InstalledPackage;
 use GamingHub\Core\Capabilities\CapabilityValue;
 use GamingHub\Core\Models\Provider;
 use GamingHub\Core\Models\Server;
@@ -61,17 +60,21 @@ class ManualProviderInStackTest extends TestCase
 
     public function test_a_higher_priority_connector_provider_wins_shared_fields_over_a_manual_fallback(): void
     {
-        InstalledPackage::factory()->create(['slug' => 'palworld-integration', 'status' => 'enabled']);
         $server = Server::factory()->create();
 
         $connector = ConnectorInstance::create([
-            'name' => 'Palworld REST', 'type' => 'rest', 'base_url' => 'http://palworld:8212',
+            'name' => 'Game REST API', 'type' => 'rest', 'base_url' => 'http://game-server:8212',
             'credentials' => ['username' => 'admin', 'password' => 'secret'],
         ]);
 
         Provider::factory()->create([
             'server_id' => $server->id, 'type' => 'connector', 'connector_instance_id' => $connector->id, 'priority' => 0,
-            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'field_map' => ['currentplayernum' => 'players'],
+            ],
         ]);
         Provider::factory()->create([
             'server_id' => $server->id, 'type' => 'manual', 'priority' => 1,
@@ -90,23 +93,28 @@ class ManualProviderInStackTest extends TestCase
 
     public function test_manual_fills_a_gap_the_higher_priority_connector_left_open(): void
     {
-        InstalledPackage::factory()->create(['slug' => 'palworld-integration', 'status' => 'enabled']);
         $server = Server::factory()->create();
 
         $connector = ConnectorInstance::create([
-            'name' => 'Palworld REST', 'type' => 'rest', 'base_url' => 'http://palworld:8212',
+            'name' => 'Game REST API', 'type' => 'rest', 'base_url' => 'http://game-server:8212',
             'credentials' => ['username' => 'admin', 'password' => 'secret'],
         ]);
 
         Provider::factory()->create([
             'server_id' => $server->id, 'type' => 'connector', 'connector_instance_id' => $connector->id, 'priority' => 0,
-            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                // Deliberately only maps currentplayernum, not maxplayernum
+                // — 'note' is a genuine gap the connector never fills,
+                // unlike a fixed-shape normalizer that always sets every
+                // field it recognizes (even to null).
+                'field_map' => ['currentplayernum' => 'players'],
+            ],
         ]);
         Provider::factory()->create([
             'server_id' => $server->id, 'type' => 'manual', 'priority' => 1,
-            // 'note' isn't a field PalworldServerStatusNormalizer ever sets
-            // (it always sets online/players/max_players/uptime/fps, even
-            // to null) — this is a genuine gap, unlike those fields.
             'config' => ['capability' => 'server-status', 'value' => ['note' => 'backup EU server']],
         ]);
 

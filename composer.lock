@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "70543ad6bfce75d441c24b50d5999ee1",
+    "content-hash": "259553e8735f080ff9eb35939eb2f32f",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -1564,16 +1564,16 @@
         },
         {
             "name": "gaminghubproject/core",
-            "version": "dev-stage-a-capability-registry",
+            "version": "dev-priority-2-remove-palworld-from-core",
             "source": {
                 "type": "git",
                 "url": "https://github.com/GamingHubProject/Core.git",
-                "reference": "714b608425b533b308cde0167268c819571a3a7e"
+                "reference": "a51c70e5f5cdf80a074776036e0d87bb1caebc73"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/GamingHubProject/Core/zipball/714b608425b533b308cde0167268c819571a3a7e",
-                "reference": "714b608425b533b308cde0167268c819571a3a7e",
+                "url": "https://api.github.com/repos/GamingHubProject/Core/zipball/a51c70e5f5cdf80a074776036e0d87bb1caebc73",
+                "reference": "a51c70e5f5cdf80a074776036e0d87bb1caebc73",
                 "shasum": ""
             },
             "require": {
@@ -1615,10 +1615,10 @@
             ],
             "description": "Gaming Hub Core plugin: domain models (Games, Servers, Instances, Providers), capability decisions, and data normalization. Never speaks to connectors directly — that's Panel's job.",
             "support": {
-                "source": "https://github.com/GamingHubProject/Core/tree/stage-a-capability-registry",
+                "source": "https://github.com/GamingHubProject/Core/tree/priority-2-remove-palworld-from-core",
                 "issues": "https://github.com/GamingHubProject/Core/issues"
             },
-            "time": "2026-08-15T14:13:03+00:00"
+            "time": "2026-08-15T14:34:44+00:00"
         },
         {
             "name": "graham-campbell/result-type",

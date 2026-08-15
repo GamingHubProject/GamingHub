@@ -16,12 +16,16 @@ use GamingHub\Core\Capabilities\CapabilityRegistry;
  * mixes two provider types (Provider.type):
  *
  * - 'connector': bind this server to a previously-set-up Connector
- *   (Capabilities → Connectors), and, if that connector is a Pelican
- *   panel, pick which discovered server UUID corresponds to this server.
+ *   (Capabilities → Connectors). What it feeds depends on the connector's
+ *   own type — Pelican always answers with a fixed, built-in normalizer
+ *   (it reports process-level stats the same way for any game); a generic
+ *   REST connector has no fixed normalizer at all, since REST APIs vary
+ *   per game — the admin maps that game's own JSON field names to the
+ *   capability's expected shape directly in this form
+ *   (GamingHub\Core\Normalizers\FieldMappingNormalizer reads that mapping
+ *   at resolution time, Core has no per-game normalizer classes).
  * - 'manual': an admin-entered {capability, value} pair — no connection,
  *   no external I/O, good for testing before a real connector exists.
- *   This used to live entirely outside this list as a separate
- *   CapabilityBinding; it's now just another row in the same stack.
  *
  * This IS the routing mechanism — not a separately-maintained
  * CapabilityBinding. This drag-reorderable list ("REST above Pelican above
@@ -33,21 +37,6 @@ use GamingHub\Core\Capabilities\CapabilityRegistry;
 class ProvidersRelationManager extends RelationManager
 {
     protected static string $relationship = 'providers';
-
-    /** Which normalizer(s) a connector type can drive, and the label shown for each in the "Provides" select. */
-    protected const NORMALIZERS_BY_TYPE = [
-        'pelican' => [
-            'pelican-server-status' => 'Server Status (CPU / Memory / Online)',
-        ],
-        'rest' => [
-            'palworld-server-status' => 'Palworld — Server Status (Players / Online)',
-        ],
-    ];
-
-    /** The REST call each normalizer expects — Pelican's call config is built from the picked UUID instead, see packConfig(). */
-    protected const REST_CALL_BY_NORMALIZER = [
-        'palworld-server-status' => ['endpoint' => '/v1/api/metrics'],
-    ];
 
     public function form(Form $form): Form
     {
@@ -68,7 +57,6 @@ class ProvidersRelationManager extends RelationManager
                     ->required(fn (Get $get) => $get('type') === 'connector')
                     ->visible(fn (Get $get) => $get('type') === 'connector')
                     ->live()
-                    ->afterStateUpdated(fn (Forms\Set $set) => $set('normalizer', null))
                     ->helperText('One of the connections set up under Capabilities → Connectors.'),
                 Forms\Components\Select::make('server_identifier')
                     ->label('Pelican server (UUID)')
@@ -78,18 +66,25 @@ class ProvidersRelationManager extends RelationManager
                         ConnectorInstance::find($get('connector_instance_id'))?->discovered_servers ?? []
                     )->mapWithKeys(fn (array $s) => [$s['identifier'] => "{$s['name']} ({$s['identifier']})"]))
                     ->helperText('Run "Discover Servers" on the connector first if nothing shows up here.'),
-                Forms\Components\Select::make('normalizer')
-                    ->label('Provides')
-                    ->visible(fn (Get $get) => $get('type') === 'connector')
-                    ->required(fn (Get $get) => $get('type') === 'connector')
-                    ->options(fn (Get $get) => self::NORMALIZERS_BY_TYPE[self::connectorType($get('connector_instance_id'))] ?? [])
-                    ->helperText('What this provider actually feeds — different providers can supply different fields for the same server.'),
+                Forms\Components\TextInput::make('endpoint')
+                    ->label('Endpoint')
+                    ->visible(fn (Get $get) => $get('type') === 'connector' && self::connectorType($get('connector_instance_id')) === 'rest')
+                    ->required(fn (Get $get) => $get('type') === 'connector' && self::connectorType($get('connector_instance_id')) === 'rest')
+                    ->helperText('The path this connection\'s REST API returns status data from, e.g. "/v1/api/metrics".'),
                 Forms\Components\Select::make('capability')
                     ->label('Provides')
-                    ->visible(fn (Get $get) => $get('type') === 'manual')
-                    ->required(fn (Get $get) => $get('type') === 'manual')
+                    ->visible(fn (Get $get) => $get('type') === 'manual'
+                        || ($get('type') === 'connector' && self::connectorType($get('connector_instance_id')) === 'rest'))
+                    ->required(fn (Get $get) => $get('type') === 'manual'
+                        || ($get('type') === 'connector' && self::connectorType($get('connector_instance_id')) === 'rest'))
                     ->options(fn () => app(CapabilityRegistry::class)->all()->pluck('name', 'id'))
-                    ->helperText('Which capability this manually-entered value answers.'),
+                    ->helperText('Which capability this provider answers.'),
+                Forms\Components\KeyValue::make('field_map')
+                    ->label('Field mapping')
+                    ->visible(fn (Get $get) => $get('type') === 'connector' && self::connectorType($get('connector_instance_id')) === 'rest')
+                    ->keyLabel('Raw JSON field')
+                    ->valueLabel('Capability field')
+                    ->helperText('Maps this API\'s own field names to the capability\'s expected ones, e.g. "currentplayernum" → "players", "maxplayernum" → "max_players".'),
                 Forms\Components\KeyValue::make('value')
                     ->label('Value')
                     ->visible(fn (Get $get) => $get('type') === 'manual')
@@ -136,7 +131,7 @@ class ProvidersRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('provides')
                     ->getStateUsing(fn ($record) => $record->type === 'manual'
                         ? ($record->config['capability'] ?? '—')
-                        : ($record->config['normalizer'] ?? '—')),
+                        : ($record->config['capability'] ?? $record->config['normalizer'] ?? '—')),
                 Tables\Columns\TextColumn::make('uuid')
                     ->label('UUID')
                     ->getStateUsing(fn ($record) => $record->config['server_identifier'] ?? '—'),
@@ -177,25 +172,27 @@ class ProvidersRelationManager extends RelationManager
                 'value' => $data['value'] ?? [],
             ];
 
-            unset($data['capability'], $data['value'], $data['server_identifier'], $data['normalizer']);
+            unset($data['capability'], $data['value'], $data['server_identifier'], $data['endpoint'], $data['field_map']);
 
             return $data;
         }
 
-        $normalizerId = $data['normalizer'] ?? null;
         $connectorType = self::connectorType($data['connector_instance_id'] ?? null);
 
-        $call = $connectorType === 'pelican'
-            ? array_filter(['server_identifier' => $data['server_identifier'] ?? null])
-            : (self::REST_CALL_BY_NORMALIZER[$normalizerId] ?? []);
+        $data['config'] = $connectorType === 'pelican'
+            ? array_filter([
+                'server_identifier' => $data['server_identifier'] ?? null,
+                'normalizer' => 'pelican-server-status',
+                'call' => array_filter(['server_identifier' => $data['server_identifier'] ?? null]),
+            ])
+            : array_filter([
+                'normalizer' => 'field-mapping',
+                'capability' => $data['capability'] ?? null,
+                'call' => array_filter(['endpoint' => $data['endpoint'] ?? null]),
+                'field_map' => $data['field_map'] ?? [],
+            ], fn ($value) => $value !== null && $value !== []);
 
-        $data['config'] = array_filter([
-            'server_identifier' => $data['server_identifier'] ?? null,
-            'normalizer' => $normalizerId,
-            'call' => $call ?: null,
-        ]);
-
-        unset($data['server_identifier'], $data['normalizer'], $data['capability'], $data['value']);
+        unset($data['server_identifier'], $data['endpoint'], $data['capability'], $data['field_map'], $data['value']);
 
         return $data;
     }
@@ -210,7 +207,9 @@ class ProvidersRelationManager extends RelationManager
         }
 
         $data['server_identifier'] = $data['config']['server_identifier'] ?? null;
-        $data['normalizer'] = $data['config']['normalizer'] ?? null;
+        $data['endpoint'] = $data['config']['call']['endpoint'] ?? null;
+        $data['capability'] = $data['config']['capability'] ?? null;
+        $data['field_map'] = $data['config']['field_map'] ?? [];
 
         return $data;
     }

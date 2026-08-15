@@ -45,7 +45,6 @@ class ProvidersRelationManagerTest extends TestCase
             ->setTableActionData([
                 'connector_instance_id' => $connector->id,
                 'server_identifier' => 'd3aac351',
-                'normalizer' => 'pelican-server-status',
                 'status' => 'connected',
             ])
             ->callMountedTableAction()
@@ -55,12 +54,16 @@ class ProvidersRelationManagerTest extends TestCase
         $this->assertSame($connector->id, $provider->connector_instance_id);
         $this->assertSame('d3aac351', $provider->config['server_identifier']);
         $this->assertSame('connected', $provider->status);
+        // Pelican's normalizer is implied by the connector's own type, not
+        // chosen by the admin — there's exactly one way Pelican reports
+        // status, unlike a generic REST connector.
         $this->assertSame('pelican-server-status', $provider->config['normalizer']);
         $this->assertSame('d3aac351', $provider->config['call']['server_identifier']);
     }
 
-    public function test_can_add_a_rest_provider_without_a_uuid(): void
+    public function test_can_add_a_rest_provider_with_an_admin_defined_field_mapping(): void
     {
+        Capability::create(['id' => 'server-status', 'name' => 'Server Status']);
         $server = Server::factory()->create();
         $connector = ConnectorInstance::factory()->create(['type' => 'rest']);
 
@@ -71,7 +74,9 @@ class ProvidersRelationManagerTest extends TestCase
             ->mountTableAction('create')
             ->setTableActionData([
                 'connector_instance_id' => $connector->id,
-                'normalizer' => 'palworld-server-status',
+                'endpoint' => '/v1/api/metrics',
+                'capability' => 'server-status',
+                'field_map' => ['currentplayernum' => 'players'],
                 'status' => 'connected',
             ])
             ->callMountedTableAction()
@@ -79,8 +84,10 @@ class ProvidersRelationManagerTest extends TestCase
 
         $provider = Provider::where('server_id', $server->id)->firstOrFail();
         $this->assertSame($connector->id, $provider->connector_instance_id);
-        $this->assertSame('palworld-server-status', $provider->config['normalizer']);
+        $this->assertSame('field-mapping', $provider->config['normalizer']);
+        $this->assertSame('server-status', $provider->config['capability']);
         $this->assertSame('/v1/api/metrics', $provider->config['call']['endpoint']);
+        $this->assertSame('players', $provider->config['field_map']['currentplayernum']);
     }
 
     public function test_deleting_a_provider_removes_it(): void
@@ -90,7 +97,12 @@ class ProvidersRelationManagerTest extends TestCase
         $provider = Provider::factory()->create([
             'server_id' => $server->id,
             'connector_instance_id' => $connector->id,
-            'config' => ['normalizer' => 'palworld-server-status', 'call' => ['endpoint' => '/v1/api/metrics']],
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'field_map' => ['currentplayernum' => 'players'],
+            ],
         ]);
 
         Livewire::test(ProvidersRelationManager::class, [
@@ -125,8 +137,37 @@ class ProvidersRelationManagerTest extends TestCase
             ->assertTableActionDataSet(['server_identifier' => 'd3aac351']);
     }
 
+    public function test_editing_a_rest_provider_prefills_capability_endpoint_and_field_map(): void
+    {
+        Capability::create(['id' => 'server-status', 'name' => 'Server Status']);
+        $server = Server::factory()->create();
+        $connector = ConnectorInstance::factory()->create(['type' => 'rest']);
+        $provider = Provider::factory()->create([
+            'server_id' => $server->id,
+            'connector_instance_id' => $connector->id,
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'field_map' => ['currentplayernum' => 'players'],
+            ],
+        ]);
+
+        Livewire::test(ProvidersRelationManager::class, [
+            'ownerRecord' => $server,
+            'pageClass' => \App\Filament\Resources\ServerResource\Pages\EditServer::class,
+        ])
+            ->mountTableAction('edit', $provider)
+            ->assertTableActionDataSet([
+                'capability' => 'server-status',
+                'endpoint' => '/v1/api/metrics',
+                'field_map' => ['currentplayernum' => 'players'],
+            ]);
+    }
+
     public function test_priority_is_reorderable_and_defaults_to_zero(): void
     {
+        Capability::create(['id' => 'server-status', 'name' => 'Server Status']);
         $server = Server::factory()->create();
         $connector = ConnectorInstance::factory()->create(['type' => 'rest']);
 
@@ -137,7 +178,9 @@ class ProvidersRelationManagerTest extends TestCase
             ->mountTableAction('create')
             ->setTableActionData([
                 'connector_instance_id' => $connector->id,
-                'normalizer' => 'palworld-server-status',
+                'endpoint' => '/v1/api/metrics',
+                'capability' => 'server-status',
+                'field_map' => ['currentplayernum' => 'players'],
                 'status' => 'connected',
             ])
             ->callMountedTableAction()

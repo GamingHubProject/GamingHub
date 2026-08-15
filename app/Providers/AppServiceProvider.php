@@ -22,8 +22,8 @@ use GamingHub\Core\Capabilities\Providers\ManualProvider;
 use GamingHub\Core\Models\Game;
 use GamingHub\Core\Models\Instance;
 use GamingHub\Core\Models\Server;
+use GamingHub\Core\Normalizers\FieldMappingNormalizer;
 use GamingHub\Core\Normalizers\NormalizerRegistry;
-use GamingHub\Core\Normalizers\PalworldServerStatusNormalizer;
 use GamingHub\Core\Normalizers\PelicanServerStatusNormalizer;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
@@ -77,9 +77,12 @@ class AppServiceProvider extends ServiceProvider
         // owning InstalledPackage's enabled status at resolution time (see
         // ConnectorBackedProvider::PACKAGE_OWNED_NORMALIZERS), not here at
         // boot, since boot happens once per process/test and can't react to
-        // an admin toggling enable/disable afterward.
+        // an admin toggling enable/disable afterward. 'field-mapping' has
+        // no package to gate on — it's Core's generic, always-available
+        // normalizer for a REST connector against any game, replacing the
+        // old hardcoded PalworldServerStatusNormalizer.
         $normalizers = $this->app->make(NormalizerRegistry::class);
-        $normalizers->register('palworld-server-status', new PalworldServerStatusNormalizer);
+        $normalizers->register('field-mapping', new FieldMappingNormalizer);
         $normalizers->register('pelican-server-status', new PelicanServerStatusNormalizer);
 
         $capabilityRouter = $this->app->make(CapabilityRouter::class);

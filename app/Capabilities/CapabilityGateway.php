@@ -156,19 +156,22 @@ class CapabilityGateway
             return null;
         }
 
-        if ($this->normalizers->get($normalizerId)->capability() !== $capability) {
+        if ($this->normalizers->get($normalizerId)->capability($provider->config ?? []) !== $capability) {
             return null;
         }
 
+        // The whole config flows through, not just connector_instance_id/
+        // call/normalizer — a generic normalizer (FieldMappingNormalizer)
+        // reads its own extra keys (capability, field_map) out of this same
+        // config, so nothing here needs to know what a given normalizer
+        // requires beyond what's already on the Provider row.
         $binding = new CapabilityBinding([
             'capability' => $capability,
             'provider' => 'connector',
             'enabled' => true,
-            'value' => [
+            'value' => array_merge($provider->config ?? [], [
                 'connector_instance_id' => $provider->connector_instance_id,
-                'call' => $provider->config['call'] ?? [],
-                'normalizer' => $normalizerId,
-            ],
+            ]),
         ]);
 
         return $this->router->providerFor('connector')->fetch($binding);
@@ -205,7 +208,7 @@ class CapabilityGateway
                 $normalizerId = $provider->config['normalizer'] ?? null;
 
                 if ($normalizerId && $this->normalizers->has($normalizerId)
-                    && $this->normalizers->get($normalizerId)->capability() === $capability) {
+                    && $this->normalizers->get($normalizerId)->capability($provider->config ?? []) === $capability) {
                     return true;
                 }
             }
