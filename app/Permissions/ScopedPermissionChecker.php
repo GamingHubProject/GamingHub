@@ -2,39 +2,40 @@
 
 namespace App\Permissions;
 
-use App\Models\PermissionScope;
+use App\Models\ServerGroup;
 use App\Models\User;
-use Illuminate\Support\Collection;
-use Spatie\Permission\Models\Role;
+use GamingHub\Core\Models\Game;
+use GamingHub\Core\Models\Server;
+use Illuminate\Database\Eloquent\Model;
+use InvalidArgumentException;
 
 /**
- * Sits on top of Spatie's own hasPermissionTo() — that check still decides
- * whether a Role has a permission at all; this decides whether that grant
- * is global or narrowed to specific Games (see permission_scopes'
- * migration docblock for the "zero rows = unrestricted" rule).
+ * Cascading access check for the auto-generated per-entity permissions
+ * (see ScopedPermissionName/ScopedPermissionGenerator). A grant at Game
+ * level covers everything under it — ServerGroups and Servers belonging
+ * to that game — so checking a Server walks server -> server group ->
+ * game and stops at the first match; an explicit lower-level grant only
+ * matters for narrowing to just that one group/server.
  *
- * A Game-scoped grant never covers a subject with no game at all
- * (game_id === null, e.g. a platform-wide page) — only an unrestricted
- * grant does. This is deliberately the stricter reading: a role scoped to
- * "Palworld only" shouldn't incidentally reach platform-wide content.
+ * Admin is short-circuited here directly because Spatie's
+ * hasPermissionTo() does not consult Laravel's Gate — AppServiceProvider's
+ * Gate::before() only covers Gate/can()/@can/policy checks, not this.
+ *
+ * There is no more "zero rows = unrestricted" case (that was
+ * permission_scopes' rule, now gone). A role either holds one of these
+ * permissions or it doesn't — visibleIds() always returns a concrete,
+ * possibly-empty list, never null.
  */
 class ScopedPermissionChecker
 {
-    public function can(User $user, string $permission, ?int $gameId): bool
+    public function can(User $user, string $type, Model $subject): bool
     {
-        foreach ($user->roles as $role) {
-            if (! $role->hasPermissionTo($permission)) {
-                continue;
-            }
+        if ($user->hasRole('Admin')) {
+            return true;
+        }
 
-            $scopes = $this->scopesFor($role, $permission);
-
-            if ($scopes->isEmpty()) {
-                return true;
-            }
-
-            if ($gameId !== null && $scopes->contains(fn (PermissionScope $scope) => $scope->scope_type === 'game' && (int) $scope->scope_id === $gameId
-            )) {
+        foreach ($this->chainNames($subject, $type) as $name) {
+            if ($user->hasPermissionTo($name)) {
                 return true;
             }
         }
@@ -43,44 +44,50 @@ class ScopedPermissionChecker
     }
 
     /**
-     * Which game ids $user may act on for $permission — for filtering a
-     * list query without calling can() per row. Returns null for "no
-     * restriction, every game (and global/no-game subjects) visible";
-     * an array (possibly empty) means visibility is limited to exactly
-     * those game ids, and global (game_id === null) subjects are excluded
-     * — matching can()'s own rule above.
+     * Which ids at $level (game|servergroup|server) $user may act on for
+     * $type — for filtering a list query without calling can() per row
+     * against a hydrated model. Always a concrete list; a global/platform
+     * subject (e.g. a Page with game_id null) has no entity to grant
+     * against and is never included by this.
      *
-     * @return list<int>|null
+     * @return list<int>
      */
-    public function visibleGameIds(User $user, string $permission): ?array
+    public function visibleIds(User $user, string $type, string $level): array
     {
-        $gameIds = [];
+        $model = match ($level) {
+            'game' => Game::class,
+            'servergroup' => ServerGroup::class,
+            'server' => Server::class,
+            default => throw new InvalidArgumentException("Unknown scope level: {$level}"),
+        };
 
-        foreach ($user->roles as $role) {
-            if (! $role->hasPermissionTo($permission)) {
-                continue;
-            }
-
-            $scopes = $this->scopesFor($role, $permission);
-
-            if ($scopes->isEmpty()) {
-                return null;
-            }
-
-            $gameIds = array_merge($gameIds, $scopes->pluck('scope_id')->map(fn ($id) => (int) $id)->all());
-        }
-
-        return array_values(array_unique($gameIds));
+        return $model::query()
+            ->get()
+            ->filter(fn (Model $entity) => $this->can($user, $type, $entity))
+            ->map(fn (Model $entity) => (int) $entity->getKey())
+            ->values()
+            ->all();
     }
 
     /**
-     * @return Collection<int, PermissionScope>
+     * @return list<string>
      */
-    protected function scopesFor(Role $role, string $permission): Collection
+    protected function chainNames(Model $subject, string $type): array
     {
-        return PermissionScope::query()
-            ->where('role_id', $role->id)
-            ->where('permission', $permission)
-            ->get();
+        return match (true) {
+            $subject instanceof Server => [
+                ScopedPermissionName::for('server', $subject->id, $type),
+                ScopedPermissionName::for('servergroup', $subject->server_group_id, $type),
+                ScopedPermissionName::for('game', $subject->game_id, $type),
+            ],
+            $subject instanceof ServerGroup => [
+                ScopedPermissionName::for('servergroup', $subject->id, $type),
+                ScopedPermissionName::for('game', $subject->game_id, $type),
+            ],
+            $subject instanceof Game => [
+                ScopedPermissionName::for('game', $subject->id, $type),
+            ],
+            default => throw new InvalidArgumentException('Unsupported scoped-permission subject: '.get_class($subject)),
+        };
     }
 }

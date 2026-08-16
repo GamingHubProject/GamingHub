@@ -6,12 +6,11 @@ use App\Filament\Resources\RoleResource\Pages\CreateRole;
 use App\Filament\Resources\RoleResource\Pages\EditRole;
 use App\Filament\Resources\RoleResource\Pages\ListRoles;
 use App\Filament\Resources\UserResource\Pages\ListUsers;
-use App\Models\PermissionScope;
 use App\Models\User;
+use App\Permissions\ScopedPermissionName;
 use GamingHub\Core\Models\Game;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -61,50 +60,58 @@ class UserAndRoleResourceTest extends TestCase
             ->assertSuccessful();
     }
 
-    public function test_can_create_a_role_with_a_game_scoped_permission_restriction(): void
+    public function test_can_create_a_role_with_a_game_level_grant(): void
     {
-        Permission::create(['name' => 'edit_pages', 'guard_name' => 'web']);
         $palworld = Game::factory()->create();
 
         Livewire::test(CreateRole::class)
             ->fillForm([
                 'name' => 'Palworld Editor',
                 'guard_name' => 'web',
-                'permissions' => [],
-                'scoped_permissions' => [
-                    ['permission' => 'edit_pages', 'game_id' => $palworld->id],
+                "scoped_game_{$palworld->id}" => [
+                    ScopedPermissionName::for('game', $palworld->id, 'settings'),
                 ],
             ])
             ->call('create')
             ->assertHasNoFormErrors();
 
         $role = Role::where('name', 'Palworld Editor')->firstOrFail();
-        $this->assertDatabaseHas('permission_scopes', [
-            'role_id' => $role->id,
-            'permission' => 'edit_pages',
-            'scope_type' => 'game',
-            'scope_id' => $palworld->id,
-        ]);
+        $this->assertTrue($role->hasPermissionTo(ScopedPermissionName::for('game', $palworld->id, 'settings')));
     }
 
     public function test_editing_a_role_replaces_its_scoped_permissions(): void
     {
-        Permission::create(['name' => 'edit_pages', 'guard_name' => 'web']);
         $palworld = Game::factory()->create();
         $ark = Game::factory()->create();
         $role = Role::create(['name' => 'Scoped Editor', 'guard_name' => 'web']);
-        PermissionScope::create(['role_id' => $role->id, 'permission' => 'edit_pages', 'scope_type' => 'game', 'scope_id' => $palworld->id]);
+        $role->givePermissionTo(ScopedPermissionName::for('game', $palworld->id, 'settings'));
 
         Livewire::test(EditRole::class, ['record' => $role->id])
             ->fillForm([
-                'scoped_permissions' => [
-                    ['permission' => 'edit_pages', 'game_id' => $ark->id],
+                "scoped_game_{$palworld->id}" => [],
+                "scoped_game_{$ark->id}" => [
+                    ScopedPermissionName::for('game', $ark->id, 'settings'),
                 ],
             ])
             ->call('save')
             ->assertHasNoFormErrors();
 
-        $this->assertDatabaseMissing('permission_scopes', ['role_id' => $role->id, 'scope_id' => $palworld->id]);
-        $this->assertDatabaseHas('permission_scopes', ['role_id' => $role->id, 'scope_id' => $ark->id]);
+        $role = $role->fresh();
+        $this->assertFalse($role->hasPermissionTo(ScopedPermissionName::for('game', $palworld->id, 'settings')));
+        $this->assertTrue($role->hasPermissionTo(ScopedPermissionName::for('game', $ark->id, 'settings')));
+    }
+
+    public function test_a_server_group_level_grant_shows_as_checked_when_editing(): void
+    {
+        $palworld = Game::factory()->create();
+        $role = Role::create(['name' => 'Scoped Editor', 'guard_name' => 'web']);
+        $role->givePermissionTo(ScopedPermissionName::for('game', $palworld->id, 'page'));
+
+        Livewire::test(EditRole::class, ['record' => $role->id])
+            ->assertFormSet([
+                "scoped_game_{$palworld->id}" => [
+                    ScopedPermissionName::for('game', $palworld->id, 'page'),
+                ],
+            ]);
     }
 }

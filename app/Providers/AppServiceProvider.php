@@ -10,7 +10,11 @@ use App\Connectors\HttpRequestContract;
 use App\Connectors\RestConnector;
 use App\Manager\CurlHttpClient;
 use App\Manager\HttpClientContract;
+use App\Models\ServerGroup;
 use App\Models\SiteOption;
+use App\Observers\GameObserver;
+use App\Observers\ServerGroupObserver;
+use App\Observers\ServerObserver;
 use GamingHub\Core\Capabilities\CapabilityRegistry;
 use GamingHub\Core\Capabilities\CapabilityRouter;
 use GamingHub\Core\Capabilities\Providers\ManualProvider;
@@ -20,6 +24,7 @@ use GamingHub\Core\Normalizers\FieldMappingNormalizer;
 use GamingHub\Core\Normalizers\NormalizerRegistry;
 use GamingHub\Core\Normalizers\PelicanServerStatusNormalizer;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Throwable;
 
@@ -83,6 +88,21 @@ class AppServiceProvider extends ServiceProvider
             'game' => Game::class,
             'server' => Server::class,
         ]);
+
+        // Auto-generates the 4 scoped permissions (settings/page/news/player)
+        // for every Game, ServerGroup, and Server — see ScopedPermissionGenerator.
+        // Rows that already existed before this was wired up are covered by
+        // `artisan permissions:sync-scoped`, not by these observers.
+        Game::observe(GameObserver::class);
+        ServerGroup::observe(ServerGroupObserver::class);
+        Server::observe(ServerObserver::class);
+
+        // Admin is unconditionally omniscient — returning null (not false)
+        // for everyone else so normal ability checks still run for them.
+        // Only covers Laravel's own Gate/can()/@can/policies; Spatie's
+        // hasPermissionTo() doesn't consult Gate at all, so
+        // ScopedPermissionChecker has its own matching Admin short-circuit.
+        Gate::before(fn ($user) => $user->hasRole('Admin') ? true : null);
     }
 
     /**

@@ -4,8 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Page;
 use App\Models\User;
+use App\Permissions\ScopedPermissionName;
+use GamingHub\Core\Models\Game;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -42,7 +43,7 @@ class PageRenderingTest extends TestCase
         $this->get('/fjordur')->assertNotFound();
     }
 
-    public function test_a_draft_page_404s_for_a_user_without_see_drafts(): void
+    public function test_a_global_draft_page_404s_for_a_user_without_page_scope(): void
     {
         Page::create(['title' => 'Fjordur', 'slug' => 'fjordur', 'type' => 'page', 'status' => 'draft']);
         $user = User::factory()->create();
@@ -50,17 +51,45 @@ class PageRenderingTest extends TestCase
         $this->actingAs($user)->get('/fjordur')->assertNotFound();
     }
 
-    public function test_a_draft_page_renders_for_a_user_with_see_drafts(): void
+    public function test_a_game_scoped_draft_page_renders_for_a_user_with_page_scope_on_that_game(): void
     {
-        Page::create(['title' => 'Fjordur', 'slug' => 'fjordur', 'type' => 'page', 'status' => 'draft']);
+        $palworld = Game::factory()->create();
+        Page::create(['title' => 'Fjordur', 'slug' => 'fjordur', 'type' => 'page', 'status' => 'draft', 'game_id' => $palworld->id]);
 
-        Permission::create(['name' => 'see_drafts', 'guard_name' => 'web']);
         $role = Role::create(['name' => 'Drafter', 'guard_name' => 'web']);
-        $role->givePermissionTo('see_drafts');
+        $role->givePermissionTo(ScopedPermissionName::for('game', $palworld->id, 'page'));
         $user = User::factory()->create();
         $user->assignRole('Drafter');
 
         $response = $this->actingAs($user)->get('/fjordur');
+
+        $response->assertOk();
+        $response->assertSee('Published: Fjordur');
+    }
+
+    public function test_a_game_scoped_draft_page_404s_for_a_user_with_page_scope_on_a_different_game(): void
+    {
+        $palworld = Game::factory()->create();
+        $ark = Game::factory()->create();
+        Page::create(['title' => 'Fjordur', 'slug' => 'fjordur', 'type' => 'page', 'status' => 'draft', 'game_id' => $palworld->id]);
+
+        $role = Role::create(['name' => 'Ark Drafter', 'guard_name' => 'web']);
+        $role->givePermissionTo(ScopedPermissionName::for('game', $ark->id, 'page'));
+        $user = User::factory()->create();
+        $user->assignRole('Ark Drafter');
+
+        $this->actingAs($user)->get('/fjordur')->assertNotFound();
+    }
+
+    public function test_a_global_draft_page_renders_for_an_admin(): void
+    {
+        Page::create(['title' => 'Fjordur', 'slug' => 'fjordur', 'type' => 'page', 'status' => 'draft']);
+
+        Role::create(['name' => 'Admin', 'guard_name' => 'web']);
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+
+        $response = $this->actingAs($admin)->get('/fjordur');
 
         $response->assertOk();
         $response->assertSee('Published: Fjordur');

@@ -6,12 +6,11 @@ use App\Filament\Resources\PageResource\Pages\CreatePage;
 use App\Filament\Resources\PageResource\Pages\EditPage;
 use App\Filament\Resources\PageResource\Pages\ListPages;
 use App\Models\Page;
-use App\Models\PermissionScope;
 use App\Models\User;
+use App\Permissions\ScopedPermissionName;
 use GamingHub\Core\Models\Game;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -23,11 +22,7 @@ class PageResourceTest extends TestCase
     {
         parent::setUp();
 
-        Permission::firstOrCreate(['name' => 'edit_pages', 'guard_name' => 'web']);
-        Permission::firstOrCreate(['name' => 'see_drafts', 'guard_name' => 'web']);
-
-        $adminRole = Role::create(['name' => 'Admin', 'guard_name' => 'web']);
-        $adminRole->givePermissionTo(['edit_pages', 'see_drafts']);
+        Role::create(['name' => 'Admin', 'guard_name' => 'web']);
     }
 
     protected function actingAsAdmin(): User
@@ -106,20 +101,34 @@ class PageResourceTest extends TestCase
         $this->assertSoftDeleted('pages', ['id' => $page->id]);
     }
 
-    public function test_a_user_without_see_drafts_does_not_see_draft_pages_in_the_list(): void
+    public function test_page_scope_grants_both_published_and_draft_visibility_for_that_game(): void
     {
-        $viewerRole = Role::create(['name' => 'Viewer', 'guard_name' => 'web']);
-        $viewerRole->givePermissionTo('edit_pages');
+        $palworld = Game::factory()->create();
+
+        $role = Role::create(['name' => 'Palworld Editor', 'guard_name' => 'web']);
+        $role->givePermissionTo(ScopedPermissionName::for('game', $palworld->id, 'page'));
         $user = User::factory()->create();
-        $user->assignRole('Viewer');
+        $user->assignRole('Palworld Editor');
         $this->actingAs($user);
 
-        Page::create(['title' => 'Published Page', 'slug' => 'published-page', 'type' => 'page', 'status' => 'published']);
-        Page::create(['title' => 'Draft Page', 'slug' => 'draft-page', 'type' => 'page', 'status' => 'draft']);
+        $published = Page::create(['title' => 'Published Page', 'slug' => 'published-page', 'type' => 'page', 'status' => 'published', 'game_id' => $palworld->id]);
+        $draft = Page::create(['title' => 'Draft Page', 'slug' => 'draft-page', 'type' => 'page', 'status' => 'draft', 'game_id' => $palworld->id]);
 
         Livewire::test(ListPages::class)
-            ->assertCanSeeTableRecords(Page::where('slug', 'published-page')->get())
-            ->assertCanNotSeeTableRecords(Page::where('slug', 'draft-page')->get());
+            ->assertCanSeeTableRecords([$published, $draft]);
+    }
+
+    public function test_without_page_scope_for_a_game_neither_published_nor_draft_pages_are_visible(): void
+    {
+        $palworld = Game::factory()->create();
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $published = Page::create(['title' => 'Published Page', 'slug' => 'published-page', 'type' => 'page', 'status' => 'published', 'game_id' => $palworld->id]);
+        $draft = Page::create(['title' => 'Draft Page', 'slug' => 'draft-page', 'type' => 'page', 'status' => 'draft', 'game_id' => $palworld->id]);
+
+        Livewire::test(ListPages::class)
+            ->assertCanNotSeeTableRecords([$published, $draft]);
     }
 
     public function test_a_role_scoped_to_one_game_only_sees_that_games_pages(): void
@@ -128,13 +137,7 @@ class PageResourceTest extends TestCase
         $ark = Game::factory()->create(['name' => 'Ark']);
 
         $scopedRole = Role::create(['name' => 'Palworld Editor', 'guard_name' => 'web']);
-        $scopedRole->givePermissionTo(['edit_pages', 'see_drafts']);
-        PermissionScope::create([
-            'role_id' => $scopedRole->id,
-            'permission' => 'edit_pages',
-            'scope_type' => 'game',
-            'scope_id' => $palworld->id,
-        ]);
+        $scopedRole->givePermissionTo(ScopedPermissionName::for('game', $palworld->id, 'page'));
 
         $user = User::factory()->create();
         $user->assignRole('Palworld Editor');
@@ -149,7 +152,22 @@ class PageResourceTest extends TestCase
             ->assertCanNotSeeTableRecords([$arkPage, $globalPage]);
     }
 
-    public function test_an_unrestricted_role_sees_pages_for_every_game_and_global_pages(): void
+    public function test_a_global_page_is_visible_only_to_admin(): void
+    {
+        $palworld = Game::factory()->create();
+        $role = Role::create(['name' => 'Palworld Editor', 'guard_name' => 'web']);
+        $role->givePermissionTo(ScopedPermissionName::for('game', $palworld->id, 'page'));
+        $user = User::factory()->create();
+        $user->assignRole('Palworld Editor');
+        $this->actingAs($user);
+
+        $globalPage = Page::create(['title' => 'Global Page', 'slug' => 'global-page', 'type' => 'page', 'status' => 'published']);
+
+        Livewire::test(ListPages::class)
+            ->assertCanNotSeeTableRecords([$globalPage]);
+    }
+
+    public function test_an_admin_sees_pages_for_every_game_and_global_pages(): void
     {
         $this->actingAsAdmin();
         $palworld = Game::factory()->create();

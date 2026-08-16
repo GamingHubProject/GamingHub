@@ -129,11 +129,16 @@ class PageResource extends Resource
     }
 
     /**
-     * Draft rows are hidden from anyone without 'see_drafts'. Rows scoped
-     * to a game are hidden from anyone whose 'edit_pages' grant is
-     * restricted to a different set of games — an unrestricted grant (the
-     * default for every role until an admin adds a scope restriction)
-     * sees everything, same as before this existed.
+     * `page.scope` is now one grant covering both game-scoped visibility
+     * and draft visibility together (see_drafts no longer exists as a
+     * separate permission) — anyone with page.scope for a game sees that
+     * game's pages, draft or published; anyone without it sees none of
+     * that game's pages, published or not.
+     *
+     * A page with game_id null (platform-wide, no game) has no entity to
+     * grant page.scope against, so it's Admin-only now rather than visible
+     * to anyone with an unrestricted grant the way it worked before this
+     * redesign.
      */
     protected static function applyVisibilityScope(Builder $query): Builder
     {
@@ -143,17 +148,13 @@ class PageResource extends Resource
             return $query->whereRaw('1 = 0');
         }
 
-        if (! $user->can('see_drafts')) {
-            $query->where('status', 'published');
+        if ($user->hasRole('Admin')) {
+            return $query;
         }
 
-        $visibleGameIds = app(ScopedPermissionChecker::class)->visibleGameIds($user, 'edit_pages');
+        $visibleGameIds = app(ScopedPermissionChecker::class)->visibleIds($user, 'page', 'game');
 
-        if ($visibleGameIds !== null) {
-            $query->whereIn('game_id', $visibleGameIds);
-        }
-
-        return $query;
+        return $query->whereIn('game_id', $visibleGameIds);
     }
 
     public static function getRelations(): array

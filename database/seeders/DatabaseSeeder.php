@@ -14,8 +14,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // No PermissionSeeder anymore — every permission is now generated
+        // per Game/ServerGroup/Server (GameObserver etc.), and Admin no
+        // longer needs explicit grants at all (Gate::before in
+        // AppServiceProvider + ScopedPermissionChecker's own Admin
+        // short-circuit, since Spatie's hasPermissionTo() doesn't consult
+        // Gate).
         $this->call(RoleSeeder::class);
-        $this->call(PermissionSeeder::class);
         $this->call(CapabilitySeeder::class);
 
         $admin = User::factory()->create([
