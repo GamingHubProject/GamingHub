@@ -10,13 +10,11 @@ use App\Connectors\HttpRequestContract;
 use App\Connectors\RestConnector;
 use App\Manager\CurlHttpClient;
 use App\Manager\HttpClientContract;
-use App\Models\Map;
 use App\Models\SiteOption;
 use GamingHub\Core\Capabilities\CapabilityRegistry;
 use GamingHub\Core\Capabilities\CapabilityRouter;
 use GamingHub\Core\Capabilities\Providers\ManualProvider;
 use GamingHub\Core\Models\Game;
-use GamingHub\Core\Models\Instance;
 use GamingHub\Core\Models\Server;
 use GamingHub\Core\Normalizers\FieldMappingNormalizer;
 use GamingHub\Core\Normalizers\NormalizerRegistry;
@@ -84,8 +82,6 @@ class AppServiceProvider extends ServiceProvider
         Relation::morphMap([
             'game' => Game::class,
             'server' => Server::class,
-            'instance' => Instance::class,
-            'map' => Map::class,
         ]);
     }
 

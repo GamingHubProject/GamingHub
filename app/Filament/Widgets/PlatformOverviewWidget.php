@@ -4,7 +4,6 @@ namespace App\Filament\Widgets;
 
 use Composer\InstalledVersions;
 use GamingHub\Core\Models\Game;
-use GamingHub\Core\Models\Instance;
 use GamingHub\Core\Models\Server;
 use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
@@ -23,8 +22,6 @@ class PlatformOverviewWidget extends BaseWidget
             Stat::make('Servers', Server::count())
                 ->description(Server::where('status', 'online')->count().' online')
                 ->icon('heroicon-o-server'),
-            Stat::make('Instances', Instance::count())
-                ->icon('heroicon-o-squares-2x2'),
             Stat::make('Users', User::count())
                 ->icon('heroicon-o-users'),
             Stat::make('Version', 'v'.config('app.version'))

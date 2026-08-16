@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ServerResource\Pages;
 use App\Filament\Resources\ServerResource\RelationManagers;
+use App\Models\ConnectorInstance;
 use App\Models\ServerGroup;
 use GamingHub\Core\Models\Server;
 use Filament\Forms;
@@ -55,14 +56,70 @@ class ServerResource extends Resource
                         'maintenance' => 'Maintenance',
                     ])
                     ->required()
-                    ->default('offline'),
+                    ->default('offline')
+                    ->disabled(fn (?Server $record) => static::isProviderDriven($record))
+                    ->helperText(fn (?Server $record) => static::providerDrivenHelperText($record)),
                 Forms\Components\TextInput::make('max_players')
-                    ->numeric(),
+                    ->numeric()
+                    ->disabled(fn (?Server $record) => static::isProviderDriven($record))
+                    ->helperText(fn (?Server $record) => static::providerDrivenHelperText($record)),
                 Forms\Components\TextInput::make('current_players')
-                    ->numeric(),
+                    ->numeric()
+                    ->disabled(fn (?Server $record) => static::isProviderDriven($record))
+                    ->helperText(fn (?Server $record) => static::providerDrivenHelperText($record)),
+                Forms\Components\TextInput::make('cpu_usage_percent')
+                    ->label('CPU usage %')
+                    ->numeric()
+                    ->disabled(fn (?Server $record) => static::isProviderDriven($record))
+                    ->helperText(fn (?Server $record) => static::providerDrivenHelperText($record)),
+                Forms\Components\TextInput::make('memory_usage_bytes')
+                    ->label('Memory usage (bytes)')
+                    ->numeric()
+                    ->disabled(fn (?Server $record) => static::isProviderDriven($record))
+                    ->helperText(fn (?Server $record) => static::providerDrivenHelperText($record)),
                 Forms\Components\KeyValue::make('metadata')
                     ->columnSpanFull(),
             ]);
+    }
+
+    /**
+     * True once a Server has any connector-backed provider — from that
+     * point on, PollProviders is what actually keeps these fields
+     * current, so letting an admin hand-type a value here would just get
+     * silently overwritten on the next poll tick. A brand-new Server (no
+     * record yet) or one with only manual providers stays editable, since
+     * nothing else will ever populate these otherwise. Filament doesn't
+     * submit disabled fields, so this alone is enough to stop admin edits
+     * from reaching the database — no extra guard needed on save.
+     */
+    protected static function isProviderDriven(?Server $record): bool
+    {
+        return $record?->hasConnectorProvider() ?? false;
+    }
+
+    protected static function providerDrivenHelperText(?Server $record): ?string
+    {
+        if (! static::isProviderDriven($record)) {
+            return null;
+        }
+
+        return 'Provided by '.static::primaryConnectorLabel($record).' — set automatically, not editable here.';
+    }
+
+    /**
+     * The name of the highest-priority connector-type provider's
+     * Connection, matching the exact priority-stack order
+     * CapabilityGateway itself walks ("first wins").
+     */
+    protected static function primaryConnectorLabel(Server $record): string
+    {
+        $provider = $record->providers()
+            ->where('type', 'connector')
+            ->orderBy('priority')
+            ->orderBy('id')
+            ->first();
+
+        return $provider ? (ConnectorInstance::find($provider->connector_instance_id)?->name ?? 'a connector') : 'a connector';
     }
 
     public static function table(Table $table): Table

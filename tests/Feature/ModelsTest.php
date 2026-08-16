@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Asset;
 use GamingHub\Core\Models\Game;
-use GamingHub\Core\Models\Instance;
 use GamingHub\Core\Models\Provider;
 use GamingHub\Core\Models\Server;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,14 +18,6 @@ class ModelsTest extends TestCase
         $game = Game::factory()->create();
 
         $this->assertDatabaseHas('games', ['id' => $game->id]);
-    }
-
-    public function test_instance_belongs_to_server(): void
-    {
-        $server = Server::factory()->create();
-        $instance = Instance::factory()->create(['server_id' => $server->id]);
-
-        $this->assertTrue($instance->server->is($server));
     }
 
     public function test_provider_belongs_to_server(): void

@@ -29,8 +29,11 @@ interface GameExtensionContract
     public function capabilities(): array;
 
     /**
-     * Configuration schema in the same shape stored on games.configuration_schema:
-     * a map of setting name to {type, min, max, default, requiresRestart, description}.
+     * A map of setting name to {type, min, max, default, requiresRestart,
+     * description}. Core no longer has a games.configuration_schema column
+     * (removed — core had no consumer for it, and nothing pushed a
+     * server's actual config anywhere) — this extension owns its settings
+     * shape entirely; there's no core schema to match anymore.
      *
      * @return array<string, array<string, mixed>>
      */

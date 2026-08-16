@@ -68,10 +68,10 @@ class NavigationOrderTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Game Titles');
-        // The renamed group must still contain its actual resource links,
+        // The renamed group must still contain its actual resource link,
         // not just an empty header — Games is still reachable under its
         // new label.
-        $response->assertSeeInOrder(['Game Titles', 'Games', 'Instances', 'Maps']);
+        $response->assertSeeInOrder(['Game Titles', 'Games']);
     }
 
     public function test_navigation_items_sort_helper_puts_favorites_first(): void

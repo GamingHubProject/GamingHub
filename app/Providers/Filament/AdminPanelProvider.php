@@ -4,12 +4,9 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\BrowseRegistry;
 use App\Filament\Pages\SiteOptions;
-use App\Filament\Resources\ConfigurationPresetResource;
 use App\Filament\Resources\ConnectorInstanceResource;
 use App\Filament\Resources\GameResource;
 use App\Filament\Resources\InstalledPackageResource;
-use App\Filament\Resources\InstanceResource;
-use App\Filament\Resources\MapResource;
 use App\Filament\Resources\NavigationItemResource;
 use App\Filament\Resources\PageResource;
 use App\Filament\Resources\RoleResource;
@@ -49,9 +46,9 @@ class AdminPanelProvider extends PanelProvider
     protected const GROUP_MEMBERS = [
         'capabilities' => [ConnectorInstanceResource::class],
         'extensions' => [InstalledPackageResource::class, BrowseRegistry::class],
-        'games' => [GameResource::class, InstanceResource::class, MapResource::class],
+        'games' => [GameResource::class],
         'experience' => [PageResource::class, ThemeResource::class],
-        'servers' => [ServerResource::class, ServerGroupResource::class, ConfigurationPresetResource::class],
+        'servers' => [ServerResource::class, ServerGroupResource::class],
         'administration' => [UserResource::class, RoleResource::class],
         'basic-settings' => [NavigationItemResource::class, SiteOptions::class],
     ];
@@ -102,8 +99,8 @@ class AdminPanelProvider extends PanelProvider
      * groups by exact label string, so renaming a label through that API
      * would silently orphan every Resource still declaring the old
      * string. Building navigation explicitly here instead means renaming
-     * "Games" to "Game Titles" only changes what's displayed — Games/
-     * Instances/Maps stay correctly grouped regardless.
+     * "Games" to "Game Titles" only changes what's displayed — GameResource
+     * stays correctly grouped regardless.
      */
     protected function buildNavigation(NavigationBuilder $builder): NavigationBuilder
     {
