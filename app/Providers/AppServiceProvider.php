@@ -8,11 +8,6 @@ use App\Connectors\ConnectorRegistry;
 use App\Connectors\CurlHttpRequester;
 use App\Connectors\HttpRequestContract;
 use App\Connectors\RestConnector;
-use App\Experience\BlockRegistry;
-use App\Experience\Blocks\GamesListBlock;
-use App\Experience\Blocks\HeroBlock;
-use App\Experience\Blocks\RichTextBlock;
-use App\Experience\Blocks\ServerStatusBlock;
 use App\Manager\CurlHttpClient;
 use App\Manager\HttpClientContract;
 use App\Models\Map;
@@ -35,7 +30,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(BlockRegistry::class);
         $this->app->singleton(CapabilityRegistry::class);
         $this->app->singleton(CapabilityRouter::class);
         $this->app->singleton(CapabilityGateway::class);
@@ -50,13 +44,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $registry = $this->app->make(BlockRegistry::class);
-
-        $registry->register(RichTextBlock::class);
-        $registry->register(GamesListBlock::class);
-        $registry->register(ServerStatusBlock::class);
-        $registry->register(HeroBlock::class);
-
         $connectors = $this->app->make(ConnectorRegistry::class);
         $connectors->register(RestConnector::class);
 

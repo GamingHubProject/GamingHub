@@ -2,90 +2,93 @@
 
 namespace Tests\Feature;
 
-use App\Experience\ThemeResolver;
-use GamingHub\Core\Models\Game;
 use App\Models\Page;
-use App\Models\Theme;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class PageRenderingTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_published_page_renders_its_blocks(): void
+    public function test_a_root_level_published_page_renders(): void
     {
-        $game = Game::factory()->create(['name' => 'Palworld', 'status' => 'enabled']);
+        Page::create(['title' => 'Community', 'slug' => 'community', 'type' => 'page', 'status' => 'published']);
 
-        Page::create([
-            'title' => 'Palworld Hub',
-            'slug' => 'palworld-hub',
-            'game_id' => $game->id,
-            'status' => 'published',
-            'blocks' => [
-                ['type' => 'rich-text', 'config' => ['content' => '<p>Welcome</p>']],
-                ['type' => 'games-list', 'config' => ['limit' => 5]],
-            ],
-        ]);
-
-        $response = $this->get('/p/palworld-hub');
+        $response = $this->get('/community');
 
         $response->assertOk();
-        $response->assertSee('Welcome', false);
-        $response->assertSee('Palworld');
+        $response->assertSee('Published: Community');
     }
 
-    public function test_hero_block_renders_heading_and_cta(): void
+    public function test_a_nested_published_page_resolves_through_its_folder_path(): void
     {
-        Page::create([
-            'title' => 'Landing',
-            'slug' => 'landing',
-            'status' => 'published',
-            'blocks' => [
-                ['type' => 'hero', 'config' => [
-                    'heading' => 'Join the Adventure',
-                    'cta_label' => 'Play now',
-                    'cta_url' => 'https://example.com',
-                ]],
-            ],
-        ]);
+        $games = Page::create(['title' => 'Games', 'slug' => 'games', 'type' => 'folder', 'status' => 'published']);
+        $ark = Page::create(['title' => 'Ark', 'slug' => 'ark', 'type' => 'folder', 'status' => 'published', 'parent_id' => $games->id]);
+        Page::create(['title' => 'Ragnarok', 'slug' => 'ragnarok', 'type' => 'page', 'status' => 'published', 'parent_id' => $ark->id]);
 
-        $response = $this->get('/p/landing');
+        $response = $this->get('/games/ark/ragnarok');
 
         $response->assertOk();
-        $response->assertSee('Join the Adventure');
-        $response->assertSee('Play now');
-        $response->assertSee('https://example.com', false);
+        $response->assertSee('Published: Ragnarok');
     }
 
-    public function test_draft_page_is_not_publicly_reachable(): void
+    public function test_a_draft_page_404s_for_a_guest(): void
     {
-        Page::create(['title' => 'Draft', 'slug' => 'draft-page', 'status' => 'draft']);
+        Page::create(['title' => 'Fjordur', 'slug' => 'fjordur', 'type' => 'page', 'status' => 'draft']);
 
-        $this->get('/p/draft-page')->assertNotFound();
+        $this->get('/fjordur')->assertNotFound();
     }
 
-    public function test_theme_resolver_merges_platform_game_and_server_levels(): void
+    public function test_a_draft_page_404s_for_a_user_without_see_drafts(): void
     {
-        $game = Game::factory()->create();
+        Page::create(['title' => 'Fjordur', 'slug' => 'fjordur', 'type' => 'page', 'status' => 'draft']);
+        $user = User::factory()->create();
 
-        Theme::create([
-            'name' => 'Platform',
-            'level' => Theme::LEVEL_PLATFORM,
-            'tokens' => ['color-primary' => '#000000', 'font-body' => 'Inter'],
-            'is_default' => true,
-        ]);
+        $this->actingAs($user)->get('/fjordur')->assertNotFound();
+    }
 
-        Theme::create([
-            'name' => 'Game override',
-            'level' => Theme::LEVEL_GAME,
-            'game_id' => $game->id,
-            'tokens' => ['color-primary' => '#16a34a'],
-        ]);
+    public function test_a_draft_page_renders_for_a_user_with_see_drafts(): void
+    {
+        Page::create(['title' => 'Fjordur', 'slug' => 'fjordur', 'type' => 'page', 'status' => 'draft']);
 
-        $tokens = (new ThemeResolver)->resolve($game);
+        Permission::create(['name' => 'see_drafts', 'guard_name' => 'web']);
+        $role = Role::create(['name' => 'Drafter', 'guard_name' => 'web']);
+        $role->givePermissionTo('see_drafts');
+        $user = User::factory()->create();
+        $user->assignRole('Drafter');
 
-        $this->assertSame('#16a34a', $tokens['color-primary']);
-        $this->assertSame('Inter', $tokens['font-body']);
+        $response = $this->actingAs($user)->get('/fjordur');
+
+        $response->assertOk();
+        $response->assertSee('Published: Fjordur');
+    }
+
+    public function test_a_folder_is_not_directly_renderable(): void
+    {
+        Page::create(['title' => 'Games', 'slug' => 'games', 'type' => 'folder', 'status' => 'published']);
+
+        $this->get('/games')->assertNotFound();
+    }
+
+    public function test_an_unknown_path_segment_404s(): void
+    {
+        $games = Page::create(['title' => 'Games', 'slug' => 'games', 'type' => 'folder', 'status' => 'published']);
+        Page::create(['title' => 'Ark', 'slug' => 'ark', 'type' => 'page', 'status' => 'published', 'parent_id' => $games->id]);
+
+        $this->get('/games/nonexistent')->assertNotFound();
+    }
+
+    public function test_two_pages_in_different_folders_can_share_a_slug(): void
+    {
+        $ark = Page::create(['title' => 'Ark', 'slug' => 'ark', 'type' => 'folder', 'status' => 'published']);
+        $palworld = Page::create(['title' => 'Palworld', 'slug' => 'palworld', 'type' => 'folder', 'status' => 'published']);
+        Page::create(['title' => 'About (Ark)', 'slug' => 'about', 'type' => 'page', 'status' => 'published', 'parent_id' => $ark->id]);
+        Page::create(['title' => 'About (Palworld)', 'slug' => 'about', 'type' => 'page', 'status' => 'published', 'parent_id' => $palworld->id]);
+
+        $this->get('/ark/about')->assertOk()->assertSee('Published: About (Ark)');
+        $this->get('/palworld/about')->assertOk()->assertSee('Published: About (Palworld)');
     }
 }

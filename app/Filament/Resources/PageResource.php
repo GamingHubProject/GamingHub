@@ -2,16 +2,25 @@
 
 namespace App\Filament\Resources;
 
-use App\Experience\BlockRegistry;
 use App\Filament\Resources\PageResource\Pages;
 use App\Models\Page;
+use App\Permissions\ScopedPermissionChecker;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * Web Tree admin. The list is intentionally flat (not a nested drag-drop
+ * tree widget — no fancy UI yet, per the brief) with a computed "Path"
+ * column showing each row's full breadcrumb, and a "Parent folder" filter
+ * so an admin can narrow to one folder's contents to drag-reorder them
+ * with Filament's ordinary reorderable() — dragging across two different
+ * parents at once wouldn't mean anything anyway.
+ */
 class PageResource extends Resource
 {
     protected static ?string $model = Page::class;
@@ -28,6 +37,18 @@ class PageResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Page')
                     ->schema([
+                        Forms\Components\Select::make('type')
+                            ->options([
+                                'folder' => 'Folder',
+                                'page' => 'Page',
+                            ])
+                            ->required()
+                            ->default('page')
+                            ->live(),
+                        Forms\Components\Select::make('parent_id')
+                            ->label('Parent folder')
+                            ->options(fn () => Page::query()->where('type', 'folder')->pluck('title', 'id'))
+                            ->helperText('Leave empty for the root level.'),
                         Forms\Components\TextInput::make('title')
                             ->required()
                             ->maxLength(255)
@@ -38,11 +59,11 @@ class PageResource extends Resource
                         Forms\Components\TextInput::make('slug')
                             ->required()
                             ->maxLength(255)
-                            ->helperText('URL path: /p/{slug}'),
+                            ->helperText('Must be unique among siblings in the same parent folder.'),
                         Forms\Components\Select::make('game_id')
                             ->label('Scope to a game')
                             ->relationship('game', 'name')
-                            ->helperText('Optional — leave empty for a global/platform page.'),
+                            ->helperText('Optional — leave empty for a global/platform page. Also what game-scoped role permissions check against.'),
                         Forms\Components\Select::make('status')
                             ->options([
                                 'draft' => 'Draft',
@@ -50,63 +71,46 @@ class PageResource extends Resource
                             ])
                             ->required()
                             ->default('draft'),
+                        Forms\Components\TextInput::make('order')
+                            ->numeric()
+                            ->default(0)
+                            ->required()
+                            ->helperText('Lower sorts first among siblings.'),
                     ])
                     ->columns(2),
-                Forms\Components\Section::make('Blocks')
-                    ->description('Blocks render in order, top to bottom, on the public page.')
-                    ->schema([
-                        Forms\Components\Repeater::make('blocks')
-                            ->label('')
-                            ->schema([
-                                Forms\Components\Select::make('type')
-                                    ->label('Block type')
-                                    ->options(fn () => app(BlockRegistry::class)->options())
-                                    ->required()
-                                    ->live(),
-                                Forms\Components\Group::make(
-                                    fn (Get $get) => self::blockConfigSchema($get('type'))
-                                )
-                                    ->statePath('config'),
-                            ])
-                            ->itemLabel(fn (array $state) => $state['type'] ?? 'Block')
-                            ->collapsible()
-                            ->default([])
-                            ->addActionLabel('Add block'),
-                    ]),
+                Forms\Components\Textarea::make('content')
+                    ->visible(fn (Get $get) => $get('type') === 'page')
+                    ->rows(10)
+                    ->columnSpanFull()
+                    ->helperText('Plain text/HTML for now — placeholder frontend only renders this as-is.'),
             ]);
-    }
-
-    protected static function blockConfigSchema(?string $type): array
-    {
-        if (! $type) {
-            return [];
-        }
-
-        $class = app(BlockRegistry::class)->get($type);
-
-        return $class ? $class::configSchema() : [];
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => static::applyVisibilityScope($query))
+            ->reorderable('order')
             ->columns([
-                Tables\Columns\TextColumn::make('title')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('slug')
-                    ->searchable(),
+                Tables\Columns\TextColumn::make('path')
+                    ->label('Path')
+                    ->state(fn (Page $record) => '/'.implode('/', $record->pathSegments())),
+                Tables\Columns\TextColumn::make('type')
+                    ->badge()
+                    ->color(fn (string $state) => $state === 'folder' ? 'gray' : 'info'),
                 Tables\Columns\TextColumn::make('game.name')
                     ->label('Game')
                     ->placeholder('— global —'),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => $state === 'published' ? 'success' : 'gray'),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('order')
+                    ->label('Order'),
             ])
             ->filters([
+                Tables\Filters\SelectFilter::make('parent_id')
+                    ->label('Parent folder')
+                    ->options(fn () => Page::query()->where('type', 'folder')->pluck('title', 'id')),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
                         'draft' => 'Draft',
@@ -122,6 +126,34 @@ class PageResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /**
+     * Draft rows are hidden from anyone without 'see_drafts'. Rows scoped
+     * to a game are hidden from anyone whose 'edit_pages' grant is
+     * restricted to a different set of games — an unrestricted grant (the
+     * default for every role until an admin adds a scope restriction)
+     * sees everything, same as before this existed.
+     */
+    protected static function applyVisibilityScope(Builder $query): Builder
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if (! $user->can('see_drafts')) {
+            $query->where('status', 'published');
+        }
+
+        $visibleGameIds = app(ScopedPermissionChecker::class)->visibleGameIds($user, 'edit_pages');
+
+        if ($visibleGameIds !== null) {
+            $query->whereIn('game_id', $visibleGameIds);
+        }
+
+        return $query;
     }
 
     public static function getRelations(): array

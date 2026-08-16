@@ -1,14 +1,12 @@
 <?php
 
-use App\Http\Controllers\PageController;
+use App\Http\Controllers\PageTreeController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
-
-Route::get('/p/{slug}', [PageController::class, 'show'])->name('pages.show');
 
 Route::get('/dashboard', function () {
     return view('dashboard');
@@ -21,3 +19,10 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+// Web Tree — must stay last: it's a catch-all for any remaining path
+// ("games/ark/ragnarok"), so every more specific route above needs to
+// match first.
+Route::get('/{path}', [PageTreeController::class, 'show'])
+    ->where('path', '.*')
+    ->name('pages.show');

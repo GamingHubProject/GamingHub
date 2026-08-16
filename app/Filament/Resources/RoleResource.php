@@ -4,6 +4,8 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\RoleResource\Pages;
 use App\Filament\Resources\RoleResource\RelationManagers;
+use GamingHub\Core\Models\Game;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -38,6 +40,26 @@ class RoleResource extends Resource
                     ->relationship('permissions', 'name')
                     ->columns(3)
                     ->columnSpanFull(),
+                Forms\Components\Repeater::make('scoped_permissions')
+                    ->label('Scoped restrictions')
+                    ->helperText(
+                        'By default a permission above applies everywhere. Add a row here to '
+                        .'restrict one of those permissions to specific games only — e.g. '
+                        .'"edit_pages" limited to "Palworld". A permission with no rows here stays global.'
+                    )
+                    ->schema([
+                        Forms\Components\Select::make('permission')
+                            ->options(fn () => Permission::query()->pluck('name', 'name'))
+                            ->required(),
+                        Forms\Components\Select::make('game_id')
+                            ->label('Restricted to game')
+                            ->options(fn () => Game::query()->pluck('name', 'id'))
+                            ->required(),
+                    ])
+                    ->columns(2)
+                    ->columnSpanFull()
+                    ->default([])
+                    ->addActionLabel('Add scope restriction'),
             ]);
     }
 
