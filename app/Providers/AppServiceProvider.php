@@ -11,6 +11,7 @@ use App\Connectors\RestConnector;
 use App\Manager\CurlHttpClient;
 use App\Manager\HttpClientContract;
 use App\Models\Map;
+use App\Models\SiteOption;
 use GamingHub\Core\Capabilities\CapabilityRegistry;
 use GamingHub\Core\Capabilities\CapabilityRouter;
 use GamingHub\Core\Capabilities\Providers\ManualProvider;
@@ -22,6 +23,7 @@ use GamingHub\Core\Normalizers\NormalizerRegistry;
 use GamingHub\Core\Normalizers\PelicanServerStatusNormalizer;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
+use Throwable;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -44,6 +46,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->applySiteOptions();
+
         $connectors = $this->app->make(ConnectorRegistry::class);
         $connectors->register(RestConnector::class);
 
@@ -83,5 +87,37 @@ class AppServiceProvider extends ServiceProvider
             'instance' => Instance::class,
             'map' => Map::class,
         ]);
+    }
+
+    /**
+     * Options page settings become the actual runtime config, not just
+     * values sitting in the database — layouts already read
+     * config('app.name') for <title>, so that alone is enough for
+     * site_name. Timezone needs one extra step: Laravel sets PHP's actual
+     * default timezone from config('app.timezone') once, very early in
+     * bootstrap, before any ServiceProvider runs — updating the config
+     * value here changes what config('app.timezone') *returns* from this
+     * point on, but not the already-set PHP default, so date_default_timezone_set()
+     * is called explicitly too. Wrapped in try/catch the same way
+     * PackageLoader's DB reads are: boot() runs on every request/command,
+     * including the very first `migrate` on a brand-new database before
+     * site_options exists — this must never be why that command fails.
+     */
+    protected function applySiteOptions(): void
+    {
+        try {
+            $option = SiteOption::current();
+        } catch (Throwable) {
+            return;
+        }
+
+        if ($name = $option->values['site_name'] ?? null) {
+            config(['app.name' => $name]);
+        }
+
+        if ($timezone = $option->values['timezone'] ?? null) {
+            config(['app.timezone' => $timezone]);
+            date_default_timezone_set($timezone);
+        }
     }
 }
