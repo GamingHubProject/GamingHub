@@ -18,20 +18,51 @@
         </include>
     </source>
     <php>
-        <env name="APP_ENV" value="testing"/>
-        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
-        <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="pgsql"/>
-        <env name="DB_HOST" value="postgres"/>
-        <env name="DB_PORT" value="5432"/>
-        <env name="DB_DATABASE" value="gaming_hub_test"/>
-        <env name="DB_USERNAME" value="gaming_hub"/>
-        <env name="DB_PASSWORD" value="secret"/>
-        <env name="MAIL_MAILER" value="array"/>
-        <env name="PULSE_ENABLED" value="false"/>
-        <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="SESSION_DRIVER" value="array"/>
-        <env name="TELESCOPE_ENABLED" value="false"/>
+        <!--
+            Both <env force="true"> AND matching <server> entries are required
+            here, not just one. docker-compose.yml's app/scheduler services now
+            use env_file: .env (see APP_KEY fix), so real .env values
+            (APP_ENV=local, DB_DATABASE=gaming_hub, SESSION_DRIVER=database,
+            CACHE_STORE=database, etc.) are genuine OS env vars by the time PHP
+            starts — the CLI SAPI populates $_SERVER from them before PHPUnit
+            ever runs. PHPUnit's force="true" on <env> only rewrites
+            getenv()/$_ENV, not $_SERVER (see PhpHandler::handleEnvVariables).
+            Laravel's Env repository checks $_SERVER with higher priority than
+            getenv()/$_ENV, so without the <server> entries below it silently
+            read back the real dev values (e.g. app()->environment() stayed
+            "local", which made runningUnitTests() false and broke CSRF/session
+            handling in every test that posts a form).
+        -->
+        <env name="APP_ENV" value="testing" force="true"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file" force="true"/>
+        <env name="BCRYPT_ROUNDS" value="4" force="true"/>
+        <env name="CACHE_STORE" value="array" force="true"/>
+        <env name="DB_CONNECTION" value="pgsql" force="true"/>
+        <env name="DB_HOST" value="postgres" force="true"/>
+        <env name="DB_PORT" value="5432" force="true"/>
+        <env name="DB_DATABASE" value="gaming_hub_test" force="true"/>
+        <env name="DB_USERNAME" value="gaming_hub" force="true"/>
+        <env name="DB_PASSWORD" value="secret" force="true"/>
+        <env name="MAIL_MAILER" value="array" force="true"/>
+        <env name="PULSE_ENABLED" value="false" force="true"/>
+        <env name="QUEUE_CONNECTION" value="sync" force="true"/>
+        <env name="SESSION_DRIVER" value="array" force="true"/>
+        <env name="TELESCOPE_ENABLED" value="false" force="true"/>
+
+        <server name="APP_ENV" value="testing"/>
+        <server name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <server name="BCRYPT_ROUNDS" value="4"/>
+        <server name="CACHE_STORE" value="array"/>
+        <server name="DB_CONNECTION" value="pgsql"/>
+        <server name="DB_HOST" value="postgres"/>
+        <server name="DB_PORT" value="5432"/>
+        <server name="DB_DATABASE" value="gaming_hub_test"/>
+        <server name="DB_USERNAME" value="gaming_hub"/>
+        <server name="DB_PASSWORD" value="secret"/>
+        <server name="MAIL_MAILER" value="array"/>
+        <server name="PULSE_ENABLED" value="false"/>
+        <server name="QUEUE_CONNECTION" value="sync"/>
+        <server name="SESSION_DRIVER" value="array"/>
+        <server name="TELESCOPE_ENABLED" value="false"/>
     </php>
 </phpunit>
