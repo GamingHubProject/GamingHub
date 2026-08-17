@@ -4,7 +4,6 @@ namespace Tests\Unit\Connectors;
 
 use GamingHub\Core\Capabilities\CapabilityValue;
 use GamingHub\Core\Normalizers\FieldMappingNormalizer;
-use GamingHub\Core\Normalizers\PelicanServerStatusNormalizer;
 use PHPUnit\Framework\TestCase;
 
 class NormalizerTest extends TestCase
@@ -58,47 +57,5 @@ class NormalizerTest extends TestCase
 
         $this->assertSame('server-status', $normalizer->capability(['capability' => 'server-status']));
         $this->assertSame('', $normalizer->capability());
-    }
-
-    public function test_pelican_normalizer_parses_real_resources_shape(): void
-    {
-        $value = (new PelicanServerStatusNormalizer)->normalize([
-            'object' => 'stats',
-            'attributes' => [
-                'current_state' => 'running',
-                'is_suspended' => false,
-                'resources' => [
-                    'memory_bytes' => 512000000,
-                    'cpu_absolute' => 12.5,
-                    'uptime' => 98765,
-                ],
-            ],
-        ]);
-
-        $this->assertTrue($value->isOk());
-        $this->assertTrue($value->data['online']);
-        $this->assertSame(512000000, $value->data['memory_bytes']);
-    }
-
-    public function test_pelican_normalizer_reports_offline_state(): void
-    {
-        $value = (new PelicanServerStatusNormalizer)->normalize([
-            'attributes' => ['current_state' => 'offline', 'resources' => []],
-        ]);
-
-        $this->assertTrue($value->isOk());
-        $this->assertFalse($value->data['online']);
-    }
-
-    public function test_pelican_normalizer_is_unavailable_on_unexpected_shape(): void
-    {
-        $value = (new PelicanServerStatusNormalizer)->normalize(['unexpected' => true]);
-
-        $this->assertSame(CapabilityValue::UNAVAILABLE, $value->status);
-    }
-
-    public function test_pelican_normalizer_declares_its_capability(): void
-    {
-        $this->assertSame('server-status', (new PelicanServerStatusNormalizer)->capability());
     }
 }

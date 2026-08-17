@@ -4,37 +4,46 @@ namespace App\Manager;
 
 use App\Connectors\ConnectorRegistry;
 use App\Models\InstalledPackage;
+use GamingHub\Core\Normalizers\NormalizerRegistry;
 use RuntimeException;
 
 /**
- * Loads and registers every enabled Connector package's PHP code into
- * ConnectorRegistry — the piece that was missing before this: Manager could
+ * Loads and registers every enabled Connector package's PHP code — into
+ * ConnectorRegistry for its connector class, and into NormalizerRegistry
+ * for any normalizer(s) it ships alongside it. Manager could always
  * download and record a package (PackageInstaller), but nothing ever
- * required its code, so "enable" never actually made an extension's
- * connector usable. A package is a Connector if the directory Manager
- * installed it into ships a connector.json — presence on disk decides,
- * not a database flag, the same convention PackageManifest already uses
- * for gaming-hub-extension.json (missing file = "not applicable", not an
- * error).
+ * required its code until this: "enable" now actually makes an extension's
+ * connector (and its normalizers) usable. A package is a Connector if the
+ * directory Manager installed it into ships a connector.json — presence on
+ * disk decides, not a database flag, the same convention PackageManifest
+ * already uses for gaming-hub-extension.json (missing file = "not
+ * applicable", not an error).
  *
  * connector.json:
  * {
  *   "name": "Pelican Connector",
  *   "class": "Vendor\\Namespace\\PelicanConnector",
  *   "autoload": {"prefix": "Vendor\\Namespace\\", "path": "src"},
+ *   "normalizers": {"pelican-server-status": "Vendor\\Namespace\\PelicanServerStatusNormalizer"},
  *   "auth_schema": {...}, "endpoints": [...], "capabilities": [...]
  * }
  *
- * "autoload" is optional — a connector whose class already lives somewhere
- * Composer's own autoloader reaches (true today for the Pelican/REST
- * connectors still shipped inside Platform's app/Connectors/ while they're
- * mid-migration to real packages) doesn't need it; class_exists() below
- * just succeeds immediately. A genuinely external package supplies it so
- * its src/ files get pulled in via a scoped spl_autoload_register.
+ * "autoload" is optional — a connector class already reachable via
+ * Composer's own autoloader (true for RestConnector, which stays a
+ * Platform-built-in rather than a package) doesn't need it; class_exists()
+ * below just succeeds immediately. A genuinely external package supplies it
+ * so its src/ files — connector class and any normalizer classes alike —
+ * get pulled in via one scoped spl_autoload_register. "normalizers" is
+ * optional too — a connector whose data needs no package-specific shaping,
+ * or that relies entirely on Core's generic normalizers (field-mapping),
+ * simply omits it.
  */
 class PackageLoader
 {
-    public function __construct(protected ConnectorRegistry $connectors) {}
+    public function __construct(
+        protected ConnectorRegistry $connectors,
+        protected NormalizerRegistry $normalizers,
+    ) {}
 
     public function loadConnectorPackages(): void
     {
@@ -69,6 +78,14 @@ class PackageLoader
         }
 
         $this->connectors->register($class);
+
+        foreach ($manifest['normalizers'] ?? [] as $normalizerId => $normalizerClass) {
+            if (! class_exists($normalizerClass)) {
+                throw new RuntimeException("Connector package [{$slug}]'s normalizer class [{$normalizerClass}] for [{$normalizerId}] could not be loaded.");
+            }
+
+            $this->normalizers->register($normalizerId, app($normalizerClass));
+        }
     }
 
     /**

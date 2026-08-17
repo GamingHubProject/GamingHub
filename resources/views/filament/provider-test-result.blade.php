@@ -71,14 +71,20 @@
 
     {{-- 1. Raw Connector Output --}}
     <div>
-        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Raw Connector Output</h4>
-        <pre class="max-h-56 overflow-auto rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-xs font-mono whitespace-pre">{{ $result->raw !== null ? json_encode($result->raw, JSON_PRETTY_PRINT) : 'Not attempted — see Error below.' }}</pre>
+        <div class="flex items-center justify-between mb-1">
+            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Raw Connector Output</h4>
+            <x-provider-test-copy-button target="debug-raw-{{ $result->provider->id }}" />
+        </div>
+        <pre id="debug-raw-{{ $result->provider->id }}" class="max-h-56 overflow-auto rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-xs font-mono whitespace-pre-wrap break-words">{{ $result->raw !== null ? json_encode($result->raw, JSON_PRETTY_PRINT) : 'Not attempted — see Error below.' }}</pre>
     </div>
 
     {{-- 2. Normalized Output --}}
     <div>
-        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Normalized Output (Core Processing)</h4>
-        <pre class="max-h-56 overflow-auto rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-xs font-mono whitespace-pre">{{ $result->normalized !== null ? json_encode($result->normalized, JSON_PRETTY_PRINT) : 'Not attempted — see Error below.' }}</pre>
+        <div class="flex items-center justify-between mb-1">
+            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Normalized Output (Core Processing)</h4>
+            <x-provider-test-copy-button target="debug-normalized-{{ $result->provider->id }}" />
+        </div>
+        <pre id="debug-normalized-{{ $result->provider->id }}" class="max-h-56 overflow-auto rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-xs font-mono whitespace-pre-wrap break-words">{{ $result->normalized !== null ? json_encode($result->normalized, JSON_PRETTY_PRINT) : 'Not attempted — see Error below.' }}</pre>
     </div>
 
     {{-- 3. Server Received + Available Capabilities --}}
@@ -95,8 +101,11 @@
         </div>
 
         <div>
-            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Application Logs From This Test</h4>
-            <pre class="max-h-40 overflow-auto rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-xs font-mono whitespace-pre">{{ empty($result->logs) ? 'No log entries were emitted during this test.' : implode("\n", $result->logs) }}</pre>
+            <div class="flex items-center justify-between mb-1">
+                <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Application Logs From This Test</h4>
+                <x-provider-test-copy-button target="debug-logs-{{ $result->provider->id }}" />
+            </div>
+            <pre id="debug-logs-{{ $result->provider->id }}" class="max-h-40 overflow-auto rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-xs font-mono whitespace-pre-wrap break-words">{{ empty($result->logs) ? 'No log entries were emitted during this test.' : implode("\n", $result->logs) }}</pre>
         </div>
     @endunless
 </div>

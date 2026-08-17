@@ -6,16 +6,19 @@ use App\Connectors\HttpRequestContract;
 use App\Filament\Resources\ConnectorInstanceResource\Pages\CreateConnectorInstance;
 use App\Filament\Resources\ConnectorInstanceResource\Pages\ListConnectorInstances;
 use App\Models\ConnectorInstance;
+use App\Models\InstalledPackage;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
+use Tests\Concerns\InstallsFixtureConnectorPackage;
 use Tests\TestCase;
 use Tests\Unit\Connectors\Support\FakeHttpRequester;
 
 class ConnectorInstanceResourceTest extends TestCase
 {
     use RefreshDatabase;
+    use InstallsFixtureConnectorPackage;
 
     protected function setUp(): void
     {
@@ -119,20 +122,18 @@ class ConnectorInstanceResourceTest extends TestCase
 
     public function test_discover_servers_action_lists_real_servers_and_marks_ok(): void
     {
+        // fixture-panel stands in for Pelican here (moved out to
+        // GamingHubProject/BasicConnectors) — implements
+        // SupportsServerDiscovery, same as discoverServers now requires.
+        $this->installFixtureConnectorPackage();
+        InstalledPackage::factory()->create(['slug' => 'fixture-panel', 'status' => 'enabled']);
+
         $connector = ConnectorInstance::factory()->create([
-            'type' => 'pelican',
+            'type' => 'fixture-panel',
             'base_url' => 'https://panel.test',
-            'credentials' => ['application_token' => 'ptla_admin'],
+            'credentials' => ['servers' => [['identifier' => 'd3aac351', 'name' => 'EU-1 Palworld']]],
             'status' => 'untested',
         ]);
-
-        $fake = new FakeHttpRequester;
-        $fake->willReturn(200, json_encode([
-            'data' => [
-                ['attributes' => ['identifier' => 'd3aac351', 'name' => 'EU-1 Palworld']],
-            ],
-        ]));
-        $this->app->instance(HttpRequestContract::class, $fake);
 
         Livewire::test(ListConnectorInstances::class)
             ->callTableAction('discoverServers', $connector)
@@ -143,6 +144,34 @@ class ConnectorInstanceResourceTest extends TestCase
             [['identifier' => 'd3aac351', 'name' => 'EU-1 Palworld']],
             $connector->fresh()->discovered_servers
         );
+    }
+
+    public function test_discover_servers_action_is_hidden_for_a_connector_type_without_discovery_support(): void
+    {
+        $connector = ConnectorInstance::factory()->create([
+            'type' => 'rest',
+            'base_url' => 'http://palworld:8212',
+            'credentials' => ['username' => 'admin', 'password' => 'secret'],
+        ]);
+
+        Livewire::test(ListConnectorInstances::class)
+            ->assertTableActionHidden('discoverServers', $connector);
+    }
+
+    public function test_discover_servers_action_is_hidden_when_the_owning_extension_is_not_installed(): void
+    {
+        // type=pelican with nothing actually registered for it — the
+        // extension simply isn't installed. ConnectorRegistry::get()
+        // throws for an unregistered type; the action must hide rather
+        // than surface that as a broken button.
+        $connector = ConnectorInstance::factory()->create([
+            'type' => 'pelican',
+            'base_url' => 'https://panel.test',
+            'credentials' => ['application_token' => 'ptla_admin'],
+        ]);
+
+        Livewire::test(ListConnectorInstances::class)
+            ->assertTableActionHidden('discoverServers', $connector);
     }
 
     public function test_discovered_servers_are_shown_on_the_edit_form(): void
@@ -166,14 +195,15 @@ class ConnectorInstanceResourceTest extends TestCase
 
     public function test_discover_servers_marks_error_on_failure(): void
     {
+        $this->installFixtureConnectorPackage();
+        InstalledPackage::factory()->create(['slug' => 'fixture-panel', 'status' => 'enabled']);
+
         $connector = ConnectorInstance::factory()->create([
-            'type' => 'pelican',
+            'type' => 'fixture-panel',
             'base_url' => 'https://panel.test',
-            'credentials' => [],
+            'credentials' => ['discovery_fail' => true],
             'status' => 'untested',
         ]);
-
-        $this->app->instance(HttpRequestContract::class, new FakeHttpRequester);
 
         Livewire::test(ListConnectorInstances::class)
             ->callTableAction('discoverServers', $connector)

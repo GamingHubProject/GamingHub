@@ -2,8 +2,9 @@
 
 namespace App\Filament\Resources;
 
-use App\Connectors\PelicanConnector;
+use App\Connectors\ConnectorRegistry;
 use App\Connectors\RestConnector;
+use App\Connectors\SupportsServerDiscovery;
 use App\Filament\Resources\ConnectorInstanceResource\Pages;
 use App\Models\ConnectorInstance;
 use Filament\Forms;
@@ -203,10 +204,26 @@ class ConnectorInstanceResource extends Resource
                 Tables\Actions\Action::make('discoverServers')
                     ->label('Discover servers')
                     ->icon('heroicon-o-magnifying-glass')
-                    ->visible(fn (ConnectorInstance $record) => $record->type === 'pelican')
-                    ->action(function (ConnectorInstance $record, PelicanConnector $pelican): void {
+                    // Resolved through the interface, not a hardcoded
+                    // connector class — a REST connector (or any connector
+                    // package that doesn't implement SupportsServerDiscovery)
+                    // never shows this action at all, rather than showing it
+                    // and failing when clicked. Also naturally hides it when
+                    // the owning extension simply isn't installed, since
+                    // ConnectorRegistry::get() throws for an unregistered type.
+                    ->visible(function (ConnectorInstance $record): bool {
                         try {
-                            $servers = $pelican->listServers($record);
+                            return app(ConnectorRegistry::class)->get($record->type) instanceof SupportsServerDiscovery;
+                        } catch (Throwable) {
+                            return false;
+                        }
+                    })
+                    ->action(function (ConnectorInstance $record): void {
+                        $connector = app(ConnectorRegistry::class)->get($record->type);
+
+                        try {
+                            /** @var SupportsServerDiscovery $connector */
+                            $servers = $connector->listServers($record);
                         } catch (Throwable $e) {
                             $record->update(['status' => 'error']);
 

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "04d6237a639d346f25b10847714b8378",
+    "content-hash": "4ab8292516d9a9da9d38a02ea1b8566e",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -1564,16 +1564,16 @@
         },
         {
             "name": "gaminghubproject/core",
-            "version": "dev-priority-8-provider-error-value",
+            "version": "dev-priority-10-normalizer-lazy-loading",
             "source": {
                 "type": "git",
                 "url": "https://github.com/GamingHubProject/Core.git",
-                "reference": "429a5299e137589d9310ab56c94c42eeee3f8cd6"
+                "reference": "ceb58817059bfef3a39d0e5a7586c5e5cc472d06"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/GamingHubProject/Core/zipball/429a5299e137589d9310ab56c94c42eeee3f8cd6",
-                "reference": "429a5299e137589d9310ab56c94c42eeee3f8cd6",
+                "url": "https://api.github.com/repos/GamingHubProject/Core/zipball/ceb58817059bfef3a39d0e5a7586c5e5cc472d06",
+                "reference": "ceb58817059bfef3a39d0e5a7586c5e5cc472d06",
                 "shasum": ""
             },
             "require": {
@@ -1615,10 +1615,10 @@
             ],
             "description": "Gaming Hub Core plugin: domain models (Games, Servers, Instances, Providers), capability decisions, and data normalization. Never speaks to connectors directly — that's Panel's job.",
             "support": {
-                "source": "https://github.com/GamingHubProject/Core/tree/priority-8-provider-error-value",
+                "source": "https://github.com/GamingHubProject/Core/tree/priority-10-normalizer-lazy-loading",
                 "issues": "https://github.com/GamingHubProject/Core/issues"
             },
-            "time": "2026-08-17T07:35:25+00:00"
+            "time": "2026-08-17T11:05:56+00:00"
         },
         {
             "name": "graham-campbell/result-type",

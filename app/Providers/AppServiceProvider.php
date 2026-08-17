@@ -10,6 +10,7 @@ use App\Connectors\HttpRequestContract;
 use App\Connectors\RestConnector;
 use App\Manager\CurlHttpClient;
 use App\Manager\HttpClientContract;
+use App\Manager\PackageLoader;
 use App\Models\ServerGroup;
 use App\Models\SiteOption;
 use App\Observers\GameObserver;
@@ -22,7 +23,6 @@ use GamingHub\Core\Models\Game;
 use GamingHub\Core\Models\Server;
 use GamingHub\Core\Normalizers\FieldMappingNormalizer;
 use GamingHub\Core\Normalizers\NormalizerRegistry;
-use GamingHub\Core\Normalizers\PelicanServerStatusNormalizer;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -66,18 +66,21 @@ class AppServiceProvider extends ServiceProvider
         // on a cache miss instead, which only ever happens once real
         // capability resolution is underway (well after migrations).
 
-        // Normalizers are always registered here — being *registered* isn't
-        // the same as being *usable*. ConnectorBackedProvider checks the
-        // owning InstalledPackage's enabled status at resolution time (see
-        // ConnectorBackedProvider::PACKAGE_OWNED_NORMALIZERS), not here at
-        // boot, since boot happens once per process/test and can't react to
-        // an admin toggling enable/disable afterward. 'field-mapping' has
-        // no package to gate on — it's Core's generic, always-available
-        // normalizer for a REST connector against any game, replacing the
-        // old hardcoded PalworldServerStatusNormalizer.
+        // 'field-mapping' is Core's generic, always-available normalizer for
+        // a REST connector against any game — registered eagerly since it
+        // has no owning package to gate on. A package-provided normalizer
+        // (e.g. one shipped alongside a specific Connector extension) isn't
+        // registered here at all: NormalizerRegistry's onMiss() hook below
+        // lazily runs PackageLoader on a cache miss, the same way
+        // ConnectorRegistry::get() already does for connector classes —
+        // being *registered* isn't the same as being *usable* either way:
+        // ConnectorBackedProvider still checks the owning InstalledPackage's
+        // enabled status at resolution time (PACKAGE_OWNED_NORMALIZERS),
+        // since a lazily-loaded registration is never un-registered if the
+        // package gets disabled again within the same process.
         $normalizers = $this->app->make(NormalizerRegistry::class);
         $normalizers->register('field-mapping', new FieldMappingNormalizer);
-        $normalizers->register('pelican-server-status', new PelicanServerStatusNormalizer);
+        $normalizers->onMiss(fn () => $this->app->make(PackageLoader::class)->loadConnectorPackages());
 
         $capabilityRouter = $this->app->make(CapabilityRouter::class);
         $capabilityRouter->registerProvider(new ManualProvider);

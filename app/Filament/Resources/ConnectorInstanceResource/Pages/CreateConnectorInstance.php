@@ -14,7 +14,12 @@ class CreateConnectorInstance extends CreateRecord
      * "guess the JSON key" KeyValue — pack them into the model's single
      * "credentials" column here, right before it's saved. Pelican gets two
      * real keys (Application + Client) since it genuinely has two separate
-     * API surfaces — see PelicanConnector's docblock.
+     * API surfaces (see GamingHubProject/BasicConnectors' PelicanConnector
+     * docblock) — this form still hardcodes the 'pelican' type and its two
+     * credential fields directly rather than rendering them from whatever
+     * connector packages happen to be installed; making this form
+     * schema-driven off each package's own auth_schema is real future work,
+     * not done here.
      */
     protected function mutateFormDataBeforeCreate(array $data): array
     {

@@ -1,0 +1,12 @@
+{
+    "name": "Fixture Panel (test fixture)",
+    "class": "GamingHubFixtures\\FixturePanel\\FixturePanelConnector",
+    "autoload": {
+        "prefix": "GamingHubFixtures\\FixturePanel\\",
+        "path": "src"
+    },
+    "normalizers": {
+        "fixture-panel-status": "GamingHubFixtures\\FixturePanel\\FixturePanelStatusNormalizer"
+    },
+    "capabilities": ["server-status"]
+}

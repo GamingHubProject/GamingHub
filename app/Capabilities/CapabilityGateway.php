@@ -227,13 +227,19 @@ class CapabilityGateway
             Log::getLogger()->popHandler();
         }
 
-        $logs = collect($handler->getRecords())->map(fn ($record) => sprintf(
-            '[%s] %s: %s%s',
-            $record['datetime']->format('H:i:s.v'),
-            $record['level_name'],
-            $record['message'],
-            $record['context'] ? ' '.json_encode($record['context']) : ''
-        ))->all();
+        // Context is pretty-printed on its own indented line(s) rather than
+        // appended inline — a single unbroken line (timestamp + message +
+        // compact JSON context) is unreadable in a fixed-height panel and
+        // painful to copy-paste out of.
+        $logs = collect($handler->getRecords())->map(function ($record) {
+            $line = sprintf('[%s] %s: %s', $record['datetime']->format('H:i:s.v'), $record['level_name'], $record['message']);
+
+            if ($record['context']) {
+                $line .= "\n".json_encode($record['context'], JSON_PRETTY_PRINT);
+            }
+
+            return $line;
+        })->all();
 
         $ok = $error === null;
 

@@ -23,19 +23,6 @@ use Throwable;
  */
 class ConnectorBackedProvider implements CapabilityProviderContract
 {
-    /**
-     * Which InstalledPackage owns each package-provided normalizer. Checked
-     * fresh on every resolution (not cached at boot) so disabling a package
-     * actually stops its capabilities from resolving on the very next call —
-     * this is what makes enable/disable real instead of a DB flag nothing
-     * reads. A normalizer id with no entry here (e.g. 'field-mapping') is
-     * always enabled — it's a generic, built-in normalizer, not owned by
-     * any installable package, the same way Manual isn't either.
-     */
-    protected const PACKAGE_OWNED_NORMALIZERS = [
-        'pelican-server-status' => 'pelican-connector',
-    ];
-
     public function __construct(
         protected ConnectorRegistry $connectors,
         protected NormalizerRegistry $normalizers,
@@ -94,21 +81,51 @@ class ConnectorBackedProvider implements CapabilityProviderContract
         return $this->connectors->get($instance->type)->fetch($instance, $callConfig);
     }
 
+    /**
+     * Ownership isn't a hardcoded id => slug map anymore — it's read
+     * straight off whichever installed package's own connector.json
+     * declares this normalizer id, the same manifest PackageLoader already
+     * parses to register it in the first place. A normalizer no package
+     * declares (e.g. 'field-mapping', Core's generic built-in) is always
+     * enabled. Checked fresh on every resolution (not cached) so disabling
+     * a package actually stops its normalizers from resolving on the very
+     * next call — what makes enable/disable real instead of a DB flag
+     * nothing reads.
+     */
     protected function normalizerPackageIsEnabled(string $normalizerId): bool
     {
-        $ownerSlug = self::PACKAGE_OWNED_NORMALIZERS[$normalizerId] ?? null;
+        try {
+            $ownerSlug = $this->findOwningPackageSlug($normalizerId);
+        } catch (Throwable) {
+            return false;
+        }
 
         if (! $ownerSlug) {
             return true;
         }
 
-        try {
-            return InstalledPackage::query()
-                ->where('slug', $ownerSlug)
-                ->where('status', 'enabled')
-                ->exists();
-        } catch (Throwable) {
-            return false;
+        return InstalledPackage::query()
+            ->where('slug', $ownerSlug)
+            ->where('status', 'enabled')
+            ->exists();
+    }
+
+    protected function findOwningPackageSlug(string $normalizerId): ?string
+    {
+        foreach (InstalledPackage::all() as $package) {
+            $manifestPath = storage_path("app/packages/{$package->slug}/connector.json");
+
+            if (! is_file($manifestPath)) {
+                continue;
+            }
+
+            $manifest = json_decode((string) file_get_contents($manifestPath), true);
+
+            if (isset($manifest['normalizers'][$normalizerId])) {
+                return $package->slug;
+            }
         }
+
+        return null;
     }
 }
