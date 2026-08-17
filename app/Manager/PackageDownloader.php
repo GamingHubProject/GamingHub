@@ -102,10 +102,47 @@ final class PackageDownloader
         return $extractedDir;
     }
 
+    /**
+     * rename() alone isn't enough here — it only has an automatic
+     * copy+unlink fallback for a plain file when the source and
+     * destination are on different filesystems (true of /tmp vs
+     * storage/app in most Docker setups); for a directory it just warns
+     * ("copy() function cannot be a directory") and silently leaves it
+     * behind. This never got caught before because nothing had ever
+     * actually installed a package with a subdirectory (like a Connector's
+     * own src/) through this real path — every real deployment so far had
+     * used bundled/local fixtures instead of a genuine downloaded package.
+     */
     private function moveContents(string $from, string $to): void
     {
         foreach (array_diff(scandir($from), ['.', '..']) as $entry) {
-            rename($from.'/'.$entry, $to.'/'.$entry);
+            $source = $from.'/'.$entry;
+            $destination = $to.'/'.$entry;
+
+            if (is_dir($source)) {
+                $this->copyDirectory($source, $destination);
+                $this->removeDirectory($source);
+            } else {
+                rename($source, $destination);
+            }
+        }
+    }
+
+    private function copyDirectory(string $from, string $to): void
+    {
+        if (! is_dir($to)) {
+            mkdir($to, 0755, true);
+        }
+
+        foreach (array_diff(scandir($from), ['.', '..']) as $entry) {
+            $source = $from.'/'.$entry;
+            $destination = $to.'/'.$entry;
+
+            if (is_dir($source)) {
+                $this->copyDirectory($source, $destination);
+            } else {
+                copy($source, $destination);
+            }
         }
     }
 

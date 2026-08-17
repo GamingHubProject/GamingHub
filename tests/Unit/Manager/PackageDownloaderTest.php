@@ -70,6 +70,49 @@ class PackageDownloaderTest extends TestCase
         $this->assertDirectoryDoesNotExist($destination.'/gaming-hub-core-0.1.010');
     }
 
+    public function test_installs_a_package_with_nested_subdirectories_intact(): void
+    {
+        // Regression test: moveContents() used to rely on a bare rename()
+        // for every entry, which only has an automatic copy+unlink
+        // fallback for plain files when source/destination are on
+        // different filesystems — for a directory it just warned and left
+        // it behind. Never caught before because nothing had ever
+        // installed a real package with a subdirectory (a Connector's own
+        // src/) through the real live path; this fixture goes two levels
+        // deep specifically to prove the fix recurses, not just handles
+        // one flat level.
+        $extension = $this->coreExtension();
+        $version = '0.1.010';
+        $assetFilename = 'gaming-hub-core-v0.1.010.zip';
+
+        $zipPath = $this->buildFixtureZip($assetFilename, 'gaming-hub-core-0.1.010', [
+            'connector.json' => '{"class":"Foo"}',
+            'src/Foo.php' => '<?php // foo',
+            'src/Nested/Bar.php' => '<?php // bar',
+            'src/Nested/Deeper/Baz.php' => '<?php // baz',
+        ]);
+        $zipBytes = file_get_contents($zipPath);
+        $hash = hash_file('sha256', $zipPath);
+
+        $http = new FakeHttpClient;
+        $http->respond(
+            "https://github.com/GamingHubProject/Core/releases/download/v{$version}/{$assetFilename}",
+            $zipBytes
+        );
+        $http->respond(
+            "https://github.com/GamingHubProject/Core/releases/download/v{$version}/SHA256SUMS",
+            "{$hash}  {$assetFilename}\n"
+        );
+
+        $destination = $this->workDir.'/installed';
+        (new PackageDownloader($http))->install($extension, $version, $destination);
+
+        $this->assertFileExists($destination.'/src/Foo.php');
+        $this->assertFileExists($destination.'/src/Nested/Bar.php');
+        $this->assertFileExists($destination.'/src/Nested/Deeper/Baz.php');
+        $this->assertSame('<?php // baz', file_get_contents($destination.'/src/Nested/Deeper/Baz.php'));
+    }
+
     public function test_installed_packages_own_manifest_is_readable_afterward(): void
     {
         $extension = $this->coreExtension();
