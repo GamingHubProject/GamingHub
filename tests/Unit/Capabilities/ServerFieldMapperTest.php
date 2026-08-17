@@ -68,6 +68,46 @@ class ServerFieldMapperTest extends TestCase
         ], $mapped);
     }
 
+    public function test_it_prefers_server_status_over_online_when_both_present(): void
+    {
+        $mapped = (new ServerFieldMapper)->map(['server_status' => 'installing', 'online' => true]);
+
+        $this->assertSame(['status' => 'installing'], $mapped);
+    }
+
+    public function test_it_maps_resource_limit_fields(): void
+    {
+        $mapped = (new ServerFieldMapper)->map([
+            'cpu_current' => 45.2,
+            'cpu_limit' => 100,
+            'cpu_percent_of_limit' => 45.2,
+            'memory_current' => 512 * 1024 * 1024,
+            'memory_limit' => 2048 * 1024 * 1024,
+            'memory_percent_of_limit' => 25.0,
+            'disk_current' => 1024,
+            'disk_limit' => 10240,
+            'disk_percent_of_limit' => 10.0,
+            'network_rx' => 100,
+            'network_tx' => 200,
+            'node_name' => 'node-1',
+        ]);
+
+        $this->assertSame([
+            'cpu_current' => 45.2,
+            'cpu_limit' => 100,
+            'cpu_percent' => 45.2,
+            'memory_current' => 512 * 1024 * 1024,
+            'memory_limit' => 2048 * 1024 * 1024,
+            'memory_percent' => 25.0,
+            'disk_current' => 1024,
+            'disk_limit' => 10240,
+            'disk_percent' => 10.0,
+            'network_rx' => 100,
+            'network_tx' => 200,
+            'node_name' => 'node-1',
+        ], $mapped);
+    }
+
     public function test_unmapped_keys_are_ignored(): void
     {
         $mapped = (new ServerFieldMapper)->map(['uptime' => 999, 'server_fps' => 30.0]);

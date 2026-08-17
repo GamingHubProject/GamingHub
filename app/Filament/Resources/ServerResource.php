@@ -77,6 +77,60 @@ class ServerResource extends Resource
                     ->numeric()
                     ->disabled(fn (?Server $record) => static::isProviderDriven($record))
                     ->helperText(fn (?Server $record) => static::providerDrivenHelperText($record)),
+                Forms\Components\Section::make('Resource limits')
+                    ->description('Populated by a connector that reports resource limits (e.g. Pelican) — not all connectors support this.')
+                    ->collapsed()
+                    ->schema([
+                        Forms\Components\TextInput::make('node_name')
+                            ->label('Node')
+                            ->disabled(fn (?Server $record) => static::isProviderDriven($record))
+                            ->helperText(fn (?Server $record) => static::providerDrivenHelperText($record)),
+                        Forms\Components\TextInput::make('cpu_current')
+                            ->label('CPU current (%)')
+                            ->numeric()
+                            ->disabled(fn (?Server $record) => static::isProviderDriven($record)),
+                        Forms\Components\TextInput::make('cpu_limit')
+                            ->label('CPU limit (%)')
+                            ->numeric()
+                            ->disabled(fn (?Server $record) => static::isProviderDriven($record)),
+                        Forms\Components\TextInput::make('cpu_percent')
+                            ->label('CPU used (% of limit)')
+                            ->numeric()
+                            ->disabled(fn (?Server $record) => static::isProviderDriven($record)),
+                        Forms\Components\TextInput::make('memory_current')
+                            ->label('Memory current (bytes)')
+                            ->numeric()
+                            ->disabled(fn (?Server $record) => static::isProviderDriven($record)),
+                        Forms\Components\TextInput::make('memory_limit')
+                            ->label('Memory limit (bytes)')
+                            ->numeric()
+                            ->disabled(fn (?Server $record) => static::isProviderDriven($record)),
+                        Forms\Components\TextInput::make('memory_percent')
+                            ->label('Memory used (% of limit)')
+                            ->numeric()
+                            ->disabled(fn (?Server $record) => static::isProviderDriven($record)),
+                        Forms\Components\TextInput::make('disk_current')
+                            ->label('Disk current (bytes)')
+                            ->numeric()
+                            ->disabled(fn (?Server $record) => static::isProviderDriven($record)),
+                        Forms\Components\TextInput::make('disk_limit')
+                            ->label('Disk limit (bytes)')
+                            ->numeric()
+                            ->disabled(fn (?Server $record) => static::isProviderDriven($record)),
+                        Forms\Components\TextInput::make('disk_percent')
+                            ->label('Disk used (% of limit)')
+                            ->numeric()
+                            ->disabled(fn (?Server $record) => static::isProviderDriven($record)),
+                        Forms\Components\TextInput::make('network_rx')
+                            ->label('Network received (bytes)')
+                            ->numeric()
+                            ->disabled(fn (?Server $record) => static::isProviderDriven($record)),
+                        Forms\Components\TextInput::make('network_tx')
+                            ->label('Network sent (bytes)')
+                            ->numeric()
+                            ->disabled(fn (?Server $record) => static::isProviderDriven($record)),
+                    ])
+                    ->columns(2),
                 Forms\Components\KeyValue::make('metadata')
                     ->columnSpanFull(),
             ]);
@@ -150,6 +204,20 @@ class ServerResource extends Resource
                     ->label('Players')
                     ->formatStateUsing(fn (Server $record) => "{$record->current_players}/{$record->max_players}")
                     ->sortable(),
+                Tables\Columns\TextColumn::make('node_name')
+                    ->label('Node')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('cpu_percent')
+                    ->label('CPU %')
+                    ->placeholder('—')
+                    ->suffix('%')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('memory_percent')
+                    ->label('Mem %')
+                    ->placeholder('—')
+                    ->suffix('%')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
