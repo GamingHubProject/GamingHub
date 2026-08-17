@@ -90,7 +90,11 @@ class CapabilityGateway
                     continue; // this provider's normalizer doesn't serve this capability at all
                 }
 
-                $provider->update(['status' => $value->isOk() ? 'connected' : 'error', 'last_check' => now()]);
+                $provider->update([
+                    'status' => $value->isOk() ? 'connected' : 'error',
+                    'error_message' => $value->isOk() ? null : $value->error,
+                    'last_check' => now(),
+                ]);
 
                 if ($value->isOk()) {
                     $anyOk = true;
@@ -120,6 +124,48 @@ class CapabilityGateway
         $this->writeCache($capability, $subject, $merged);
 
         return $merged;
+    }
+
+    /**
+     * Probes exactly one Provider in isolation, outside the merged
+     * priority-stack walk probe() does — for the "Test" action in
+     * ProvidersRelationManager, where an admin wants to know right now
+     * whether *this* row works, not the server's overall merged status.
+     * Persists status/error_message/last_check the same way a real poll
+     * tick would, so a manual test and the background poller always leave
+     * the row in a consistent state.
+     */
+    public function testProvider(Provider $provider): CapabilityValue
+    {
+        $capability = $this->capabilityFor($provider);
+
+        $value = $capability
+            ? ($this->probeProvider($provider, $capability)
+                ?? CapabilityValue::unavailable($capability, 'Provider is not configured to answer any capability.'))
+            : CapabilityValue::unavailable('unknown', 'Provider is missing a valid capability/normalizer configuration.');
+
+        $provider->update([
+            'status' => $value->isOk() ? 'connected' : 'error',
+            'error_message' => $value->isOk() ? null : $value->error,
+            'last_check' => now(),
+        ]);
+
+        return $value;
+    }
+
+    protected function capabilityFor(Provider $provider): ?string
+    {
+        if ($provider->type === 'manual') {
+            return $provider->config['capability'] ?? null;
+        }
+
+        $normalizerId = $provider->config['normalizer'] ?? null;
+
+        if (! $normalizerId || ! $this->normalizers->has($normalizerId)) {
+            return null;
+        }
+
+        return $this->normalizers->get($normalizerId)->capability($provider->config ?? []);
     }
 
     /**

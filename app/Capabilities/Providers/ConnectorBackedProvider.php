@@ -9,6 +9,7 @@ use GamingHub\Core\Capabilities\CapabilityValue;
 use GamingHub\Core\Contracts\CapabilityProviderContract;
 use GamingHub\Core\Models\CapabilityBinding;
 use GamingHub\Core\Normalizers\NormalizerRegistry;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -69,8 +70,15 @@ class ConnectorBackedProvider implements CapabilityProviderContract
             $raw = $connector->fetch($instance, $config['call'] ?? []);
 
             return $this->normalizers->get($normalizerId)->normalize($raw, $config);
-        } catch (Throwable) {
-            return CapabilityValue::unavailable($binding->capability);
+        } catch (Throwable $e) {
+            Log::warning('Connector provider fetch failed', [
+                'connector_instance_id' => $instance->id,
+                'connector_type' => $instance->type,
+                'capability' => $binding->capability,
+                'error' => $e->getMessage(),
+            ]);
+
+            return CapabilityValue::unavailable($binding->capability, $e->getMessage());
         }
     }
 

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b7f70a54fde74d900f815fde0268bf0d",
+    "content-hash": "04d6237a639d346f25b10847714b8378",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -1564,16 +1564,16 @@
         },
         {
             "name": "gaminghubproject/core",
-            "version": "dev-main",
+            "version": "dev-priority-8-provider-error-value",
             "source": {
                 "type": "git",
                 "url": "https://github.com/GamingHubProject/Core.git",
-                "reference": "79d296b29e4666ab6d8c21efafe296343988925f"
+                "reference": "429a5299e137589d9310ab56c94c42eeee3f8cd6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/GamingHubProject/Core/zipball/79d296b29e4666ab6d8c21efafe296343988925f",
-                "reference": "79d296b29e4666ab6d8c21efafe296343988925f",
+                "url": "https://api.github.com/repos/GamingHubProject/Core/zipball/429a5299e137589d9310ab56c94c42eeee3f8cd6",
+                "reference": "429a5299e137589d9310ab56c94c42eeee3f8cd6",
                 "shasum": ""
             },
             "require": {
@@ -1585,7 +1585,6 @@
                 "orchestra/testbench": "^9.0",
                 "phpunit/phpunit": "^11.0"
             },
-            "default-branch": true,
             "type": "library",
             "extra": {
                 "laravel": {
@@ -1616,10 +1615,10 @@
             ],
             "description": "Gaming Hub Core plugin: domain models (Games, Servers, Instances, Providers), capability decisions, and data normalization. Never speaks to connectors directly — that's Panel's job.",
             "support": {
-                "source": "https://github.com/GamingHubProject/Core/tree/main",
+                "source": "https://github.com/GamingHubProject/Core/tree/priority-8-provider-error-value",
                 "issues": "https://github.com/GamingHubProject/Core/issues"
             },
-            "time": "2026-08-16T11:47:13+00:00"
+            "time": "2026-08-17T07:35:25+00:00"
         },
         {
             "name": "graham-campbell/result-type",

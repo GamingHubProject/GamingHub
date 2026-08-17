@@ -2,14 +2,17 @@
 
 namespace App\Filament\Resources\ServerResource\RelationManagers;
 
+use App\Capabilities\CapabilityGateway;
 use App\Models\ConnectorInstance;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
 use GamingHub\Core\Capabilities\CapabilityRegistry;
+use GamingHub\Core\Models\Provider;
 
 /**
  * "Add provider" on a Server's edit page — one unified priority stack that
@@ -144,6 +147,12 @@ class ProvidersRelationManager extends RelationManager
                         'error' => 'danger',
                         default => 'gray',
                     }),
+                Tables\Columns\TextColumn::make('error_message')
+                    ->label('Last error')
+                    ->placeholder('—')
+                    ->limit(40)
+                    ->tooltip(fn (?string $state) => $state)
+                    ->toggleable(),
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
@@ -151,6 +160,19 @@ class ProvidersRelationManager extends RelationManager
                     ->mutateFormDataUsing(fn (array $data) => self::packConfig($data)),
             ])
             ->actions([
+                Tables\Actions\Action::make('test')
+                    ->label('Test')
+                    ->icon('heroicon-o-signal')
+                    ->action(function (Provider $record) {
+                        $value = app(CapabilityGateway::class)->testProvider($record);
+                        $record->refresh();
+
+                        Notification::make()
+                            ->title($value->isOk() ? 'Provider responded successfully' : 'Provider test failed')
+                            ->body($value->isOk() ? null : $record->error_message)
+                            ->color($value->isOk() ? 'success' : 'danger')
+                            ->send();
+                    }),
                 Tables\Actions\EditAction::make()
                     ->mutateRecordDataUsing(fn (array $data) => self::unpackConfig($data))
                     ->mutateFormDataUsing(fn (array $data) => self::packConfig($data)),

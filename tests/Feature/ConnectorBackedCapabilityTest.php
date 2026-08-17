@@ -103,7 +103,7 @@ class ConnectorBackedCapabilityTest extends TestCase
             'credentials' => [],
         ]);
 
-        Provider::factory()->create([
+        $provider = Provider::factory()->create([
             'server_id' => $server->id,
             'connector_instance_id' => $connector->id,
             'config' => [
@@ -121,6 +121,110 @@ class ConnectorBackedCapabilityTest extends TestCase
         $value = app(CapabilityGateway::class)->get('server-status', $server);
 
         $this->assertSame(\GamingHub\Core\Capabilities\CapabilityValue::UNAVAILABLE, $value->status);
+        $this->assertStringContainsString('HTTP 500', $provider->fresh()->error_message);
+    }
+
+    public function test_a_provider_that_recovers_has_its_error_message_cleared(): void
+    {
+        $server = Server::factory()->create();
+
+        $connector = ConnectorInstance::create([
+            'name' => 'Flaky connector',
+            'type' => 'rest',
+            'base_url' => 'http://game-server:8212',
+            'credentials' => [],
+        ]);
+
+        $provider = Provider::factory()->create([
+            'server_id' => $server->id,
+            'connector_instance_id' => $connector->id,
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'field_map' => ['currentplayernum' => 'players'],
+            ],
+        ]);
+
+        $fake = new FakeHttpRequester;
+        $fake->willReturn(500, 'Internal Server Error');
+        $this->app->instance(HttpRequestContract::class, $fake);
+        app(CapabilityGateway::class)->probe('server-status', $server);
+        $this->assertNotNull($provider->fresh()->error_message);
+
+        $fake->willReturn(200, json_encode(['currentplayernum' => 3]));
+        app(CapabilityGateway::class)->probe('server-status', $server);
+
+        $this->assertNull($provider->fresh()->error_message);
+        $this->assertSame('connected', $provider->fresh()->status);
+    }
+
+    public function test_test_provider_probes_one_provider_in_isolation_and_persists_the_result(): void
+    {
+        $server = Server::factory()->create();
+
+        $connector = ConnectorInstance::create([
+            'name' => 'Test connector',
+            'type' => 'rest',
+            'base_url' => 'http://game-server:8212',
+            'credentials' => [],
+        ]);
+
+        $provider = Provider::factory()->create([
+            'server_id' => $server->id,
+            'connector_instance_id' => $connector->id,
+            'status' => 'disconnected',
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'field_map' => ['currentplayernum' => 'players'],
+            ],
+        ]);
+
+        $fake = new FakeHttpRequester;
+        $fake->willReturn(200, json_encode(['currentplayernum' => 4]));
+        $this->app->instance(HttpRequestContract::class, $fake);
+
+        $value = app(CapabilityGateway::class)->testProvider($provider);
+
+        $this->assertTrue($value->isOk());
+        $this->assertSame(4, $value->data['players']);
+        $this->assertSame('connected', $provider->fresh()->status);
+    }
+
+    public function test_test_provider_reports_the_failure_reason_for_a_broken_provider(): void
+    {
+        $server = Server::factory()->create();
+
+        $connector = ConnectorInstance::create([
+            'name' => 'Broken connector',
+            'type' => 'rest',
+            'base_url' => 'http://unreachable',
+            'credentials' => [],
+        ]);
+
+        $provider = Provider::factory()->create([
+            'server_id' => $server->id,
+            'connector_instance_id' => $connector->id,
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'field_map' => ['currentplayernum' => 'players'],
+            ],
+        ]);
+
+        $fake = new FakeHttpRequester;
+        $fake->willReturn(500, 'Internal Server Error');
+        $this->app->instance(HttpRequestContract::class, $fake);
+
+        $value = app(CapabilityGateway::class)->testProvider($provider);
+
+        $this->assertFalse($value->isOk());
+        $this->assertStringContainsString('HTTP 500', $value->error);
+        $this->assertStringContainsString('HTTP 500', $provider->fresh()->error_message);
+        $this->assertSame('error', $provider->fresh()->status);
     }
 
     public function test_disabling_the_owning_package_makes_the_capability_unavailable(): void

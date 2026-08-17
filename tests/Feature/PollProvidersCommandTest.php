@@ -48,6 +48,33 @@ class PollProvidersCommandTest extends TestCase
         $this->assertNotNull($connector->fresh()->last_polled_at);
     }
 
+    public function test_a_manual_provider_flows_into_server_fields_on_a_tick(): void
+    {
+        $server = Server::factory()->create(['current_players' => null, 'max_players' => null, 'status' => 'offline']);
+
+        Provider::factory()->create([
+            'server_id' => $server->id,
+            'connector_instance_id' => null,
+            'type' => 'manual',
+            'status' => 'disconnected',
+            'config' => [
+                'capability' => 'server-status',
+                'value' => [
+                    'online' => 'true',
+                    'players' => '5',
+                    'max_players' => '32',
+                ],
+            ],
+        ]);
+
+        $this->artisan('gaming-hub:poll-providers', ['--once' => true])->assertExitCode(0);
+
+        $server->refresh();
+        $this->assertSame('online', $server->status);
+        $this->assertSame(5, $server->current_players);
+        $this->assertSame(32, $server->max_players);
+    }
+
     public function test_a_connector_not_yet_due_is_skipped(): void
     {
         $server = Server::factory()->create(['current_players' => 1]);

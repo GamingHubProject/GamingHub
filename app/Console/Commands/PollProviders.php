@@ -47,11 +47,14 @@ class PollProviders extends Command
     {
         $dueConnectors = ConnectorInstance::all()->filter->isDueForPoll();
 
-        if ($dueConnectors->isEmpty()) {
-            return;
-        }
-
-        $serverIds = Provider::whereIn('connector_instance_id', $dueConnectors->pluck('id'))
+        // Manual providers have no connector_instance_id and no poll
+        // interval to wait on — there's no external I/O to throttle, so
+        // they're refreshed on every tick rather than tracked by
+        // isDueForPoll(). Without this, a server with only a manual
+        // provider is never reachable through connector_instance_id at
+        // all and its Server columns would never update.
+        $serverIds = Provider::where('type', 'manual')
+            ->orWhereIn('connector_instance_id', $dueConnectors->pluck('id'))
             ->pluck('server_id')
             ->unique();
 

@@ -79,7 +79,7 @@ class ServerGroupResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\ServersRelationManager::class,
         ];
     }
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Connectors\HttpRequestContract;
 use App\Filament\Resources\ServerResource\RelationManagers\ProvidersRelationManager;
 use App\Models\ConnectorInstance;
 use App\Models\User;
@@ -12,6 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
+use Tests\Unit\Connectors\Support\FakeHttpRequester;
 
 class ProvidersRelationManagerTest extends TestCase
 {
@@ -213,6 +215,70 @@ class ProvidersRelationManagerTest extends TestCase
         $this->assertNull($provider->connector_instance_id);
         $this->assertSame('server-status', $provider->config['capability']);
         $this->assertSame('true', $provider->config['value']['online']);
+    }
+
+    public function test_the_test_action_reports_success_and_clears_a_previous_error(): void
+    {
+        Capability::create(['id' => 'server-status', 'name' => 'Server Status']);
+        $server = Server::factory()->create();
+        $connector = ConnectorInstance::factory()->create(['type' => 'rest']);
+        $provider = Provider::factory()->create([
+            'server_id' => $server->id,
+            'connector_instance_id' => $connector->id,
+            'status' => 'error',
+            'error_message' => 'stale failure from before',
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'field_map' => ['currentplayernum' => 'players'],
+            ],
+        ]);
+
+        $fake = new FakeHttpRequester;
+        $fake->willReturn(200, json_encode(['currentplayernum' => 6]));
+        $this->app->instance(HttpRequestContract::class, $fake);
+
+        Livewire::test(ProvidersRelationManager::class, [
+            'ownerRecord' => $server,
+            'pageClass' => \App\Filament\Resources\ServerResource\Pages\EditServer::class,
+        ])
+            ->callTableAction('test', $provider);
+
+        $provider->refresh();
+        $this->assertSame('connected', $provider->status);
+        $this->assertNull($provider->error_message);
+    }
+
+    public function test_the_test_action_reports_and_persists_a_failure_reason(): void
+    {
+        Capability::create(['id' => 'server-status', 'name' => 'Server Status']);
+        $server = Server::factory()->create();
+        $connector = ConnectorInstance::factory()->create(['type' => 'rest', 'base_url' => 'http://unreachable']);
+        $provider = Provider::factory()->create([
+            'server_id' => $server->id,
+            'connector_instance_id' => $connector->id,
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'field_map' => ['currentplayernum' => 'players'],
+            ],
+        ]);
+
+        $fake = new FakeHttpRequester;
+        $fake->willReturn(500, 'Internal Server Error');
+        $this->app->instance(HttpRequestContract::class, $fake);
+
+        Livewire::test(ProvidersRelationManager::class, [
+            'ownerRecord' => $server,
+            'pageClass' => \App\Filament\Resources\ServerResource\Pages\EditServer::class,
+        ])
+            ->callTableAction('test', $provider);
+
+        $provider->refresh();
+        $this->assertSame('error', $provider->status);
+        $this->assertStringContainsString('HTTP 500', $provider->error_message);
     }
 
     public function test_editing_a_manual_provider_prefills_capability_and_value(): void
