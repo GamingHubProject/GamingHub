@@ -66,8 +66,7 @@ class ConnectorBackedProvider implements CapabilityProviderContract
         }
 
         try {
-            $connector = $this->connectors->get($instance->type);
-            $raw = $connector->fetch($instance, $config['call'] ?? []);
+            $raw = $this->fetchRaw($instance, $config['call'] ?? []);
 
             return $this->normalizers->get($normalizerId)->normalize($raw, $config);
         } catch (Throwable $e) {
@@ -80,6 +79,19 @@ class ConnectorBackedProvider implements CapabilityProviderContract
 
             return CapabilityValue::unavailable($binding->capability, $e->getMessage());
         }
+    }
+
+    /**
+     * Just the connector I/O step, no binding-level validation (enabled/
+     * instance-exists/normalizer-exists/package-enabled) — those stay in
+     * fetch(). For callers that already know their binding is well-formed
+     * (the provider-test debug panel) and want the raw payload *before*
+     * normalization, without duplicating fetch()'s checks or triggering a
+     * second network call to see both.
+     */
+    public function fetchRaw(ConnectorInstance $instance, array $callConfig): array
+    {
+        return $this->connectors->get($instance->type)->fetch($instance, $callConfig);
     }
 
     protected function normalizerPackageIsEnabled(string $normalizerId): bool

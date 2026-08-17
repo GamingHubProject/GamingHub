@@ -7,8 +7,8 @@ use App\Models\ConnectorInstance;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
-use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Support\Enums\MaxWidth;
 use Filament\Tables;
 use Filament\Tables\Table;
 use GamingHub\Core\Capabilities\CapabilityRegistry;
@@ -163,16 +163,18 @@ class ProvidersRelationManager extends RelationManager
                 Tables\Actions\Action::make('test')
                     ->label('Test')
                     ->icon('heroicon-o-signal')
-                    ->action(function (Provider $record) {
-                        $value = app(CapabilityGateway::class)->testProvider($record);
-                        $record->refresh();
-
-                        Notification::make()
-                            ->title($value->isOk() ? 'Provider responded successfully' : 'Provider test failed')
-                            ->body($value->isOk() ? null : $record->error_message)
-                            ->color($value->isOk() ? 'success' : 'danger')
-                            ->send();
-                    }),
+                    // debugTestProvider() runs right here, as the modal's
+                    // content is being computed — one click both runs the
+                    // test and opens the panel showing its result, rather
+                    // than a separate "run" step inside the modal.
+                    ->modalContent(fn (Provider $record) => view('filament.provider-test-result', [
+                        'result' => app(CapabilityGateway::class)->debugTestProvider($record),
+                    ]))
+                    ->modalHeading(fn (Provider $record) => 'Provider Test — '.self::connectorLabel($record))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->modalWidth(MaxWidth::FourExtraLarge)
+                    ->slideOver(),
                 Tables\Actions\EditAction::make()
                     ->mutateRecordDataUsing(fn (array $data) => self::unpackConfig($data))
                     ->mutateFormDataUsing(fn (array $data) => self::packConfig($data)),
@@ -183,6 +185,17 @@ class ProvidersRelationManager extends RelationManager
     protected static function connectorType(?int $connectorInstanceId): ?string
     {
         return $connectorInstanceId ? ConnectorInstance::find($connectorInstanceId)?->type : null;
+    }
+
+    protected static function connectorLabel(Provider $provider): string
+    {
+        if ($provider->type === 'manual') {
+            return 'Manual';
+        }
+
+        $instance = ConnectorInstance::find($provider->connector_instance_id);
+
+        return $instance ? "{$instance->name} ({$instance->type})" : 'Connector';
     }
 
     protected static function packConfig(array $data): array

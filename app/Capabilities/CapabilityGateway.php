@@ -2,6 +2,8 @@
 
 namespace App\Capabilities;
 
+use App\Capabilities\Providers\ConnectorBackedProvider;
+use App\Models\ConnectorInstance;
 use GamingHub\Core\Capabilities\CapabilityRouter;
 use GamingHub\Core\Capabilities\CapabilityValue;
 use GamingHub\Core\Models\CapabilityBinding;
@@ -11,6 +13,9 @@ use GamingHub\Core\Normalizers\NormalizerRegistry;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
+use Monolog\Handler\TestHandler;
+use Throwable;
 
 /**
  * The single entry point Hub Extensions use to read a capability — Platform
@@ -41,6 +46,8 @@ class CapabilityGateway
         protected CapabilityRouter $router,
         protected NormalizerRegistry $normalizers,
         protected Cache $cache,
+        protected ConnectorBackedProvider $connectorProvider,
+        protected ServerFieldMapper $fieldMapper,
     ) {}
 
     public function get(string $capability, Model $subject): CapabilityValue
@@ -144,13 +151,114 @@ class CapabilityGateway
                 ?? CapabilityValue::unavailable($capability, 'Provider is not configured to answer any capability.'))
             : CapabilityValue::unavailable('unknown', 'Provider is missing a valid capability/normalizer configuration.');
 
-        $provider->update([
-            'status' => $value->isOk() ? 'connected' : 'error',
-            'error_message' => $value->isOk() ? null : $value->error,
-            'last_check' => now(),
-        ]);
+        $this->persistProviderResult($provider, $value->isOk(), $value->error);
 
         return $value;
+    }
+
+    /**
+     * The richer sibling of testProvider() — for the debug panel, where an
+     * admin wants to see *where* in the pipeline a value came from (or a
+     * failure happened), not just the final merged result. Fetches the raw
+     * connector payload separately from normalizing it (one network call,
+     * not two — see ConnectorBackedProvider::fetchRaw()), and captures
+     * whatever gets logged during that one call via a temporary Monolog
+     * handler rather than grepping the shared log file: this runs
+     * synchronously in the same request, so an in-process capture is both
+     * simpler and immune to interleaving with other concurrent requests or
+     * the separate scheduler process (which this deliberately does not
+     * show logs from — this is "what did clicking Test just do", not a
+     * general log viewer).
+     */
+    public function debugTestProvider(Provider $provider): ProviderTestResult
+    {
+        $capability = $this->capabilityFor($provider);
+        $connectorInstance = $provider->connector_instance_id
+            ? ConnectorInstance::find($provider->connector_instance_id)
+            : null;
+
+        if (! $capability) {
+            $error = 'Provider is missing a valid capability/normalizer configuration.';
+            $this->persistProviderResult($provider, false, $error);
+
+            return new ProviderTestResult(
+                provider: $provider,
+                connectorInstance: $connectorInstance,
+                capability: null,
+                raw: null,
+                normalized: null,
+                serverPreview: [],
+                ok: false,
+                error: $error,
+                logs: [],
+            );
+        }
+
+        $handler = new TestHandler;
+        Log::getLogger()->pushHandler($handler);
+
+        $raw = null;
+        $normalized = null;
+        $error = null;
+
+        try {
+            if ($provider->type === 'manual') {
+                // No separate raw stage — the admin-entered value is both.
+                $raw = $provider->config['value'] ?? [];
+                $normalized = $raw;
+            } else {
+                $normalizerId = $provider->config['normalizer'] ?? null;
+                $config = array_merge($provider->config ?? [], [
+                    'connector_instance_id' => $provider->connector_instance_id,
+                ]);
+
+                $raw = $this->connectorProvider->fetchRaw($connectorInstance, $config['call'] ?? []);
+                $normalized = $this->normalizers->get($normalizerId)->normalize($raw, $config)->data;
+            }
+        } catch (Throwable $e) {
+            Log::warning('Provider debug test failed', [
+                'provider_id' => $provider->id,
+                'capability' => $capability,
+                'error' => $e->getMessage(),
+            ]);
+
+            $error = $e->getMessage();
+        } finally {
+            Log::getLogger()->popHandler();
+        }
+
+        $logs = collect($handler->getRecords())->map(fn ($record) => sprintf(
+            '[%s] %s: %s%s',
+            $record['datetime']->format('H:i:s.v'),
+            $record['level_name'],
+            $record['message'],
+            $record['context'] ? ' '.json_encode($record['context']) : ''
+        ))->all();
+
+        $ok = $error === null;
+
+        $this->persistProviderResult($provider, $ok, $error);
+
+        return new ProviderTestResult(
+            provider: $provider,
+            connectorInstance: $connectorInstance,
+            capability: $capability,
+            raw: $raw,
+            normalized: $normalized,
+            serverPreview: $ok ? $this->fieldMapper->map($normalized ?? []) : [],
+            ok: $ok,
+            error: $error,
+            logs: $logs,
+        );
+    }
+
+    protected function persistProviderResult(Provider $provider, bool $ok, ?string $error): void
+    {
+        $provider->update([
+            'status' => $ok ? 'connected' : 'error',
+            'error_message' => $ok ? null : $error,
+            'last_check' => now(),
+        ]);
     }
 
     protected function capabilityFor(Provider $provider): ?string

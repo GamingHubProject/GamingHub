@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Capabilities\CapabilityGateway;
+use App\Capabilities\ServerFieldMapper;
 use App\Models\ConnectorInstance;
 use GamingHub\Core\Models\Provider;
 use GamingHub\Core\Models\Server;
@@ -28,12 +29,12 @@ class PollProviders extends Command
 
     protected $description = "Continuously refresh Provider status and Server stats from their connectors, on each connector's own interval.";
 
-    public function handle(CapabilityGateway $gateway): int
+    public function handle(CapabilityGateway $gateway, ServerFieldMapper $mapper): int
     {
         $this->info('Provider polling started.');
 
         do {
-            $this->tick($gateway);
+            $this->tick($gateway, $mapper);
 
             if (! $this->option('once')) {
                 sleep(1);
@@ -43,7 +44,7 @@ class PollProviders extends Command
         return self::SUCCESS;
     }
 
-    protected function tick(CapabilityGateway $gateway): void
+    protected function tick(CapabilityGateway $gateway, ServerFieldMapper $mapper): void
     {
         $dueConnectors = ConnectorInstance::all()->filter->isDueForPoll();
 
@@ -59,7 +60,7 @@ class PollProviders extends Command
             ->unique();
 
         foreach ($serverIds as $serverId) {
-            $this->refreshServer($gateway, $serverId);
+            $this->refreshServer($gateway, $mapper, $serverId);
         }
 
         foreach ($dueConnectors as $connector) {
@@ -67,7 +68,7 @@ class PollProviders extends Command
         }
     }
 
-    protected function refreshServer(CapabilityGateway $gateway, int $serverId): void
+    protected function refreshServer(CapabilityGateway $gateway, ServerFieldMapper $mapper, int $serverId): void
     {
         $server = Server::find($serverId);
 
@@ -83,26 +84,6 @@ class PollProviders extends Command
             return;
         }
 
-        $data = $value->data;
-
-        $updates = ['last_polled_at' => now()];
-
-        if (array_key_exists('online', $data)) {
-            $updates['status'] = $data['online'] ? 'online' : 'offline';
-        }
-        if (array_key_exists('players', $data)) {
-            $updates['current_players'] = $data['players'];
-        }
-        if (array_key_exists('max_players', $data)) {
-            $updates['max_players'] = $data['max_players'];
-        }
-        if (array_key_exists('cpu_percent', $data)) {
-            $updates['cpu_usage_percent'] = $data['cpu_percent'];
-        }
-        if (array_key_exists('memory_bytes', $data)) {
-            $updates['memory_usage_bytes'] = $data['memory_bytes'];
-        }
-
-        $server->update($updates);
+        $server->update([...$mapper->map($value->data), 'last_polled_at' => now()]);
     }
 }
