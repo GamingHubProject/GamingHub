@@ -14,6 +14,7 @@
         "gaminghubproject/core": "dev-main",
         "laravel/breeze": "^2.4",
         "laravel/framework": "^11.31",
+        "laravel/sanctum": "^4.3",
         "laravel/tinker": "^2.9",
         "maxmind-db/reader": "^1.13",
         "spatie/laravel-permission": "^6.25"
