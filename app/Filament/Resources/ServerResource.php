@@ -61,7 +61,10 @@ class ServerResource extends Resource
                     ->label('Status')
                     ->visible(fn (?Server $record) => static::isProviderDriven($record))
                     ->content(fn (?Server $record) => $record
-                        ? ServerStatusBadge::emoji($record->status).' '.ServerStatusBadge::label($record->status)
+                        ? view('filament.status-badge', [
+                            'color' => ServerStatusBadge::color($record->status),
+                            'label' => ServerStatusBadge::label($record->status),
+                        ])
                         : null)
                     ->helperText(fn (?Server $record) => static::providerDrivenHelperText($record)),
                 Forms\Components\Select::make('status')
@@ -216,7 +219,7 @@ class ServerResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => ServerStatusBadge::emoji($state).' '.ServerStatusBadge::label($state))
+                    ->formatStateUsing(fn (string $state): string => ServerStatusBadge::label($state))
                     ->color(fn (string $state): string => ServerStatusBadge::color($state))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('current_players')

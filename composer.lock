@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a4cd430981e1e944bdbe6deaf8f39a1b",
+    "content-hash": "b7f70a54fde74d900f815fde0268bf0d",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -1564,7 +1564,7 @@
         },
         {
             "name": "gaminghubproject/core",
-            "version": "dev-priority-13-pelican-architecture-and-cadence",
+            "version": "dev-main",
             "source": {
                 "type": "git",
                 "url": "https://github.com/GamingHubProject/Core.git",
@@ -1585,6 +1585,7 @@
                 "orchestra/testbench": "^9.0",
                 "phpunit/phpunit": "^11.0"
             },
+            "default-branch": true,
             "type": "library",
             "extra": {
                 "laravel": {
@@ -1615,7 +1616,7 @@
             ],
             "description": "Gaming Hub Core plugin: domain models (Games, Servers, Instances, Providers), capability decisions, and data normalization. Never speaks to connectors directly — that's Panel's job.",
             "support": {
-                "source": "https://github.com/GamingHubProject/Core/tree/priority-13-pelican-architecture-and-cadence",
+                "source": "https://github.com/GamingHubProject/Core/tree/main",
                 "issues": "https://github.com/GamingHubProject/Core/issues"
             },
             "time": "2026-08-18T04:02:05+00:00"
