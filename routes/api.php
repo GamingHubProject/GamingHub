@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     Route::get('/games', [GameController::class, 'index']);
     Route::get('/games/{slug}', [GameController::class, 'show']);
+    Route::get('/games/{slug}/servers', [GameController::class, 'servers']);
     Route::get('/servers/{server}', [ServerController::class, 'show']);
     Route::get('/theme', [ThemeController::class, 'show']);
     // Web Tree paths can contain slashes ("games/ark/ragnarok") — {path}

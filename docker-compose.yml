@@ -3,6 +3,7 @@ services:
     build: .
     ports:
       - "8010:8000"
+      - "5173:5173"
     env_file:
       - .env
     environment:

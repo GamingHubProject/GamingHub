@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\GameResource;
+use App\Http\Resources\Api\ServerResource;
 use GamingHub\Core\Models\Game;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -27,5 +28,15 @@ class GameController extends Controller
             ->firstOrFail();
 
         return new GameResource($game);
+    }
+
+    public function servers(string $slug): AnonymousResourceCollection
+    {
+        $game = Game::query()
+            ->where('slug', $slug)
+            ->where('status', 'enabled')
+            ->firstOrFail();
+
+        return ServerResource::collection($game->servers()->orderBy('name')->get());
     }
 }
