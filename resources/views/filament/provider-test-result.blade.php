@@ -32,7 +32,13 @@
         $lines = [];
         foreach ($result->serverPreview as $column => $value) {
             $label = $capabilityLabels[$column] ?? $column;
-            $display = is_bool($value) ? ($value ? 'true' : 'false') : $value;
+            if (is_bool($value)) {
+                $display = $value ? 'true' : 'false';
+            } elseif (is_array($value)) {
+                $display = json_encode($value);
+            } else {
+                $display = (string) $value;
+            }
             $lines[] = "{$label}: {$display}";
         }
         $lines[] = '';
