@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Capabilities\ServerStatusBadge;
 use App\Filament\Resources\ServerResource\Pages;
 use App\Filament\Resources\ServerResource\RelationManagers;
 use App\Models\ConnectorInstance;
@@ -49,6 +50,20 @@ class ServerResource extends Resource
                     ->maxLength(255),
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
+                // A provider-driven Server's status can now be any of
+                // Pelican's real state strings (installing/suspended/
+                // node_maintenance/...), not just the 3 legacy values this
+                // Select offers — a disabled Select whose current value
+                // isn't one of its own options renders blank, so the
+                // provider-driven case gets a Placeholder showing the real
+                // badge instead of trying to force it through the Select.
+                Forms\Components\Placeholder::make('status_badge')
+                    ->label('Status')
+                    ->visible(fn (?Server $record) => static::isProviderDriven($record))
+                    ->content(fn (?Server $record) => $record
+                        ? ServerStatusBadge::emoji($record->status).' '.ServerStatusBadge::label($record->status)
+                        : null)
+                    ->helperText(fn (?Server $record) => static::providerDrivenHelperText($record)),
                 Forms\Components\Select::make('status')
                     ->options([
                         'online' => 'Online',
@@ -57,8 +72,7 @@ class ServerResource extends Resource
                     ])
                     ->required()
                     ->default('offline')
-                    ->disabled(fn (?Server $record) => static::isProviderDriven($record))
-                    ->helperText(fn (?Server $record) => static::providerDrivenHelperText($record)),
+                    ->visible(fn (?Server $record) => ! static::isProviderDriven($record)),
                 Forms\Components\TextInput::make('max_players')
                     ->numeric()
                     ->disabled(fn (?Server $record) => static::isProviderDriven($record))
@@ -129,6 +143,14 @@ class ServerResource extends Resource
                             ->label('Network sent (bytes)')
                             ->numeric()
                             ->disabled(fn (?Server $record) => static::isProviderDriven($record)),
+                        Forms\Components\Placeholder::make('supported_features_display')
+                            ->label('Supported features')
+                            ->columnSpanFull()
+                            ->content(fn (?Server $record) => $record?->supported_features
+                                ? collect($record->supported_features)
+                                    ->map(fn (bool $supported, string $feature) => ($supported ? '✅' : '❌').' '.str($feature)->headline())
+                                    ->implode(' · ')
+                                : '—'),
                     ])
                     ->columns(2),
                 Forms\Components\KeyValue::make('metadata')
@@ -194,11 +216,8 @@ class ServerResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'online' => 'success',
-                        'maintenance' => 'warning',
-                        default => 'gray',
-                    })
+                    ->formatStateUsing(fn (string $state): string => ServerStatusBadge::emoji($state).' '.ServerStatusBadge::label($state))
+                    ->color(fn (string $state): string => ServerStatusBadge::color($state))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('current_players')
                     ->label('Players')
@@ -249,6 +268,7 @@ class ServerResource extends Resource
     {
         return [
             RelationManagers\ProvidersRelationManager::class,
+            RelationManagers\AllocationsRelationManager::class,
         ];
     }
 

@@ -84,13 +84,30 @@ class CapabilityGateway
         return CapabilityValue::unavailable($capability);
     }
 
-    public function probe(string $capability, Model $subject): CapabilityValue
+    /**
+     * $respectCadence defaults to false — every existing caller (get(),
+     * testProvider(), debugTestProvider(), and probe() called directly)
+     * keeps forcing a real check on every provider, since "give me the
+     * current value right now" is the whole point of those. Only
+     * PollProviders passes true: the background scheduler is the one
+     * caller where skipping a Provider whose own polling_cadence_seconds
+     * hasn't elapsed yet is actually the goal, not a bug. A skipped
+     * provider contributes nothing to $mergedData this tick — its
+     * previously-written Server fields are simply left untouched rather
+     * than overwritten, which is exactly what a slower, independent
+     * refresh cadence should look like from the outside.
+     */
+    public function probe(string $capability, Model $subject, bool $respectCadence = false): CapabilityValue
     {
         $mergedData = [];
         $anyOk = false;
 
         if ($subject instanceof Server) {
             foreach ($this->providerStack($subject) as $provider) {
+                if ($respectCadence && ! $provider->isDueForPoll()) {
+                    continue;
+                }
+
                 $value = $this->probeProvider($provider, $capability);
 
                 if ($value === null) {
@@ -213,6 +230,7 @@ class CapabilityGateway
                 ]);
 
                 $raw = $this->connectorProvider->fetchRaw($connectorInstance, $config['call'] ?? []);
+                $provider->update(['last_raw_response' => $raw]);
                 $normalized = $this->normalizers->get($normalizerId)->normalize($raw, $config)->data;
             }
         } catch (Throwable $e) {
@@ -329,6 +347,7 @@ class CapabilityGateway
             'capability' => $capability,
             'provider' => 'connector',
             'enabled' => true,
+            'source_provider_id' => $provider->id,
             'value' => array_merge($provider->config ?? [], [
                 'connector_instance_id' => $provider->connector_instance_id,
             ]),

@@ -3,11 +3,13 @@
 namespace App\Capabilities\Providers;
 
 use App\Connectors\ConnectorRegistry;
+use App\Manager\ConnectorManifest;
 use App\Models\ConnectorInstance;
 use App\Models\InstalledPackage;
 use GamingHub\Core\Capabilities\CapabilityValue;
 use GamingHub\Core\Contracts\CapabilityProviderContract;
 use GamingHub\Core\Models\CapabilityBinding;
+use GamingHub\Core\Models\Provider;
 use GamingHub\Core\Normalizers\NormalizerRegistry;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -26,6 +28,7 @@ class ConnectorBackedProvider implements CapabilityProviderContract
     public function __construct(
         protected ConnectorRegistry $connectors,
         protected NormalizerRegistry $normalizers,
+        protected ConnectorManifest $manifest,
     ) {}
 
     public static function id(): string
@@ -54,6 +57,8 @@ class ConnectorBackedProvider implements CapabilityProviderContract
 
         try {
             $raw = $this->fetchRaw($instance, $config['call'] ?? []);
+
+            $this->persistRawResponse($binding, $raw);
 
             return $this->normalizers->get($normalizerId)->normalize($raw, $config);
         } catch (Throwable $e) {
@@ -84,18 +89,18 @@ class ConnectorBackedProvider implements CapabilityProviderContract
     /**
      * Ownership isn't a hardcoded id => slug map anymore — it's read
      * straight off whichever installed package's own connector.json
-     * declares this normalizer id, the same manifest PackageLoader already
-     * parses to register it in the first place. A normalizer no package
-     * declares (e.g. 'field-mapping', Core's generic built-in) is always
-     * enabled. Checked fresh on every resolution (not cached) so disabling
-     * a package actually stops its normalizers from resolving on the very
-     * next call — what makes enable/disable real instead of a DB flag
-     * nothing reads.
+     * declares this normalizer id (via ConnectorManifest, the same manifest
+     * PackageLoader already parses to register it in the first place). A
+     * normalizer no package declares (e.g. 'field-mapping', Core's generic
+     * built-in) is always enabled. Checked fresh on every resolution (not
+     * cached) so disabling a package actually stops its normalizers from
+     * resolving on the very next call — what makes enable/disable real
+     * instead of a DB flag nothing reads.
      */
     protected function normalizerPackageIsEnabled(string $normalizerId): bool
     {
         try {
-            $ownerSlug = $this->findOwningPackageSlug($normalizerId);
+            $ownerSlug = $this->manifest->findOwningPackageSlug($normalizerId);
         } catch (Throwable) {
             return false;
         }
@@ -110,22 +115,20 @@ class ConnectorBackedProvider implements CapabilityProviderContract
             ->exists();
     }
 
-    protected function findOwningPackageSlug(string $normalizerId): ?string
+    /**
+     * source_provider_id is set only on the ephemeral, never-persisted
+     * CapabilityBinding CapabilityGateway::probeConnectorProvider() builds
+     * for each real Provider row — the default/manual path's binding never
+     * sets it, so this is a no-op there. Overwrites the Provider's previous
+     * raw snapshot rather than accumulating one; see the migration that
+     * added last_raw_response for why.
+     */
+    protected function persistRawResponse(CapabilityBinding $binding, array $raw): void
     {
-        foreach (InstalledPackage::all() as $package) {
-            $manifestPath = storage_path("app/packages/{$package->slug}/connector.json");
-
-            if (! is_file($manifestPath)) {
-                continue;
-            }
-
-            $manifest = json_decode((string) file_get_contents($manifestPath), true);
-
-            if (isset($manifest['normalizers'][$normalizerId])) {
-                return $package->slug;
-            }
+        if (! $binding->source_provider_id) {
+            return;
         }
 
-        return null;
+        Provider::where('id', $binding->source_provider_id)->update(['last_raw_response' => $raw]);
     }
 }

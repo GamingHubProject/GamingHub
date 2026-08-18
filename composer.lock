@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "42255ecfa56165bb8674a5831354623e",
+    "content-hash": "a4cd430981e1e944bdbe6deaf8f39a1b",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -1564,16 +1564,16 @@
         },
         {
             "name": "gaminghubproject/core",
-            "version": "dev-priority-12-pelican-server-resources",
+            "version": "dev-priority-13-pelican-architecture-and-cadence",
             "source": {
                 "type": "git",
                 "url": "https://github.com/GamingHubProject/Core.git",
-                "reference": "6c9c0dfdf13a5980c1f66f3c941fb8979fca6e32"
+                "reference": "ce3ba2a4b6ba724843da50103255e3c695d43529"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/GamingHubProject/Core/zipball/6c9c0dfdf13a5980c1f66f3c941fb8979fca6e32",
-                "reference": "6c9c0dfdf13a5980c1f66f3c941fb8979fca6e32",
+                "url": "https://api.github.com/repos/GamingHubProject/Core/zipball/ce3ba2a4b6ba724843da50103255e3c695d43529",
+                "reference": "ce3ba2a4b6ba724843da50103255e3c695d43529",
                 "shasum": ""
             },
             "require": {
@@ -1615,10 +1615,10 @@
             ],
             "description": "Gaming Hub Core plugin: domain models (Games, Servers, Instances, Providers), capability decisions, and data normalization. Never speaks to connectors directly — that's Panel's job.",
             "support": {
-                "source": "https://github.com/GamingHubProject/Core/tree/priority-12-pelican-server-resources",
+                "source": "https://github.com/GamingHubProject/Core/tree/priority-13-pelican-architecture-and-cadence",
                 "issues": "https://github.com/GamingHubProject/Core/issues"
             },
-            "time": "2026-08-17T18:43:18+00:00"
+            "time": "2026-08-18T04:02:05+00:00"
         },
         {
             "name": "graham-campbell/result-type",

@@ -223,6 +223,89 @@ class ConnectorBackedCapabilityTest extends TestCase
         $this->assertSame('error', $provider->fresh()->status);
     }
 
+    public function test_a_real_probe_persists_the_raw_response_on_the_provider_row(): void
+    {
+        $server = Server::factory()->create();
+
+        $connector = ConnectorInstance::create([
+            'name' => 'Test Game REST API',
+            'type' => 'rest',
+            'base_url' => 'http://game-server:8212',
+            'credentials' => [],
+        ]);
+
+        $provider = Provider::factory()->create([
+            'server_id' => $server->id,
+            'connector_instance_id' => $connector->id,
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'field_map' => ['currentplayernum' => 'players'],
+            ],
+        ]);
+
+        $this->assertNull($provider->last_raw_response);
+
+        $fake = new FakeHttpRequester;
+        $fake->willReturn(200, json_encode(['currentplayernum' => 4, 'server_fps' => 30.5]));
+        $this->app->instance(HttpRequestContract::class, $fake);
+
+        app(CapabilityGateway::class)->probe('server-status', $server);
+
+        $this->assertSame(
+            ['currentplayernum' => 4, 'server_fps' => 30.5],
+            $provider->fresh()->last_raw_response
+        );
+    }
+
+    public function test_debug_test_provider_also_persists_the_raw_response(): void
+    {
+        $server = Server::factory()->create();
+
+        $connector = ConnectorInstance::create([
+            'name' => 'Test Game REST API',
+            'type' => 'rest',
+            'base_url' => 'http://game-server:8212',
+            'credentials' => [],
+        ]);
+
+        $provider = Provider::factory()->create([
+            'server_id' => $server->id,
+            'connector_instance_id' => $connector->id,
+            'config' => [
+                'normalizer' => 'field-mapping',
+                'capability' => 'server-status',
+                'call' => ['endpoint' => '/v1/api/metrics'],
+                'field_map' => ['currentplayernum' => 'players'],
+            ],
+        ]);
+
+        $fake = new FakeHttpRequester;
+        $fake->willReturn(200, json_encode(['currentplayernum' => 2]));
+        $this->app->instance(HttpRequestContract::class, $fake);
+
+        app(CapabilityGateway::class)->debugTestProvider($provider);
+
+        $this->assertSame(['currentplayernum' => 2], $provider->fresh()->last_raw_response);
+    }
+
+    public function test_a_manual_provider_never_gets_a_raw_response_persisted(): void
+    {
+        $server = Server::factory()->create();
+
+        $provider = Provider::factory()->create([
+            'server_id' => $server->id,
+            'connector_instance_id' => null,
+            'type' => 'manual',
+            'config' => ['capability' => 'server-status', 'value' => ['online' => true]],
+        ]);
+
+        app(CapabilityGateway::class)->probe('server-status', $server);
+
+        $this->assertNull($provider->fresh()->last_raw_response);
+    }
+
     public function test_disabling_the_owning_package_makes_the_capability_unavailable(): void
     {
         $this->installFixtureConnectorPackage();

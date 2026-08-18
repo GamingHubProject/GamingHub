@@ -3,10 +3,12 @@
 namespace App\Filament\Resources\ServerResource\RelationManagers;
 
 use App\Capabilities\CapabilityGateway;
+use App\Manager\ConnectorManifest;
 use App\Models\ConnectorInstance;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Enums\MaxWidth;
 use Filament\Tables;
@@ -60,6 +62,17 @@ class ProvidersRelationManager extends RelationManager
                     ->required(fn (Get $get) => $get('type') === 'connector')
                     ->visible(fn (Get $get) => $get('type') === 'connector')
                     ->live()
+                    // Only fires on an actual selection change (not on
+                    // every render), so it won't clobber a cadence an
+                    // admin already customized on an existing row unless
+                    // they explicitly re-pick the connection.
+                    ->afterStateUpdated(function (Get $get, Set $set, ?int $state) {
+                        $recommended = self::recommendedCadence($state);
+
+                        if ($recommended !== null) {
+                            $set('polling_cadence_seconds', $recommended);
+                        }
+                    })
                     ->helperText('One of the connections set up under Capabilities → Connectors.'),
                 Forms\Components\Select::make('server_identifier')
                     ->label('Pelican server (UUID)')
@@ -97,6 +110,13 @@ class ProvidersRelationManager extends RelationManager
                     ->default(0)
                     ->required()
                     ->helperText('Lower number = tried first, and wins any field another provider also answers. Drag rows below to reorder.'),
+                Forms\Components\TextInput::make('polling_cadence_seconds')
+                    ->label('Polling cadence (seconds)')
+                    ->numeric()
+                    ->minValue(5)
+                    ->default(30)
+                    ->required()
+                    ->helperText('How often the background poller checks this provider. Can never be faster than its Connection\'s own poll interval, only slower.'),
                 Forms\Components\Select::make('status')
                     ->options([
                         'connected' => 'Connected',
@@ -175,6 +195,16 @@ class ProvidersRelationManager extends RelationManager
                     ->modalCancelActionLabel('Close')
                     ->modalWidth(MaxWidth::FourExtraLarge)
                     ->slideOver(),
+                Tables\Actions\Action::make('raw')
+                    ->label('Raw')
+                    ->icon('heroicon-o-code-bracket')
+                    ->visible(fn (Provider $record) => $record->type !== 'manual')
+                    ->modalContent(fn (Provider $record) => view('filament.provider-raw-response', ['provider' => $record]))
+                    ->modalHeading(fn (Provider $record) => 'Last Raw Response — '.self::connectorLabel($record))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->modalWidth(MaxWidth::FourExtraLarge)
+                    ->slideOver(),
                 Tables\Actions\EditAction::make()
                     ->mutateRecordDataUsing(fn (array $data) => self::unpackConfig($data))
                     ->mutateFormDataUsing(fn (array $data) => self::packConfig($data)),
@@ -185,6 +215,23 @@ class ProvidersRelationManager extends RelationManager
     protected static function connectorType(?int $connectorInstanceId): ?string
     {
         return $connectorInstanceId ? ConnectorInstance::find($connectorInstanceId)?->type : null;
+    }
+
+    /**
+     * Only Pelican has a fixed, package-declared normalizer today ('rest'
+     * connections use Core's generic field-mapping normalizer, which isn't
+     * tied to any one package and so has no manifest to recommend a
+     * cadence from). Matches the same connectorType()-based dispatch
+     * packConfig() already uses to decide which normalizer id a provider
+     * gets.
+     */
+    protected static function recommendedCadence(?int $connectorInstanceId): ?int
+    {
+        if (self::connectorType($connectorInstanceId) !== 'pelican') {
+            return null;
+        }
+
+        return app(ConnectorManifest::class)->recommendedCadenceFor('pelican-server-status');
     }
 
     protected static function connectorLabel(Provider $provider): string

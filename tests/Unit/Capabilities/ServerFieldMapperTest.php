@@ -108,6 +108,22 @@ class ServerFieldMapperTest extends TestCase
         ], $mapped);
     }
 
+    public function test_it_maps_supported_features(): void
+    {
+        $features = ['resources' => true, 'backups' => false, 'databases' => true];
+
+        $mapped = (new ServerFieldMapper)->map(['supported_features' => $features]);
+
+        $this->assertSame(['supported_features' => $features], $mapped);
+    }
+
+    public function test_allocations_are_not_mapped_to_a_flat_column(): void
+    {
+        $mapped = (new ServerFieldMapper)->map(['allocations' => [['ip' => '1.2.3.4', 'port' => 25565]]]);
+
+        $this->assertArrayNotHasKey('allocations', $mapped);
+    }
+
     public function test_unmapped_keys_are_ignored(): void
     {
         $mapped = (new ServerFieldMapper)->map(['uptime' => 999, 'server_fps' => 30.0]);

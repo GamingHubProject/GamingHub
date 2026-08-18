@@ -80,6 +80,14 @@ class ServerFieldMapper
         if (array_key_exists('node_name', $data)) {
             $updates['node_name'] = $data['node_name'];
         }
+        if (array_key_exists('supported_features', $data)) {
+            $updates['supported_features'] = $data['supported_features'];
+        }
+
+        // 'allocations' is deliberately not mapped here — it's a list of
+        // related rows, not a flat Server column, so it's synced
+        // separately by ServerAllocationSyncer rather than flowing through
+        // this column => value mapping.
 
         return $updates;
     }

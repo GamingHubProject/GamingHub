@@ -8,5 +8,8 @@
     "normalizers": {
         "fixture-panel-status": "GamingHubFixtures\\FixturePanel\\FixturePanelStatusNormalizer"
     },
-    "capabilities": ["server-status"]
+    "capabilities": ["server-status"],
+    "recommended_cadence_seconds": {
+        "fixture-panel-status": 45
+    }
 }

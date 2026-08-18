@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Capabilities\CapabilityGateway;
+use App\Capabilities\ServerAllocationSyncer;
 use App\Capabilities\ServerFieldMapper;
 use App\Models\ConnectorInstance;
 use GamingHub\Core\Models\Provider;
@@ -29,12 +30,12 @@ class PollProviders extends Command
 
     protected $description = "Continuously refresh Provider status and Server stats from their connectors, on each connector's own interval.";
 
-    public function handle(CapabilityGateway $gateway, ServerFieldMapper $mapper): int
+    public function handle(CapabilityGateway $gateway, ServerFieldMapper $mapper, ServerAllocationSyncer $allocationSyncer): int
     {
         $this->info('Provider polling started.');
 
         do {
-            $this->tick($gateway, $mapper);
+            $this->tick($gateway, $mapper, $allocationSyncer);
 
             if (! $this->option('once')) {
                 sleep(1);
@@ -44,23 +45,27 @@ class PollProviders extends Command
         return self::SUCCESS;
     }
 
-    protected function tick(CapabilityGateway $gateway, ServerFieldMapper $mapper): void
+    protected function tick(CapabilityGateway $gateway, ServerFieldMapper $mapper, ServerAllocationSyncer $allocationSyncer): void
     {
         $dueConnectors = ConnectorInstance::all()->filter->isDueForPoll();
 
         // Manual providers have no connector_instance_id and no poll
         // interval to wait on — there's no external I/O to throttle, so
-        // they're refreshed on every tick rather than tracked by
-        // isDueForPoll(). Without this, a server with only a manual
-        // provider is never reachable through connector_instance_id at
-        // all and its Server columns would never update.
+        // they're still considered here on every tick rather than tracked
+        // by ConnectorInstance::isDueForPoll(). Without this, a server with
+        // only a manual provider is never reachable through
+        // connector_instance_id at all and its Server columns would never
+        // update. Provider::isDueForPoll() (respectCadence below) still
+        // applies on top of this — a manual provider's own
+        // polling_cadence_seconds now throttles how often its value is
+        // re-applied, same as a connector-backed one.
         $serverIds = Provider::where('type', 'manual')
             ->orWhereIn('connector_instance_id', $dueConnectors->pluck('id'))
             ->pluck('server_id')
             ->unique();
 
         foreach ($serverIds as $serverId) {
-            $this->refreshServer($gateway, $mapper, $serverId);
+            $this->refreshServer($gateway, $mapper, $allocationSyncer, $serverId);
         }
 
         foreach ($dueConnectors as $connector) {
@@ -68,7 +73,7 @@ class PollProviders extends Command
         }
     }
 
-    protected function refreshServer(CapabilityGateway $gateway, ServerFieldMapper $mapper, int $serverId): void
+    protected function refreshServer(CapabilityGateway $gateway, ServerFieldMapper $mapper, ServerAllocationSyncer $allocationSyncer, int $serverId): void
     {
         $server = Server::find($serverId);
 
@@ -76,7 +81,22 @@ class PollProviders extends Command
             return;
         }
 
-        $value = $gateway->probe('server-status', $server);
+        // If every one of this server's providers is mid-cadence (none due
+        // yet), probe(respectCadence: true) would skip all of them and
+        // come back UNAVAILABLE — indistinguishable, from the merge
+        // result alone, from every provider having genuinely failed. That
+        // would wrongly mark a healthy server offline just because it
+        // wasn't its turn to be checked yet. Skip the tick entirely
+        // instead, leaving the Server row exactly as it was.
+        $hasDueProvider = Provider::where('server_id', $serverId)
+            ->get()
+            ->contains(fn (Provider $provider) => $provider->isDueForPoll());
+
+        if (! $hasDueProvider) {
+            return;
+        }
+
+        $value = $gateway->probe('server-status', $server, respectCadence: true);
 
         if (! $value->isOk()) {
             $server->update(['status' => 'offline', 'last_polled_at' => now()]);
@@ -85,5 +105,9 @@ class PollProviders extends Command
         }
 
         $server->update([...$mapper->map($value->data), 'last_polled_at' => now()]);
+
+        if (array_key_exists('allocations', $value->data)) {
+            $allocationSyncer->sync($server, $value->data['allocations']);
+        }
     }
 }

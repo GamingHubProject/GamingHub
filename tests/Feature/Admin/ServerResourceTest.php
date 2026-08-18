@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Capabilities\ServerStatusBadge;
 use App\Filament\Resources\ServerResource\Pages\CreateServer;
 use App\Filament\Resources\ServerResource\Pages\EditServer;
 use App\Filament\Resources\ServerResource\Pages\ListServers;
@@ -103,7 +104,7 @@ class ServerResourceTest extends TestCase
 
     public function test_live_stat_fields_are_disabled_when_a_server_has_a_connector_provider(): void
     {
-        $server = Server::factory()->create();
+        $server = Server::factory()->create(['status' => 'installing']);
         $connector = ConnectorInstance::create([
             'name' => 'Game REST API',
             'type' => 'rest',
@@ -124,7 +125,15 @@ class ServerResourceTest extends TestCase
         ]);
 
         Livewire::test(EditServer::class, ['record' => $server->id])
-            ->assertFormFieldIsDisabled('status')
+            // 'status' itself is hidden rather than disabled once
+            // provider-driven — a disabled Select whose current value
+            // (e.g. Pelican's 'installing') isn't one of its own 3 legacy
+            // options renders blank, so a Placeholder badge takes over
+            // instead. Placeholder extends Component, not Field, so it
+            // isn't reachable via assertFormFieldIs*() at all — asserting
+            // on the rendered badge text is the only way to check it.
+            ->assertFormFieldIsHidden('status')
+            ->assertSee(ServerStatusBadge::label('installing'))
             ->assertFormFieldIsDisabled('current_players')
             ->assertFormFieldIsDisabled('max_players')
             ->assertFormFieldIsDisabled('cpu_usage_percent')
