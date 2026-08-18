@@ -46,17 +46,26 @@ docker-compose run --rm app php artisan migrate --force
 docker-compose run --rm app php artisan db:seed --force
 ```
 
-This creates the `Admin`, `WebEditor`, `ContentEditor`, and `User` roles, plus an admin account:
+This creates the `Admin`, `WebEditor`, `ContentEditor`, and `User` roles, plus the capability
+vocabulary. It does **not** create a user — no installer creates a default admin account, since a
+hardcoded, publicly-known credential is a real vulnerability, not a convenience.
 
-- **Email:** `admin@local`
-- **Password:** `local`
+## 5. Create an administrator account
 
-## 5. Access the app
+```bash
+docker-compose run --rm app php artisan gaming-hub:admin
+```
+
+Prompts for a name, email, and password (minimum 8 characters, entered securely — not echoed or
+passed on the command line). Re-running it against an existing email promotes that account to
+Admin instead of creating a duplicate.
+
+## 6. Access the app
 
 - Public site: `http://localhost:8010`
 - Admin panel: `http://localhost:8010/admin`
 
-Log in with `admin@local` / `local`.
+Log in with the email/password you set in step 5.
 
 ## Running tests
 

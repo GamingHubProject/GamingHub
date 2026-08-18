@@ -2,11 +2,19 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use GamingHub\Core\Database\Seeders\CapabilitySeeder;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
+/**
+ * Baseline, non-sensitive data only — roles and the capability vocabulary.
+ * Deliberately never creates a user: this used to seed a hardcoded
+ * admin@local/local account on every install, a publicly-known default
+ * credential shipped by the installer's own printed output. Use
+ * `php artisan gaming-hub:admin` for a real, interactively-prompted
+ * administrator account instead — safe to run unconditionally, anywhere,
+ * since it has no secrets of its own to leak.
+ */
 class DatabaseSeeder extends Seeder
 {
     /**
@@ -22,13 +30,5 @@ class DatabaseSeeder extends Seeder
         // Gate).
         $this->call(RoleSeeder::class);
         $this->call(CapabilitySeeder::class);
-
-        $admin = User::factory()->create([
-            'name' => 'Admin',
-            'email' => 'admin@local',
-            'password' => bcrypt('local'),
-            'email_verified_at' => now(),
-        ]);
-        $admin->assignRole('Admin');
     }
 }

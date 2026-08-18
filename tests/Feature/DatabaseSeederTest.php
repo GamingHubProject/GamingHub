@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Database\Seeders\DatabaseSeeder;
+use GamingHub\Core\Models\Capability;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -21,12 +22,25 @@ class DatabaseSeederTest extends TestCase
         }
     }
 
-    public function test_seeder_creates_admin_user_with_admin_role(): void
+    public function test_seeder_creates_baseline_capabilities(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $this->assertDatabaseHas('users', ['email' => 'admin@local']);
-        $admin = \App\Models\User::where('email', 'admin@local')->first();
-        $this->assertTrue($admin->hasRole('Admin'));
+        $this->assertGreaterThan(0, Capability::count());
+        $this->assertDatabaseHas('capabilities', ['id' => 'server-status']);
+    }
+
+    /**
+     * DatabaseSeeder used to also create a hardcoded admin@local/local
+     * account — a publicly-known default credential printed directly in
+     * the installer's own output. It creates no user at all now;
+     * `php artisan gaming-hub:admin` (interactive, real credentials) is
+     * the only way an administrator account gets created.
+     */
+    public function test_seeder_creates_no_user_at_all(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $this->assertDatabaseCount('users', 0);
     }
 }

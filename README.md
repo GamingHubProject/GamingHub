@@ -220,7 +220,8 @@ docker-compose up
 
 Then visit `http://localhost:8010` (public site) or `http://localhost:8010/admin` (admin panel).
 
-Default admin login: `admin@local` / `local`
+No admin account is created automatically — run `php artisan gaming-hub:admin` (prompts for
+name/email/password) to create one, or use the installer's own admin-account prompt.
 
 See [INSTALL.md](INSTALL.md) for full setup steps and [DEVELOPMENT.md](DEVELOPMENT.md) for the
 day-to-day developer workflow.
