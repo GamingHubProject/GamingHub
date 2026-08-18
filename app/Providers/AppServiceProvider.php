@@ -11,8 +11,11 @@ use App\Connectors\RestConnector;
 use App\Manager\CurlHttpClient;
 use App\Manager\HttpClientContract;
 use App\Manager\PackageLoader;
+use App\Models\ConnectorInstance;
 use App\Models\ServerGroup;
 use App\Models\SiteOption;
+use App\Models\User;
+use App\Observers\AdminAuditObserver;
 use App\Observers\GameObserver;
 use App\Observers\ServerGroupObserver;
 use App\Observers\ServerObserver;
@@ -20,6 +23,7 @@ use GamingHub\Core\Capabilities\CapabilityRegistry;
 use GamingHub\Core\Capabilities\CapabilityRouter;
 use GamingHub\Core\Capabilities\Providers\ManualProvider;
 use GamingHub\Core\Models\Game;
+use GamingHub\Core\Models\Provider;
 use GamingHub\Core\Models\Server;
 use GamingHub\Core\Normalizers\FieldMappingNormalizer;
 use GamingHub\Core\Normalizers\NormalizerRegistry;
@@ -99,6 +103,17 @@ class AppServiceProvider extends ServiceProvider
         Game::observe(GameObserver::class);
         ServerGroup::observe(ServerGroupObserver::class);
         Server::observe(ServerObserver::class);
+
+        // Admin audit trail — plain-CRUD models only. Role/permission
+        // changes go through pivot syncs that bypass Eloquent events
+        // entirely, so those are logged separately (see UserResource's
+        // and RoleResource's own Edit/Create pages).
+        User::observe(AdminAuditObserver::class);
+        Server::observe(AdminAuditObserver::class);
+        Provider::observe(AdminAuditObserver::class);
+        ConnectorInstance::observe(AdminAuditObserver::class);
+        ServerGroup::observe(AdminAuditObserver::class);
+        SiteOption::observe(AdminAuditObserver::class);
 
         // Admin is unconditionally omniscient — returning null (not false)
         // for everyone else so normal ability checks still run for them.

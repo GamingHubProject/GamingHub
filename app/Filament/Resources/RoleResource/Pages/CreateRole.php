@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\RoleResource\Pages;
 
 use App\Filament\Resources\RoleResource;
+use App\Models\AdminAudit;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateRole extends CreateRecord
@@ -24,5 +25,14 @@ class CreateRole extends CreateRecord
         // every permission in the system is now one of these scoped ones,
         // the checked set IS the role's complete desired permission list.
         $this->record->syncPermissions($this->pendingScopedPermissionNames);
+
+        if (empty($this->pendingScopedPermissionNames)) {
+            return;
+        }
+
+        AdminAudit::record('permissions_changed', 'Role', $this->record->getKey(), [
+            'added' => $this->pendingScopedPermissionNames,
+            'removed' => [],
+        ]);
     }
 }
