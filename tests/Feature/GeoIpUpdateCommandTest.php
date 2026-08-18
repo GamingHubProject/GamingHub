@@ -19,6 +19,18 @@ use Tests\TestCase;
  */
 class GeoIpUpdateCommandTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Tests assume no pre-existing database unless they create one
+        // themselves — real content can otherwise be left on disk by an
+        // actual gaming-hub:geoip-update run against the live DB-IP
+        // endpoint (e.g. manual verification), which isn't reset between
+        // test runs the way the database is.
+        File::delete((new GeoIpLookup)->path());
+    }
+
     protected function tearDown(): void
     {
         File::delete((new GeoIpLookup)->path());
