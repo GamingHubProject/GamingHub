@@ -22,11 +22,17 @@ RUN composer config -g policy.advisories.block false \
 
 RUN npm ci && npm run build
 
+# Builds into ../resources/spa-dist (see spa/vite.config.ts) — a separate
+# project from the root npm build above, with its own dependencies and its
+# own production-only API base URL (spa/.env.production). routes/web.php
+# serves it explicitly from there, deliberately outside public/.
+RUN cd spa && npm ci && npm run build
+
 FROM base AS runtime
 
 WORKDIR /app
 COPY --from=build /app ./
-RUN rm -rf node_modules \
+RUN rm -rf node_modules spa/node_modules \
     && mkdir -p storage/framework/{cache,sessions,testing,views} storage/logs \
     && chown -R www-data:www-data storage bootstrap/cache
 

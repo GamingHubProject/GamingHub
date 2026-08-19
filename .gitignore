@@ -2,6 +2,7 @@
 /.composer-home
 /node_modules
 /public/build
+/resources/spa-dist
 /public/hot
 /public/storage
 /storage/*.key
@@ -11,6 +12,10 @@
 .env
 .env.backup
 .env.production
+# Not a secret (build-time-only public config, no credentials) and needed
+# in every production build/install — unlike the Laravel .env.production
+# convention above, this one is Vite's own, auto-loaded for "vite build".
+!spa/.env.production
 .phpactor.json
 .phpunit.result.cache
 Homestead.json

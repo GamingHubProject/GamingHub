@@ -7,17 +7,24 @@ import { ServerDetail } from '../pages/ServerDetail';
 import { Dashboard } from '../pages/Dashboard';
 import { WebTreePage } from '../pages/WebTreePage';
 
-export const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <Layout />,
-    children: [
-      { index: true, element: <Portal /> },
-      { path: 'games', element: <GamesList /> },
-      { path: 'games/:slug', element: <GameDetail /> },
-      { path: 'games/:slug/servers/:id', element: <ServerDetail /> },
-      { path: 'dashboard', element: <Dashboard /> },
-      { path: 'pages/*', element: <WebTreePage /> },
-    ],
-  },
-]);
+export const router = createBrowserRouter(
+  [
+    {
+      path: '/',
+      element: <Layout />,
+      children: [
+        { index: true, element: <Portal /> },
+        { path: 'games', element: <GamesList /> },
+        { path: 'games/:slug', element: <GameDetail /> },
+        { path: 'games/:slug/servers/:id', element: <ServerDetail /> },
+        { path: 'dashboard', element: <Dashboard /> },
+        { path: 'pages/*', element: <WebTreePage /> },
+      ],
+    },
+  ],
+  // Vite sets BASE_URL from vite.config.ts's "base" — "/" in dev (its own
+  // origin/port), "/ui/" in a production build served under the Laravel
+  // app's own domain. Reading it here instead of hardcoding keeps this in
+  // sync with the build config automatically.
+  { basename: import.meta.env.BASE_URL }
+);
