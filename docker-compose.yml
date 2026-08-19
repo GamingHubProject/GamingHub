@@ -5,52 +5,66 @@
 # volume, same default image tags — confirmed for real, including a
 # production container silently running the dev image and a shared
 # postgres volume getting clobbered between the two.
+#
+# This default only applies when nothing overrides it (e.g. a bare
+# "docker compose up" outside the installer). scripts/install-gaming-hub-dev.sh
+# always passes -p explicitly per instance, which takes precedence over
+# this file's own name — see its resolve_instance()/compose().
 name: gaming-hub-dev
 
 services:
   app:
     build: .
     ports:
-      - "8010:8000"
-      - "5173:5173"
-    env_file:
-      - .env
+      - "${GAMING_HUB_APP_PORT:-8010}:8000"
+      - "${GAMING_HUB_SPA_PORT:-5173}:5173"
     environment:
       - DB_CONNECTION=pgsql
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_DATABASE=gaming_hub
+      - DB_DATABASE=${GAMING_HUB_DB_NAME:-gaming_hub}
       - DB_USERNAME=gaming_hub
       - DB_PASSWORD=secret
     volumes:
       - .:/app
+      # File-level mount, not env_file: — env_file only injects values as
+      # OS env vars at container start; it does nothing for artisan
+      # commands that WRITE back to .env (key:generate being the clear
+      # case). Those always target the literal base_path('.env') inside
+      # the container, with no idea env_file ever existed. Since every
+      # instance bind-mounts the same shared checkout, that write landed
+      # on this file regardless of which instance ran it — confirmed for
+      # real: a second instance's key:generate corrupted the first
+      # instance's real .env, concatenating a second key onto the APP_KEY
+      # line. Mounting the instance's own file directly at /app/.env makes
+      # every read AND write instance-correct with no indirection at all.
+      - ${GAMING_HUB_ENV_FILE:-.env}:/app/.env
     depends_on:
       - postgres
     command: php artisan serve --host=0.0.0.0 --port=8000
   scheduler:
     build: .
-    env_file:
-      - .env
     environment:
       - DB_CONNECTION=pgsql
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_DATABASE=gaming_hub
+      - DB_DATABASE=${GAMING_HUB_DB_NAME:-gaming_hub}
       - DB_USERNAME=gaming_hub
       - DB_PASSWORD=secret
     volumes:
       - .:/app
+      - ${GAMING_HUB_ENV_FILE:-.env}:/app/.env
     depends_on:
       - postgres
     command: php artisan gaming-hub:poll-providers
   postgres:
     image: postgres:16
     environment:
-      - POSTGRES_DB=gaming_hub
+      - POSTGRES_DB=${GAMING_HUB_DB_NAME:-gaming_hub}
       - POSTGRES_USER=gaming_hub
       - POSTGRES_PASSWORD=secret
     ports:
-      - "5432:5432"
+      - "${GAMING_HUB_PG_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 volumes:

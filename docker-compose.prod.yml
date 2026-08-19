@@ -6,7 +6,14 @@
 # volume, same default image tags. Confirmed for real: a production
 # container silently running the dev-built image, and a shared postgres
 # volume getting clobbered between the two installs.
-name: gaming-hub-prod
+#
+# GAMING_HUB_INSTANCE lets several production-style installs coexist on
+# one host too (e.g. "prod" and a second "staging" deployment) — the
+# installer always exports it (prompted fresh on Install, read back from
+# .env on Update/HTTPS/admin/Uninstall) and passes -p explicitly on top of
+# this, which takes precedence; the "prod" default here only matters for
+# a bare "docker compose" run outside the installer.
+name: gaming-hub-${GAMING_HUB_INSTANCE:-prod}
 
 services:
   app:
@@ -15,12 +22,13 @@ services:
       dockerfile: Dockerfile.prod
     # Belt-and-suspenders alongside the project name above: explicit
     # rather than Compose's own default "<project>-<service>" naming, so
-    # this image can never collide with a dev build even if a project name
-    # were ever left unset again. A production container ended up silently
-    # running the dev image (no vendor/ baked in, since dev relies on a
-    # bind mount + a separate composer install step) and crash-looping on
-    # a missing vendor/autoload.php — this is what closes that gap.
-    image: gaming-hub-prod-app:latest
+    # this image can never collide with a dev build (or another instance's
+    # build) even if a project name were ever left unset again. A
+    # production container ended up silently running the dev image (no
+    # vendor/ baked in, since dev relies on a bind mount + a separate
+    # composer install step) and crash-looping on a missing
+    # vendor/autoload.php — this is what closes that gap.
+    image: gaming-hub-${GAMING_HUB_INSTANCE:-prod}-app:latest
     restart: unless-stopped
     environment:
       - APP_NAME=${APP_NAME:-Gaming Hub}
@@ -46,7 +54,7 @@ services:
     # Same image as app (identical Dockerfile/context) — reusing the tag
     # here means Compose only builds it once instead of duplicating an
     # identical ~1.9GB image under a second name.
-    image: gaming-hub-prod-app:latest
+    image: gaming-hub-${GAMING_HUB_INSTANCE:-prod}-app:latest
     restart: unless-stopped
     environment:
       - APP_NAME=${APP_NAME:-Gaming Hub}
