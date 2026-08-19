@@ -1,3 +1,12 @@
+# Explicit project name — Compose otherwise defaults to the checkout
+# directory's basename, which collides with the production installer's
+# hardcoded /opt/gaming-hub (same basename: "gaming-hub"). Without this,
+# both share one Compose project: same container names, same postgres_data
+# volume, same default image tags — confirmed for real, including a
+# production container silently running the dev image and a shared
+# postgres volume getting clobbered between the two.
+name: gaming-hub-dev
+
 services:
   app:
     build: .
