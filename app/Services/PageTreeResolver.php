@@ -6,10 +6,9 @@ use App\Models\Page;
 use App\Permissions\ScopedPermissionChecker;
 
 /**
- * Shared by the Blade Web Tree route (PageTreeController) and the API's
- * Pages controller so path-walking and draft-visibility rules can't drift
- * between the two — see Page::pathSegments() for why a stored path column
- * isn't used instead.
+ * Path-walking and draft-visibility rules for the Web Tree, used by the
+ * API's Pages controller — see Page::pathSegments() for why a stored path
+ * column isn't used instead.
  */
 class PageTreeResolver
 {

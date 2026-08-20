@@ -67,4 +67,23 @@ class PageApiTest extends TestCase
 
         $this->getJson('/api/v1/pages/games')->assertNotFound();
     }
+
+    public function test_an_unknown_path_segment_404s(): void
+    {
+        $games = Page::create(['title' => 'Games', 'slug' => 'games', 'type' => 'folder', 'status' => 'published']);
+        Page::create(['title' => 'Ark', 'slug' => 'ark', 'type' => 'page', 'status' => 'published', 'parent_id' => $games->id]);
+
+        $this->getJson('/api/v1/pages/games/nonexistent')->assertNotFound();
+    }
+
+    public function test_two_pages_in_different_folders_can_share_a_slug(): void
+    {
+        $ark = Page::create(['title' => 'Ark', 'slug' => 'ark', 'type' => 'folder', 'status' => 'published']);
+        $palworld = Page::create(['title' => 'Palworld', 'slug' => 'palworld', 'type' => 'folder', 'status' => 'published']);
+        Page::create(['title' => 'About (Ark)', 'slug' => 'about', 'type' => 'page', 'status' => 'published', 'parent_id' => $ark->id]);
+        Page::create(['title' => 'About (Palworld)', 'slug' => 'about', 'type' => 'page', 'status' => 'published', 'parent_id' => $palworld->id]);
+
+        $this->getJson('/api/v1/pages/ark/about')->assertOk()->assertJsonPath('data.title', 'About (Ark)');
+        $this->getJson('/api/v1/pages/palworld/about')->assertOk()->assertJsonPath('data.title', 'About (Palworld)');
+    }
 }

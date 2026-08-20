@@ -18,7 +18,12 @@ export const router = createBrowserRouter(
         { path: 'games/:slug', element: <GameDetail /> },
         { path: 'games/:slug/servers/:id', element: <ServerDetail /> },
         { path: 'dashboard', element: <Dashboard /> },
-        { path: 'pages/*', element: <WebTreePage /> },
+        // Bare catch-all, not "pages/*": mirrors the arbitrary top-level
+        // paths Web Tree pages have always used (e.g. "games/ark/ragnarok"),
+        // matching the old server-side Blade catch-all this route replaced.
+        // react-router ranks static routes above a splat automatically, so
+        // this only catches what nothing above it matched.
+        { path: '*', element: <WebTreePage /> },
       ],
     },
   ],

@@ -11,7 +11,10 @@ export function Header() {
         <Link to="/games">Games</Link>
         {user && <Link to="/dashboard">Dashboard</Link>}
       </nav>
-      <div>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+        {/* Hard navigation, not a router Link: /admin is Filament, a
+            separate app outside the SPA. */}
+        {user && <a href="/admin">Admin</a>}
         {!isLoading && (user ? <span>{user.name}</span> : <a href="/login">Log in</a>)}
       </div>
     </header>

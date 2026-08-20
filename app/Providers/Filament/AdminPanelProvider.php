@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\BrowseRegistry;
 use App\Filament\Pages\SiteOptions;
+use App\Filament\Resources\AdminAuditResource;
 use App\Filament\Resources\ConnectorInstanceResource;
 use App\Filament\Resources\GameResource;
 use App\Filament\Resources\InstalledPackageResource;
@@ -49,7 +50,7 @@ class AdminPanelProvider extends PanelProvider
         'games' => [GameResource::class],
         'experience' => [PageResource::class, ThemeResource::class],
         'servers' => [ServerResource::class, ServerGroupResource::class],
-        'administration' => [UserResource::class, RoleResource::class],
+        'administration' => [UserResource::class, RoleResource::class, AdminAuditResource::class],
         'basic-settings' => [NavigationItemResource::class, SiteOptions::class],
     ];
 
