@@ -15,18 +15,40 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 FROM base AS build
 
 WORKDIR /app
-COPY . .
 
+# Dependency manifests only, before the rest of the source — these three
+# install layers are then only invalidated when a lockfile actually
+# changes, not on every commit. Confirmed this was the real cost behind
+# a 10+ minute production build: resolving/downloading ~100 composer
+# packages and ~200 npm packages (root + spa, including the whole
+# React/Vite/TypeScript toolchain) from scratch on every single build,
+# since the old "COPY . . " before any install step meant Docker's cache
+# saw a changed input (the entire tree) and reinstalled everything
+# regardless of whether a dependency had actually changed.
+COPY composer.json composer.lock ./
 RUN composer config -g policy.advisories.block false \
-    && composer install --no-dev --no-interaction --optimize-autoloader
+    && composer install --no-dev --no-interaction --no-scripts --no-autoloader
 
-RUN npm ci && npm run build
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY spa/package.json spa/package-lock.json ./spa/
+RUN cd spa && npm ci
+
+# Composer's post-autoload-dump scripts (artisan package:discover,
+# filament:upgrade) need the real application tree to run, which is why
+# they're deferred to here via dump-autoload rather than run inside the
+# cached install above.
+COPY . .
+RUN composer dump-autoload --optimize
+
+RUN npm run build
 
 # Builds into ../resources/spa-dist (see spa/vite.config.ts) — a separate
 # project from the root npm build above, with its own dependencies and its
 # own production-only API base URL (spa/.env.production). routes/web.php
 # serves it explicitly from there, deliberately outside public/.
-RUN cd spa && npm ci && npm run build
+RUN cd spa && npm run build
 
 FROM base AS runtime
 
