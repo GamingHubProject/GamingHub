@@ -18,12 +18,20 @@ return [
     |
     */
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
+    // env('KEY', $default) only substitutes $default when the variable is
+    // completely absent — a .env line present but blank (SANCTUM_STATEFUL_
+    // DOMAINS=, which every install had before an "access host" prompt was
+    // added, and which the installer's Update path still never writes)
+    // resolves to an empty string, not the default, leaving this exploded
+    // into [''] — matching no request's Origin, ever, so the SPA's login
+    // silently never authenticates while Filament (a different guard) keeps
+    // working fine. `?:` catches both "absent" and "present but blank".
+    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS') ?: sprintf(
         '%s%s',
         'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1',
         Sanctum::currentApplicationUrlWithPort(),
         // Sanctum::currentRequestHost(),
-    ))),
+    )),
 
     /*
     |--------------------------------------------------------------------------
