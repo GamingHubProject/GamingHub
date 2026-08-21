@@ -260,6 +260,27 @@ class AdminAuditTest extends TestCase
         $this->assertContains(ScopedPermissionName::for('game', $palworld->id, 'settings'), $audit->changes['added']);
     }
 
+    public function test_logging_in_through_breeze_is_recorded(): void
+    {
+        $user = User::factory()->create();
+
+        $this->post('/login', ['email' => $user->email, 'password' => 'password']);
+
+        $audit = AdminAudit::where('action', 'login')->where('resource_id', $user->id)->first();
+        $this->assertNotNull($audit);
+        $this->assertSame($user->id, $audit->user_id);
+        $this->assertSame('web', $audit->changes['guard']);
+    }
+
+    public function test_a_failed_login_attempt_is_not_recorded(): void
+    {
+        $user = User::factory()->create();
+
+        $this->post('/login', ['email' => $user->email, 'password' => 'wrong-password']);
+
+        $this->assertSame(0, AdminAudit::where('action', 'login')->count());
+    }
+
     public function test_audit_log_page_loads_for_an_admin(): void
     {
         $this->actingAs($this->admin);

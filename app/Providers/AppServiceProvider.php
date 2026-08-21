@@ -11,6 +11,7 @@ use App\Connectors\RestConnector;
 use App\Manager\CurlHttpClient;
 use App\Manager\HttpClientContract;
 use App\Manager\PackageLoader;
+use App\Models\AdminAudit;
 use App\Models\ConnectorInstance;
 use App\Models\ServerGroup;
 use App\Models\SiteOption;
@@ -27,7 +28,9 @@ use GamingHub\Core\Models\Provider;
 use GamingHub\Core\Models\Server;
 use GamingHub\Core\Normalizers\FieldMappingNormalizer;
 use GamingHub\Core\Normalizers\NormalizerRegistry;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Throwable;
@@ -114,6 +117,13 @@ class AppServiceProvider extends ServiceProvider
         ConnectorInstance::observe(AdminAuditObserver::class);
         ServerGroup::observe(AdminAuditObserver::class);
         SiteOption::observe(AdminAuditObserver::class);
+
+        // Also covers logins themselves, not just the model-CRUD actions
+        // above — fires for both Breeze's /login and Filament's /admin/login,
+        // since both authenticate through the same "web" guard.
+        Event::listen(Login::class, function (Login $event): void {
+            AdminAudit::record('login', 'User', $event->user->getKey(), ['guard' => $event->guard]);
+        });
 
         // Admin is unconditionally omniscient — returning null (not false)
         // for everyone else so normal ability checks still run for them.
