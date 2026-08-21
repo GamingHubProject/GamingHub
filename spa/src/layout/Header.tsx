@@ -15,7 +15,7 @@ export function Header() {
         {/* Hard navigation, not a router Link: /admin is Filament, a
             separate app outside the SPA. */}
         {user && <a href="/admin">Admin</a>}
-        {!isLoading && (user ? <span>{user.name}</span> : <a href="/login">Log in</a>)}
+        {!isLoading && (user ? <span>{user.name}</span> : <Link to="/login">Log in</Link>)}
       </div>
     </header>
   );

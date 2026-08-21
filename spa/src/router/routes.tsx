@@ -5,6 +5,7 @@ import { GamesList } from '../pages/GamesList';
 import { GameDetail } from '../pages/GameDetail';
 import { ServerDetail } from '../pages/ServerDetail';
 import { Dashboard } from '../pages/Dashboard';
+import { Login } from '../pages/Login';
 import { WebTreePage } from '../pages/WebTreePage';
 
 export const router = createBrowserRouter(
@@ -18,6 +19,7 @@ export const router = createBrowserRouter(
         { path: 'games/:slug', element: <GameDetail /> },
         { path: 'games/:slug/servers/:id', element: <ServerDetail /> },
         { path: 'dashboard', element: <Dashboard /> },
+        { path: 'login', element: <Login /> },
         // Bare catch-all, not "pages/*": mirrors the arbitrary top-level
         // paths Web Tree pages have always used (e.g. "games/ark/ragnarok"),
         // matching the old server-side Blade catch-all this route replaced.

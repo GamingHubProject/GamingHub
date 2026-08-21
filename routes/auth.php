@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\SpaController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -17,7 +18,11 @@ Route::middleware('guest')->group(function () {
 
     Route::post('register', [RegisteredUserController::class, 'store']);
 
-    Route::get('login', [AuthenticatedSessionController::class, 'create'])
+    // Serves the SPA shell — React owns the actual login form now (see
+    // spa/src/pages/Login.tsx), which POSTs to the unchanged endpoint
+    // below. Still gated by 'guest': an already-authenticated visit here
+    // redirects to /dashboard, same as before.
+    Route::get('login', [SpaController::class, 'show'])
         ->name('login');
 
     Route::post('login', [AuthenticatedSessionController::class, 'store']);

@@ -35,12 +35,22 @@ services:
       - APP_ENV=production
       - APP_KEY=${APP_KEY}
       - APP_URL=${APP_URL:-http://localhost}
+      - APP_TIMEZONE=${APP_TIMEZONE:-UTC}
       - DB_CONNECTION=pgsql
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_DATABASE=${DB_DATABASE:-gaming_hub}
       - DB_USERNAME=${DB_USERNAME:-gaming_hub}
       - DB_PASSWORD=${DB_PASSWORD}
+      # Written by the installer (blank by default, a real domain once
+      # HTTPS is configured or the "access host" prompt is answered) —
+      # missing from this list meant the .env value never reached the
+      # container at all, silently falling back to Sanctum's stock
+      # localhost-only defaults regardless of what was actually
+      # configured. That's what broke the SPA's cookie-based auth for
+      # any real (non-localhost) access.
+      - SESSION_DOMAIN=${SESSION_DOMAIN}
+      - SANCTUM_STATEFUL_DOMAINS=${SANCTUM_STATEFUL_DOMAINS}
     volumes:
       - app_storage:/app/storage
     depends_on:
@@ -61,12 +71,15 @@ services:
       - APP_ENV=production
       - APP_KEY=${APP_KEY}
       - APP_URL=${APP_URL:-http://localhost}
+      - APP_TIMEZONE=${APP_TIMEZONE:-UTC}
       - DB_CONNECTION=pgsql
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_DATABASE=${DB_DATABASE:-gaming_hub}
       - DB_USERNAME=${DB_USERNAME:-gaming_hub}
       - DB_PASSWORD=${DB_PASSWORD}
+      - SESSION_DOMAIN=${SESSION_DOMAIN}
+      - SANCTUM_STATEFUL_DOMAINS=${SANCTUM_STATEFUL_DOMAINS}
     volumes:
       - app_storage:/app/storage
     depends_on:

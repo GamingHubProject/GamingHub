@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryObserverResult } from '@tanstack/react-query';
 import { useApi } from './ApiClientProvider';
 import { ApiError } from '../api/client';
 import type { User } from '../api/types';
@@ -7,13 +7,13 @@ import type { User } from '../api/types';
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
-  refetch: () => void;
+  refetch: () => Promise<QueryObserverResult<User | null>>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   isLoading: true,
-  refetch: () => {},
+  refetch: () => Promise.resolve({ data: null }) as Promise<QueryObserverResult<User | null>>,
 });
 
 /**
