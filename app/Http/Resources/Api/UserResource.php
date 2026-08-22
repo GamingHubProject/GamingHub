@@ -17,6 +17,7 @@ class UserResource extends JsonResource
             'avatar' => $this->avatar,
             'bio' => $this->bio,
             'preferences' => $this->preferences,
+            'is_admin' => $this->hasRole('Admin'),
         ];
     }
 }

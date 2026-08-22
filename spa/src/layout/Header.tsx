@@ -1,4 +1,6 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useApi } from '../providers/ApiClientProvider';
 import { useAuth } from '../providers/AuthProvider';
 
 export function Header() {
@@ -9,14 +11,79 @@ export function Header() {
       <nav style={{ display: 'flex', gap: 16 }}>
         <Link to="/">Home</Link>
         <Link to="/games">Games</Link>
-        {user && <Link to="/dashboard">Dashboard</Link>}
       </nav>
       <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
         {/* Hard navigation, not a router Link: /admin is Filament, a
-            separate app outside the SPA. */}
-        {user && <a href="/admin">Admin</a>}
-        {!isLoading && (user ? <span>{user.name}</span> : <Link to="/login">Log in</Link>)}
+            separate app outside the SPA. Gated on is_admin, not just
+            being logged in — a non-admin user has nothing to do there. */}
+        {user?.is_admin && <a href="/admin">Admin</a>}
+        {user && <Link to="/dashboard">Dashboard</Link>}
+        {!isLoading && (user ? <UserMenu name={user.name} /> : <Link to="/login">Log in</Link>)}
       </div>
     </header>
+  );
+}
+
+function UserMenu({ name }: { name: string }) {
+  const api = useApi();
+  const { refetch } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  async function handleLogout() {
+    setOpen(false);
+    try {
+      await api.post('/logout');
+    } catch {
+      // Even if the request itself errors, refetch below reflects the
+      // real server-side auth state either way.
+    }
+    await refetch();
+    navigate('/');
+  }
+
+  return (
+    <div ref={menuRef} style={{ position: 'relative' }}>
+      <button type="button" onClick={() => setOpen((value) => !value)} style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', color: 'inherit' }}>
+        {name} ▾
+      </button>
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            right: 0,
+            marginTop: 4,
+            background: 'var(--background, #fff)',
+            border: '1px solid var(--border, #ddd)',
+            borderRadius: 4,
+            minWidth: 140,
+            zIndex: 10,
+          }}
+        >
+          {/* No profile page built yet — placeholder only. */}
+          <button type="button" disabled style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--muted, #999)', cursor: 'not-allowed' }}>
+            Profile
+          </button>
+          <button type="button" onClick={handleLogout} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', color: 'inherit' }}>
+            Logout
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

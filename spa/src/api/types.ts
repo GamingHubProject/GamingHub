@@ -64,6 +64,7 @@ export interface User {
   avatar: string | null;
   bio: string | null;
   preferences: Record<string, unknown> | null;
+  is_admin: boolean;
 }
 
 export interface DashboardWidget {
