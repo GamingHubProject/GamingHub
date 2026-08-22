@@ -13,11 +13,12 @@ export function Header() {
         <Link to="/games">Games</Link>
       </nav>
       <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-        {/* Hard navigation, not a router Link: /admin/system is Filament,
-            a separate app outside the SPA — bare /admin is the SPA's own
-            (in-progress) admin area. Gated on is_admin, not just being
-            logged in — a non-admin user has nothing to do there. */}
-        {user?.is_admin && <a href="/admin/system">Admin</a>}
+        {/* /admin is the SPA's own (in-progress) admin area and is now the
+            primary entry point; Filament at /admin/system is reached via a
+            button inside React Admin, not directly from this header.
+            Gated on is_admin, not just being logged in — a non-admin user
+            has nothing to do there. */}
+        {user?.is_admin && <Link to="/admin">Admin</Link>}
         {user && <Link to="/dashboard">Dashboard</Link>}
         {!isLoading && (user ? <UserMenu name={user.name} /> : <Link to="/login">Log in</Link>)}
       </div>
