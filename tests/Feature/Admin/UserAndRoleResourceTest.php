@@ -30,7 +30,7 @@ class UserAndRoleResourceTest extends TestCase
 
     public function test_can_list_users(): void
     {
-        $response = $this->get('/admin/users');
+        $response = $this->get('/admin/system/users');
 
         $response->assertStatus(200);
     }

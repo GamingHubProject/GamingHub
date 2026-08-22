@@ -26,7 +26,7 @@ class NavigationOrderTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $response = $this->get('/admin');
+        $response = $this->get('/admin/system');
 
         $response->assertOk();
         $response->assertSeeInOrder(['Capabilities', 'Extensions', 'Games', 'Experience', 'Servers', 'Administration', 'Basic Settings']);
@@ -38,7 +38,7 @@ class NavigationOrderTest extends TestCase
 
         NavigationItem::where('key', 'administration')->update(['order' => 0]);
 
-        $response = $this->get('/admin');
+        $response = $this->get('/admin/system');
 
         $response->assertOk();
         $response->assertSeeInOrder(['Administration', 'Capabilities', 'Extensions', 'Games', 'Experience', 'Servers', 'Basic Settings']);
@@ -50,7 +50,7 @@ class NavigationOrderTest extends TestCase
 
         NavigationItem::where('key', 'servers')->update(['is_favorite' => true]);
 
-        $response = $this->get('/admin');
+        $response = $this->get('/admin/system');
 
         $response->assertOk();
         // 'servers' has order=5, higher than several non-favorites, but its
@@ -64,7 +64,7 @@ class NavigationOrderTest extends TestCase
 
         NavigationItem::where('key', 'games')->update(['label' => 'Game Titles']);
 
-        $response = $this->get('/admin');
+        $response = $this->get('/admin/system');
 
         $response->assertOk();
         $response->assertSee('Game Titles');

@@ -28,8 +28,10 @@ require __DIR__.'/auth.php';
 // SpaController for how it decides between a real asset file and the SPA's
 // index.html.
 //
-// Excludes "admin" as a first path segment: without this, a bogus/
+// Excludes "admin/system" as a path prefix: without this, a bogus/
 // unregistered Filament sub-route (no route in the app matches it) would
 // fall through and get a 200 SPA shell instead of a 404 — Filament owns
-// that whole namespace, and nothing there should ever resolve to the SPA.
-Route::get('/{path?}', [SpaController::class, 'show'])->where('path', '^(?!admin(?:/|$)).*$');
+// that namespace, and nothing there should ever resolve to the SPA. Bare
+// "/admin" is deliberately NOT excluded — Filament moved to /admin/system
+// specifically to free that path up for the SPA's own admin area.
+Route::get('/{path?}', [SpaController::class, 'show'])->where('path', '^(?!admin/system(?:/|$)).*$');

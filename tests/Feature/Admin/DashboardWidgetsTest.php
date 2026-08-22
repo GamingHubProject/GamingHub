@@ -28,7 +28,7 @@ class DashboardWidgetsTest extends TestCase
 
     public function test_dashboard_loads_with_widgets(): void
     {
-        $response = $this->get('/admin');
+        $response = $this->get('/admin/system');
 
         $response->assertStatus(200);
     }

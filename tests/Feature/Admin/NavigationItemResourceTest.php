@@ -62,6 +62,6 @@ class NavigationItemResourceTest extends TestCase
     {
         // No 'create' page registered in getPages() at all — locked
         // navigation items can't be created through the admin.
-        $this->get('/admin/navigation-items/create')->assertNotFound();
+        $this->get('/admin/system/navigation-items/create')->assertNotFound();
     }
 }
