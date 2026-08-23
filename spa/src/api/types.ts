@@ -73,6 +73,10 @@ export interface DashboardWidget {
   widget_type: string;
   config: Record<string, unknown> | null;
   order: number;
+  position_x: number;
+  position_y: number;
+  width: number;
+  height: number;
 }
 
 export interface DashboardPage {

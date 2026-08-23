@@ -12,6 +12,10 @@ class DashboardWidget extends Model
         'widget_type',
         'config',
         'order',
+        'position_x',
+        'position_y',
+        'width',
+        'height',
     ];
 
     protected function casts(): array
@@ -19,6 +23,10 @@ class DashboardWidget extends Model
         return [
             'config' => 'array',
             'order' => 'integer',
+            'position_x' => 'integer',
+            'position_y' => 'integer',
+            'width' => 'integer',
+            'height' => 'integer',
         ];
     }
 

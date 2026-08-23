@@ -32,7 +32,12 @@ export function DashboardWidgetContainer({
         }}
       >
         <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>{definition?.label ?? widget.widget_type}</span>
-        <button aria-label="Widget settings" onClick={onEdit}>
+        {/* widget-no-drag: excluded from the grid's draggableCancel selector
+            (see Dashboard.tsx) — without it, this button sits inside
+            .widget-drag-handle and react-grid-layout's own mousedown
+            listener on the handle wins the race against onClick, starting
+            a drag instead of opening the config modal. */}
+        <button aria-label="Widget settings" className="widget-no-drag" onClick={onEdit}>
           ⚙
         </button>
       </div>

@@ -122,4 +122,79 @@ class DashboardApiTest extends TestCase
         $response->assertOk();
         $this->assertDatabaseHas('dashboard_widgets', ['id' => $widget->id, 'order' => 5]);
     }
+
+    public function test_widget_store_accepts_and_persists_grid_position_and_size(): void
+    {
+        $user = User::factory()->create();
+        $page = DashboardPage::create(['user_id' => $user->id, 'title' => 'Mine']);
+
+        $response = $this->actingAs($user)->postJson('/api/v1/dashboard/widgets', [
+            'dashboard_page_id' => $page->id,
+            'widget_type' => 'server-status',
+            'position_x' => 6,
+            'position_y' => 4,
+            'width' => 3,
+            'height' => 2,
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.position_x', 6);
+        $response->assertJsonPath('data.position_y', 4);
+        $response->assertJsonPath('data.width', 3);
+        $response->assertJsonPath('data.height', 2);
+        $this->assertDatabaseHas('dashboard_widgets', [
+            'dashboard_page_id' => $page->id,
+            'position_x' => 6,
+            'position_y' => 4,
+            'width' => 3,
+            'height' => 2,
+        ]);
+    }
+
+    public function test_widget_store_falls_back_to_default_position_and_size_when_omitted(): void
+    {
+        $user = User::factory()->create();
+        $page = DashboardPage::create(['user_id' => $user->id, 'title' => 'Mine']);
+
+        $response = $this->actingAs($user)->postJson('/api/v1/dashboard/widgets', [
+            'dashboard_page_id' => $page->id,
+            'widget_type' => 'server-status',
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.position_x', 0);
+        $response->assertJsonPath('data.position_y', 0);
+        $response->assertJsonPath('data.width', 6);
+        $response->assertJsonPath('data.height', 4);
+    }
+
+    public function test_widget_update_persists_a_new_position_and_size(): void
+    {
+        $user = User::factory()->create();
+        $page = DashboardPage::create(['user_id' => $user->id, 'title' => 'Mine']);
+        $widget = DashboardWidget::create([
+            'dashboard_page_id' => $page->id,
+            'widget_type' => 'server-status',
+            'position_x' => 0,
+            'position_y' => 0,
+            'width' => 6,
+            'height' => 4,
+        ]);
+
+        $response = $this->actingAs($user)->patchJson("/api/v1/dashboard/widgets/{$widget->id}", [
+            'position_x' => 3,
+            'position_y' => 8,
+            'width' => 3,
+            'height' => 2,
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseHas('dashboard_widgets', [
+            'id' => $widget->id,
+            'position_x' => 3,
+            'position_y' => 8,
+            'width' => 3,
+            'height' => 2,
+        ]);
+    }
 }

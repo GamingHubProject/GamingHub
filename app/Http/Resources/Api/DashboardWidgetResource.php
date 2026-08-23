@@ -16,6 +16,10 @@ class DashboardWidgetResource extends JsonResource
             'widget_type' => $this->widget_type,
             'config' => $this->config,
             'order' => $this->order,
+            'position_x' => $this->position_x,
+            'position_y' => $this->position_y,
+            'width' => $this->width,
+            'height' => $this->height,
         ];
     }
 }

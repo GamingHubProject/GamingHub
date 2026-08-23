@@ -13,17 +13,25 @@ import type { DashboardPage, DashboardWidget } from '../api/types';
 
 const GRID_COLS = 12;
 const ROW_HEIGHT = 80;
+const DEFAULT_WIDGET_WIDTH = 6;
+const DEFAULT_WIDGET_HEIGHT = 4;
 
 function layoutFor(widgets: DashboardWidget[]): Layout[] {
-  return [...widgets]
-    .sort((a, b) => a.order - b.order)
-    .map((widget, index) => ({
-      i: String(widget.id),
-      x: 0,
-      y: index * 4,
-      w: GRID_COLS,
-      h: 4,
-    }));
+  return widgets.map((widget) => ({
+    i: String(widget.id),
+    x: widget.position_x,
+    y: widget.position_y,
+    w: widget.width,
+    h: widget.height,
+  }));
+}
+
+// Places a newly added widget below everything already on the page,
+// left-aligned — react-grid-layout's own vertical compaction takes it from
+// there once the user starts dragging things around.
+function nextWidgetPosition(widgets: DashboardWidget[]): { x: number; y: number } {
+  const bottom = widgets.reduce((max, w) => Math.max(max, w.position_y + w.height), 0);
+  return { x: 0, y: bottom };
 }
 
 export function Dashboard() {
@@ -54,12 +62,15 @@ export function Dashboard() {
   const addWidgetMutation = useMutation({
     mutationFn: (type: string) => {
       const definition = getWidgetDefinition(type);
-      const nextOrder = (activePage?.widgets.length ?? 0) + 1;
+      const { x, y } = nextWidgetPosition(activePage?.widgets ?? []);
       return api.post<DashboardWidget>('/api/v1/dashboard/widgets', {
         dashboard_page_id: activePage?.id,
         widget_type: type,
         config: definition?.defaultConfig ?? {},
-        order: nextOrder,
+        position_x: x,
+        position_y: y,
+        width: DEFAULT_WIDGET_WIDTH,
+        height: DEFAULT_WIDGET_HEIGHT,
       });
     },
     onSuccess: (widget) => {
@@ -93,26 +104,38 @@ export function Dashboard() {
     },
   });
 
-  const reorderMutation = useMutation({
-    mutationFn: (changes: { id: number; order: number }[]) =>
-      Promise.all(changes.map(({ id, order }) => api.patch(`/api/v1/dashboard/widgets/${id}`, { order }))),
+  type LayoutChange = { id: number; position_x: number; position_y: number; width: number; height: number };
+
+  const layoutMutation = useMutation({
+    mutationFn: (changes: LayoutChange[]) =>
+      Promise.all(
+        changes.map(({ id, position_x, position_y, width, height }) =>
+          api.patch(`/api/v1/dashboard/widgets/${id}`, { position_x, position_y, width, height })
+        )
+      ),
     onError: () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'pages'] });
     },
   });
 
-  function handleDragStop(layout: Layout[]) {
+  // Shared by onDragStop and onResizeStop: react-grid-layout hands back the
+  // *entire* layout either way (its own vertical auto-compaction can shift
+  // widgets other than the one actually dragged/resized), so every item
+  // gets diffed against current state rather than just the one the event
+  // was for.
+  function persistLayout(layout: Layout[]) {
     if (!activePage) return;
 
-    const sorted = [...layout].sort((a, b) => a.y - b.y || a.x - b.x);
-    const changes: { id: number; order: number }[] = [];
+    const changes: LayoutChange[] = [];
 
-    sorted.forEach((item, index) => {
+    for (const item of layout) {
       const widget = activePage.widgets.find((w) => String(w.id) === item.i);
-      if (widget && widget.order !== index) {
-        changes.push({ id: widget.id, order: index });
+      if (!widget) continue;
+
+      if (widget.position_x !== item.x || widget.position_y !== item.y || widget.width !== item.w || widget.height !== item.h) {
+        changes.push({ id: widget.id, position_x: item.x, position_y: item.y, width: item.w, height: item.h });
       }
-    });
+    }
 
     if (changes.length === 0) return;
 
@@ -124,13 +147,13 @@ export function Dashboard() {
               ...page,
               widgets: page.widgets.map((w) => {
                 const change = changes.find((c) => c.id === w.id);
-                return change ? { ...w, order: change.order } : w;
+                return change ? { ...w, position_x: change.position_x, position_y: change.position_y, width: change.width, height: change.height } : w;
               }),
             }
       )
     );
 
-    reorderMutation.mutate(changes);
+    layoutMutation.mutate(changes);
   }
 
   if (authLoading) return <p>Loading…</p>;
@@ -169,7 +192,10 @@ export function Dashboard() {
         cols={GRID_COLS}
         rowHeight={ROW_HEIGHT}
         draggableHandle=".widget-drag-handle"
-        onDragStop={handleDragStop}
+        draggableCancel=".widget-no-drag"
+        resizeHandles={['se']}
+        onDragStop={persistLayout}
+        onResizeStop={persistLayout}
       >
         {activePage.widgets.map((widget) => (
           <div key={widget.id}>

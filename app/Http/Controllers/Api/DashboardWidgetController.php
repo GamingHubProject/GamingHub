@@ -27,9 +27,20 @@ class DashboardWidgetController extends Controller
             'widget_type' => ['required', 'string', 'max:255'],
             'config' => ['sometimes', 'array'],
             'order' => ['sometimes', 'integer', 'min:0'],
+            'position_x' => ['sometimes', 'integer', 'min:0'],
+            'position_y' => ['sometimes', 'integer', 'min:0'],
+            'width' => ['sometimes', 'integer', 'min:1', 'max:12'],
+            'height' => ['sometimes', 'integer', 'min:1'],
         ]);
 
         $widget = DashboardWidget::create($data);
+        // position_x/position_y/width/height are "sometimes" — when the
+        // client omits them (a REST client relying on the DB defaults
+        // rather than the SPA, which always sends real values), the
+        // in-memory model never has those attributes set at all, so it'd
+        // serialize them as null instead of the default the row actually
+        // got. refresh() pulls back what was really inserted.
+        $widget->refresh();
 
         return (new DashboardWidgetResource($widget))->response()->setStatusCode(201);
     }
@@ -42,6 +53,10 @@ class DashboardWidgetController extends Controller
             'widget_type' => ['sometimes', 'string', 'max:255'],
             'config' => ['sometimes', 'array'],
             'order' => ['sometimes', 'integer', 'min:0'],
+            'position_x' => ['sometimes', 'integer', 'min:0'],
+            'position_y' => ['sometimes', 'integer', 'min:0'],
+            'width' => ['sometimes', 'integer', 'min:1', 'max:12'],
+            'height' => ['sometimes', 'integer', 'min:1'],
         ]);
 
         $widget->update($data);
