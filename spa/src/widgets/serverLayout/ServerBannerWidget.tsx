@@ -34,6 +34,12 @@ export function ServerBannerWidget({ server, config }: { server: Server; config:
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
+        // A column flex container's default align-items is 'stretch' —
+        // without this, the badge span (display: inline-block) gets
+        // stretched to the container's full width as a flex item,
+        // regardless of its own display type, rendering as a full-width
+        // bar instead of a compact pill sized to its text.
+        alignItems: 'flex-start',
         gap: 8,
         backgroundImage: config.background_url ? `url(${config.background_url})` : undefined,
         backgroundSize: 'cover',

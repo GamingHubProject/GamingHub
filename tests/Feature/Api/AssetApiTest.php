@@ -96,6 +96,36 @@ class AssetApiTest extends TestCase
         Storage::disk('public')->assertExists($asset->thumbnailPath());
     }
 
+    public function test_store_creates_an_asset_with_a_thumbnail_for_a_jpeg(): void
+    {
+        // Regression: this PHP/GD build originally had JPEG support
+        // compiled out entirely (confirmed live via gd_info() and a real
+        // upload's exception — "No JPEG support in this PHP build" —
+        // Dockerfile only installed libpng-dev, not libjpeg-dev/libwebp-dev,
+        // before `docker-php-ext-install gd` ran). Fixed at the image
+        // level; this guards against it silently regressing.
+        $file = UploadedFile::fake()->image('banner.jpg', 800, 400);
+
+        $response = $this->actingAs($this->admin())->postJson('/api/v1/assets', ['file' => $file]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.mime_type', 'image/jpeg');
+        $asset = Asset::first();
+        Storage::disk('public')->assertExists($asset->thumbnailPath());
+    }
+
+    public function test_store_creates_an_asset_with_a_thumbnail_for_a_webp(): void
+    {
+        $file = UploadedFile::fake()->image('banner.webp', 800, 400);
+
+        $response = $this->actingAs($this->admin())->postJson('/api/v1/assets', ['file' => $file]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.mime_type', 'image/webp');
+        $asset = Asset::first();
+        Storage::disk('public')->assertExists($asset->thumbnailPath());
+    }
+
     public function test_store_does_not_generate_a_thumbnail_for_svg_and_reuses_the_original_url(): void
     {
         $file = UploadedFile::fake()->createWithContent(

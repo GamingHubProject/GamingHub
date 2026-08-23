@@ -45,4 +45,17 @@ describe('ServerBannerWidget', () => {
 
     expect(screen.getByText('ad').parentElement).toHaveStyle({ backgroundImage: 'url(http://localhost/storage/banner.png)' });
   });
+
+  it('sizes the inline status badge to its content instead of stretching full-width', () => {
+    // Regression: a column flex container's default align-items is
+    // 'stretch', which stretches every flex item (including the badge
+    // span) to the container's full width regardless of its own
+    // display:inline-block — the container needs alignItems:'flex-start'
+    // to opt out of that.
+    const config = { ...serverBannerWidgetDefaultConfig, show_status: true };
+
+    render(<ServerBannerWidget server={server} config={config} />);
+
+    expect(screen.getByText('ad').parentElement).toHaveStyle({ alignItems: 'flex-start' });
+  });
 });
