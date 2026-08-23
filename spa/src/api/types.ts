@@ -86,6 +86,23 @@ export interface DashboardPage {
   widgets: DashboardWidget[];
 }
 
+export interface ServerLayoutWidget {
+  id: number;
+  server_layout_id: number;
+  widget_type: string;
+  config: Record<string, unknown> | null;
+  position_x: number;
+  position_y: number;
+  width: number;
+  height: number;
+}
+
+export interface ServerLayout {
+  id: number;
+  server_id: number;
+  widgets: ServerLayoutWidget[];
+}
+
 export type ThemeTokens = Record<string, string>;
 
 export interface ApiEnvelope<T> {

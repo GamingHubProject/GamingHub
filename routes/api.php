@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\DashboardWidgetController;
 use App\Http\Controllers\Api\GameController;
 use App\Http\Controllers\Api\PageController;
 use App\Http\Controllers\Api\ServerController;
+use App\Http\Controllers\Api\ServerLayoutController;
+use App\Http\Controllers\Api\ServerLayoutWidgetController;
 use App\Http\Controllers\Api\ThemeController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +24,10 @@ Route::prefix('v1')->group(function () {
     Route::get('/games/{slug}', [GameController::class, 'show']);
     Route::get('/games/{slug}/servers', [GameController::class, 'servers']);
     Route::get('/servers/{server}', [ServerController::class, 'show']);
+    // Shared/admin-owned, not a player's own — every visitor sees the same
+    // layout (see App\Models\ServerLayout's docblock). Public like the
+    // server itself; only the widgets sub-resource's writes are gated.
+    Route::get('/servers/{server}/layout', [ServerLayoutController::class, 'show']);
     Route::get('/theme', [ThemeController::class, 'show']);
     // Web Tree paths can contain slashes ("games/ark/ragnarok") — {path}
     // has to opt into matching them explicitly, same as the Blade route.
@@ -43,5 +49,14 @@ Route::prefix('v1')->group(function () {
 
         Route::post('/dashboard/widgets', [DashboardWidgetController::class, 'store']);
         Route::patch('/dashboard/widgets/{widget}', [DashboardWidgetController::class, 'update']);
+
+        // Admin-gated inline in the controller (hasRole('Admin')), not by
+        // route middleware — no 'role:' middleware alias is registered in
+        // this app; every other per-request authorization check in this
+        // codebase (e.g. DashboardWidgetController's ownership check) is
+        // likewise done inline rather than via middleware.
+        Route::post('/servers/{server}/layout/widgets', [ServerLayoutWidgetController::class, 'store']);
+        Route::patch('/server-layout-widgets/{widget}', [ServerLayoutWidgetController::class, 'update']);
+        Route::delete('/server-layout-widgets/{widget}', [ServerLayoutWidgetController::class, 'destroy']);
     });
 });

@@ -5,6 +5,7 @@ import { AuthProvider } from './providers/AuthProvider';
 import { ThemeProvider } from './providers/ThemeProvider';
 import { router } from './router/routes';
 import './widgets';
+import './widgets/serverLayout';
 
 export function App() {
   return (
