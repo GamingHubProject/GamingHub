@@ -155,6 +155,53 @@ class BrowseRegistryTest extends TestCase
         ]);
     }
 
+    public function test_install_forms_version_field_is_a_dropdown_of_real_releases(): void
+    {
+        $releasesUrl = 'https://api.github.com/repos/GamingHubProject/Hub-Extensions/releases';
+
+        $fake = new FakeHttpClient;
+        $fake->respond($this->registryUrl, json_encode([
+            'schema' => 1, 'id' => 'test', 'name' => 'Test',
+            'packages' => [[
+                'id' => 'maps', 'name' => 'Maps',
+                'repository' => 'https://github.com/GamingHubProject/Hub-Extensions',
+                'release_asset' => 'maps-v*.zip',
+            ]],
+        ]));
+        $fake->respond($releasesUrl, json_encode([
+            ['tag_name' => 'v0.1.3', 'draft' => false],
+            ['tag_name' => 'v0.1.2', 'draft' => false],
+            ['tag_name' => 'v0.1.1-rc', 'draft' => true],
+        ]));
+        $this->app->instance(HttpClientContract::class, $fake);
+
+        Livewire::test(BrowseRegistry::class)
+            ->mountAction('install', ['packageId' => 'maps'])
+            // Draft releases are excluded and the newest real release is
+            // preselected — an admin picks from what's actually published
+            // instead of typing a guessed tag.
+            ->assertActionDataSet(['version' => '0.1.3']);
+    }
+
+    public function test_install_form_falls_back_to_free_text_when_github_is_unreachable(): void
+    {
+        $fake = new FakeHttpClient;
+        $fake->respond($this->registryUrl, json_encode([
+            'schema' => 1, 'id' => 'test', 'name' => 'Test',
+            'packages' => [[
+                'id' => 'maps', 'name' => 'Maps',
+                'repository' => 'https://github.com/GamingHubProject/Hub-Extensions',
+                'release_asset' => 'maps-v*.zip',
+            ]],
+        ]));
+        // No response configured for the GitHub releases API -> FakeHttpClient throws.
+        $this->app->instance(HttpClientContract::class, $fake);
+
+        Livewire::test(BrowseRegistry::class)
+            ->mountAction('install', ['packageId' => 'maps'])
+            ->assertActionDataSet(['version' => null]);
+    }
+
     /**
      * @param  array<string, string>  $files
      */

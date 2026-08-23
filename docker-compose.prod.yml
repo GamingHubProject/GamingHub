@@ -36,6 +36,14 @@ services:
       - APP_KEY=${APP_KEY}
       - APP_URL=${APP_URL:-http://localhost}
       - APP_TIMEZONE=${APP_TIMEZONE:-UTC}
+      # Same class of gap as SESSION_DOMAIN/SANCTUM_STATEFUL_DOMAINS below:
+      # the installer writes this to .env, but it never reached the
+      # container without being listed here too — config('app.version')
+      # silently fell back to its literal "dev" default, which isn't valid
+      # semver and throws inside composer/semver the moment any installed
+      # package's manifest declares a gaming-hub-platform version
+      # constraint (VersionResolver::checkRequirements).
+      - APP_VERSION=${APP_VERSION:-dev}
       - DB_CONNECTION=pgsql
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -72,6 +80,14 @@ services:
       - APP_KEY=${APP_KEY}
       - APP_URL=${APP_URL:-http://localhost}
       - APP_TIMEZONE=${APP_TIMEZONE:-UTC}
+      # Same class of gap as SESSION_DOMAIN/SANCTUM_STATEFUL_DOMAINS below:
+      # the installer writes this to .env, but it never reached the
+      # container without being listed here too — config('app.version')
+      # silently fell back to its literal "dev" default, which isn't valid
+      # semver and throws inside composer/semver the moment any installed
+      # package's manifest declares a gaming-hub-platform version
+      # constraint (VersionResolver::checkRequirements).
+      - APP_VERSION=${APP_VERSION:-dev}
       - DB_CONNECTION=pgsql
       - DB_HOST=postgres
       - DB_PORT=5432

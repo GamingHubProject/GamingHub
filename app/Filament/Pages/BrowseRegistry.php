@@ -5,12 +5,14 @@ namespace App\Filament\Pages;
 use App\Manager\HttpClientContract;
 use App\Manager\PackageInstaller;
 use App\Manager\PackageRegistry;
+use App\Manager\ReleaseLister;
 use App\Models\InstalledPackage;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -107,11 +109,29 @@ class BrowseRegistry extends Page implements HasActions, HasForms
     {
         return Action::make('install')
             ->label('Install')
-            ->form([
-                TextInput::make('version')
-                    ->required()
-                    ->helperText('The exact release tag to install, e.g. "0.1.000" — no "latest" guessing.'),
-            ])
+            ->form(function (array $arguments, ReleaseLister $releaseLister): array {
+                $registry = PackageRegistry::fromJson(app(HttpClientContract::class)->get($this->registryUrl));
+                $extension = $registry->find($arguments['packageId']);
+
+                $versions = $extension ? $releaseLister->listVersions($extension) : [];
+
+                if (empty($versions)) {
+                    return [
+                        TextInput::make('version')
+                            ->required()
+                            ->helperText('Could not load releases from GitHub — enter the exact release tag manually, e.g. "0.1.000".'),
+                    ];
+                }
+
+                return [
+                    Select::make('version')
+                        ->label('Version')
+                        ->required()
+                        ->options(array_combine($versions, $versions))
+                        ->default($versions[0])
+                        ->helperText('Pulled live from this package\'s GitHub releases — newest first.'),
+                ];
+            })
             ->action(function (array $data, array $arguments, PackageInstaller $installer): void {
                 $result = $installer->install($this->registryUrl, $arguments['packageId'], $data['version']);
 
