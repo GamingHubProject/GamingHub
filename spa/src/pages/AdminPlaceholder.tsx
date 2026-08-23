@@ -3,6 +3,7 @@ export function AdminPlaceholder() {
     <div>
       <h1>Admin</h1>
       <p>React Admin coming soon. In the meantime, the full admin panel is at <a href="/admin/system">/admin/system</a>.</p>
+      <p><a href="/admin/assets">Asset Library</a></p>
     </div>
   );
 }

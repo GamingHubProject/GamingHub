@@ -84,12 +84,13 @@ function get(user: User | null, layout: ServerLayout) {
 }
 
 describe('ServerDetail', () => {
-  it('renders the 5 cards read-only for a non-admin, with no edit controls', async () => {
+  it('renders the 6 cards read-only for a non-admin, with no edit controls', async () => {
     const layout: ServerLayout = {
       id: 1,
       server_id: 2,
       widgets: [
         { id: 1, server_layout_id: 1, widget_type: 'server-banner', config: null, position_x: 0, position_y: 0, width: 12, height: 2 },
+        { id: 6, server_layout_id: 1, widget_type: 'server-name', config: null, position_x: 0, position_y: 0, width: 4, height: 1 },
         { id: 2, server_layout_id: 1, widget_type: 'server-status', config: null, position_x: 0, position_y: 2, width: 3, height: 2 },
         { id: 3, server_layout_id: 1, widget_type: 'server-metrics', config: null, position_x: 3, position_y: 2, width: 4, height: 3 },
         { id: 4, server_layout_id: 1, widget_type: 'server-player-count', config: null, position_x: 7, position_y: 2, width: 3, height: 2 },

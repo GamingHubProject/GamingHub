@@ -1,53 +1,68 @@
-import { StatusBadge } from '../shared/StatusBadge';
 import { AssetPicker } from '../../components/AssetPicker';
 import type { AssetPreview } from '../../components/AssetPicker';
 import type { Asset, Server } from '../../api/types';
 import type { ServerLayoutWidgetConfigFormProps } from './registry';
 
+export type BannerFit = 'cover' | 'contain' | 'fill';
+
 export interface ServerBannerWidgetConfig {
-  show_status: boolean;
   // Both kept, deliberately redundant: id for a future "is this asset in
   // use" check (not built yet), url so the banner renders directly without
   // an extra fetch per view. Neither is the source of truth for the asset
   // itself — that's the Asset row; this is just a snapshot reference.
   background_asset_id: number | null;
   background_url: string | null;
+  // Maps directly to CSS background-size (cover/contain/fill's stretch
+  // behavior — 'fill' isn't a real background-size keyword, so it's
+  // translated to '100% 100%' at render time).
+  fit: BannerFit;
+  // 0 = no overlay, 1 = fully opaque black. A flat number rather than a
+  // color picker — this exists purely to keep foreground widgets (Name,
+  // Status) readable when layered on top, not as a design/branding knob.
+  overlay_opacity: number;
 }
 
 export const serverBannerWidgetDefaultConfig: ServerBannerWidgetConfig = {
-  show_status: false,
   background_asset_id: null,
   background_url: null,
+  fit: 'cover',
+  overlay_opacity: 0,
 };
 
-// Isolating the banner as its own widget (rather than folding the title
-// into the status card) means that future work only ever touches this
-// file, not server-status/server-metrics/etc. show_status lets an admin
-// fold the status badge in here instead of adding a separate status card,
-// if they'd rather — the two aren't mutually exclusive, just optional.
-export function ServerBannerWidget({ server, config }: { server: Server; config: ServerBannerWidgetConfig }) {
+const BACKGROUND_SIZE: Record<BannerFit, string> = {
+  cover: 'cover',
+  contain: 'contain',
+  fill: '100% 100%',
+};
+
+// Purely a background layer now — no name/status of its own (those moved
+// out to ServerNameWidget/ServerStatusWidget, both `layerable: true` in
+// the registry so an admin can drag them visually on top of this widget;
+// see registry.ts's layerable/layerTarget docblock and ServerDetail's
+// isValidOverlapLayout for how that's enforced). Isolating it this way
+// means future work on the background (new fit modes, video backgrounds,
+// ...) only ever touches this file.
+export function ServerBannerWidget({ config }: { server: Server; config: ServerBannerWidgetConfig }) {
   return (
     <div
       style={{
-        padding: '16px 20px',
+        position: 'relative',
         height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        // A column flex container's default align-items is 'stretch' —
-        // without this, the badge span (display: inline-block) gets
-        // stretched to the container's full width as a flex item,
-        // regardless of its own display type, rendering as a full-width
-        // bar instead of a compact pill sized to its text.
-        alignItems: 'flex-start',
-        gap: 8,
         backgroundImage: config.background_url ? `url(${config.background_url})` : undefined,
-        backgroundSize: 'cover',
+        backgroundSize: BACKGROUND_SIZE[config.fit],
         backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
       }}
     >
-      <h1 style={{ margin: 0, fontSize: '1.5rem' }}>{server.name}</h1>
-      {config.show_status && <StatusBadge status={server.status} />}
+      {config.overlay_opacity > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: `rgba(0, 0, 0, ${config.overlay_opacity})`,
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -69,13 +84,28 @@ export function ServerBannerWidgetConfigForm({ config, onChange }: ServerLayoutW
           <AssetPicker value={preview} onChange={handleAssetChange} />
         </div>
       </label>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <input
-          type="checkbox"
-          checked={config.show_status}
-          onChange={(event) => onChange({ ...config, show_status: event.target.checked })}
-        />
-        Show status badge
+      <label>
+        Fit
+        <div style={{ marginTop: 4 }}>
+          <select value={config.fit} onChange={(event) => onChange({ ...config, fit: event.target.value as BannerFit })}>
+            <option value="cover">Cover (crop to fill)</option>
+            <option value="contain">Contain (fit whole image)</option>
+            <option value="fill">Fill (stretch)</option>
+          </select>
+        </div>
+      </label>
+      <label>
+        Dark overlay ({Math.round(config.overlay_opacity * 100)}%)
+        <div style={{ marginTop: 4 }}>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={config.overlay_opacity}
+            onChange={(event) => onChange({ ...config, overlay_opacity: Number(event.target.value) })}
+          />
+        </div>
       </label>
     </div>
   );

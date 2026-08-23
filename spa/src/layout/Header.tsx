@@ -19,6 +19,10 @@ export function Header() {
             Gated on is_admin, not just being logged in — a non-admin user
             has nothing to do there. */}
         {user?.is_admin && <Link to="/admin">Admin</Link>}
+        {/* Asset Library is reachable via a link on the /admin placeholder
+            page too, but it's Admin's most-used destination day to day —
+            surfacing it directly in the header saves the extra hop. */}
+        {user?.is_admin && <Link to="/admin/assets">Assets</Link>}
         {user && <Link to="/dashboard">Dashboard</Link>}
         {!isLoading && (user ? <UserMenu name={user.name} /> : <Link to="/login">Log in</Link>)}
       </div>

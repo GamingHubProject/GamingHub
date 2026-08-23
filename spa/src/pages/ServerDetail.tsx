@@ -25,6 +25,42 @@ function layoutFor(widgets: ServerLayoutWidget[]): Layout[] {
   }));
 }
 
+function rectsOverlap(a: Layout, b: Layout): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
+/**
+ * The grid runs with allowOverlap (see below) so Name/Status can be
+ * dragged onto the Banner — but that flag is grid-wide, not per-widget, so
+ * without this check any two widgets could be dragged on top of each
+ * other. A dropped layout is only accepted when every overlapping pair is
+ * exactly one layerable widget over the layerTarget (server-banner); any
+ * other overlapping pair (two layerables, a layerable over a non-target,
+ * two non-layerables, ...) rejects the whole drop.
+ */
+export function isValidOverlapLayout(rglLayout: Layout[], widgets: ServerLayoutWidget[]): boolean {
+  const typeById = new Map(widgets.map((w) => [String(w.id), w.widget_type]));
+
+  for (let i = 0; i < rglLayout.length; i++) {
+    for (let j = i + 1; j < rglLayout.length; j++) {
+      const a = rglLayout[i];
+      const b = rglLayout[j];
+      if (!rectsOverlap(a, b)) continue;
+
+      const defA = getServerLayoutWidgetDefinition(typeById.get(a.i) ?? '');
+      const defB = getServerLayoutWidgetDefinition(typeById.get(b.i) ?? '');
+      const aOverBanner = defA?.layerable && defB?.layerTarget;
+      const bOverBanner = defB?.layerable && defA?.layerTarget;
+
+      if (!aOverBanner && !bOverBanner) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 function nextWidgetPosition(widgets: ServerLayoutWidget[]): { x: number; y: number } {
   const bottom = widgets.reduce((max, w) => Math.max(max, w.position_y + w.height), 0);
   return { x: 0, y: bottom };
@@ -39,6 +75,12 @@ export function ServerDetail() {
   const [editMode, setEditMode] = useState(false);
   const [addingWidget, setAddingWidget] = useState(false);
   const [editingWidget, setEditingWidget] = useState<ServerLayoutWidget | null>(null);
+  // Bumped to force-remount the grid when a drag is rejected (see
+  // persistLayout) — react-grid-layout keeps its own internal layout state
+  // once a drag ends, so simply leaving the `layout` prop unchanged
+  // wouldn't visually revert the widget the user just dropped in an
+  // invalid spot; remounting is the reliable way to discard it.
+  const [gridResetKey, setGridResetKey] = useState(0);
 
   const { data: server, isLoading: serverLoading } = useQuery({
     queryKey: ['server', id],
@@ -133,6 +175,11 @@ export function ServerDetail() {
   function persistLayout(rglLayout: Layout[]) {
     if (!layout) return;
 
+    if (!isValidOverlapLayout(rglLayout, layout.widgets)) {
+      setGridResetKey((key) => key + 1);
+      return;
+    }
+
     const changes: LayoutChange[] = [];
 
     for (const item of rglLayout) {
@@ -174,6 +221,7 @@ export function ServerDetail() {
       )}
 
       <ResponsiveGridLayout
+        key={gridResetKey}
         className="layout"
         layout={layoutFor(layout?.widgets ?? [])}
         cols={GRID_COLS}
@@ -183,20 +231,31 @@ export function ServerDetail() {
         draggableHandle=".widget-drag-handle"
         draggableCancel=".widget-no-drag"
         resizeHandles={['se']}
+        // See isValidOverlapLayout — allowOverlap is a grid-wide switch
+        // (nothing native to react-grid-layout scopes it to one pair of
+        // widget types), so every other overlapping combination is
+        // rejected in persistLayout instead.
+        allowOverlap
         onDragStop={persistLayout}
         onResizeStop={persistLayout}
       >
-        {(layout?.widgets ?? []).map((widget) => (
-          <div key={widget.id}>
-            <ServerLayoutWidgetContainer
-              widget={widget}
-              server={server}
-              editable={editMode}
-              onRemove={() => removeWidgetMutation.mutate(widget.id)}
-              onEdit={() => setEditingWidget(widget)}
-            />
-          </div>
-        ))}
+        {(layout?.widgets ?? []).map((widget) => {
+          const definition = getServerLayoutWidgetDefinition(widget.widget_type);
+          return (
+            // The banner (layerTarget) always paints behind everything
+            // else, regardless of DOM/add order, so a layered Name/Status
+            // widget is never accidentally hidden underneath it.
+            <div key={widget.id} style={{ zIndex: definition?.layerTarget ? 0 : 1 }}>
+              <ServerLayoutWidgetContainer
+                widget={widget}
+                server={server}
+                editable={editMode}
+                onRemove={() => removeWidgetMutation.mutate(widget.id)}
+                onEdit={() => setEditingWidget(widget)}
+              />
+            </div>
+          );
+        })}
       </ResponsiveGridLayout>
 
       {addingWidget && (

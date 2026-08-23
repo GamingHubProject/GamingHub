@@ -7,6 +7,7 @@ import { ServerDetail } from '../pages/ServerDetail';
 import { Dashboard } from '../pages/Dashboard';
 import { Login } from '../pages/Login';
 import { AdminPlaceholder } from '../pages/AdminPlaceholder';
+import { AssetLibrary } from '../pages/AssetLibrary';
 import { WebTreePage } from '../pages/WebTreePage';
 
 export const router = createBrowserRouter(
@@ -25,6 +26,7 @@ export const router = createBrowserRouter(
         // app outside the SPA) — this is just a placeholder until React
         // Admin's real content is built.
         { path: 'admin', element: <AdminPlaceholder /> },
+        { path: 'admin/assets', element: <AssetLibrary /> },
         // Bare catch-all, not "pages/*": mirrors the arbitrary top-level
         // paths Web Tree pages have always used (e.g. "games/ark/ragnarok"),
         // matching the old server-side Blade catch-all this route replaced.

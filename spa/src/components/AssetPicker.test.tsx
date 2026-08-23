@@ -3,12 +3,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApiClientProvider } from '../providers/ApiClientProvider';
 import { AssetPicker } from './AssetPicker';
-import type { Asset, AssetList } from '../api/types';
+import type { Asset, AssetFolder, AssetList, AssetTag } from '../api/types';
 
 const sampleAsset: Asset = {
   id: 1,
   owner_type: null,
   owner_id: null,
+  folder_id: null,
+  tags: [],
   url: 'http://localhost/storage/assets/2026/08/abc.png',
   thumbnail_url: 'http://localhost/storage/assets/2026/08/abc-thumb.png',
   mime_type: 'image/png',
@@ -20,6 +22,15 @@ const sampleAsset: Asset = {
   created_at: '2026-08-25T00:00:00Z',
 };
 
+const emptyFolders: AssetFolder[] = [];
+const emptyTags: AssetTag[] = [];
+
+/**
+ * The real endpoint is picked from the path — AssetPicker now also queries
+ * /asset-folders and /asset-tags alongside /assets, so a single
+ * path-blind mock (the old shape) would hand a {items, meta} list back to
+ * a folders/tags query expecting an array.
+ */
 function renderPicker(
   client: {
     get: (path: string) => Promise<unknown>;
@@ -29,7 +40,11 @@ function renderPicker(
 ) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const fullClient = {
-    get: client.get,
+    get: (path: string) => {
+      if (path.startsWith('/api/v1/asset-folders')) return Promise.resolve(emptyFolders);
+      if (path.startsWith('/api/v1/asset-tags')) return Promise.resolve(emptyTags);
+      return client.get(path);
+    },
     upload: client.upload ?? (async () => { throw new Error('upload not expected'); }),
   };
 
@@ -116,7 +131,7 @@ describe('AssetPicker', () => {
     );
 
     screen.getByRole('button', { name: 'Choose image' }).click();
-    await waitFor(() => expect(screen.getByText('No assets uploaded yet.')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('No assets here yet.')).toBeInTheDocument());
 
     const file = new File(['x'], 'banner.png', { type: 'image/png' });
     const input = document.querySelector('input[type=file]') as HTMLInputElement;

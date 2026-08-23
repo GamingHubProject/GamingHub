@@ -1,6 +1,7 @@
 import { registerServerLayoutWidget } from './registry';
 import { ServerBannerWidget, ServerBannerWidgetConfigForm, serverBannerWidgetDefaultConfig } from './ServerBannerWidget';
 import { ServerStatusWidget, ServerStatusWidgetConfigForm, serverStatusWidgetDefaultConfig } from './ServerStatusWidget';
+import { ServerNameWidget } from './ServerNameWidget';
 import { ServerMetricsWidget } from './ServerMetricsWidget';
 import { ServerPlayerCountWidget } from './ServerPlayerCountWidget';
 import { ServerAllocationsWidget } from './ServerAllocationsWidget';
@@ -13,6 +14,9 @@ registerServerLayoutWidget({
   defaultConfig: serverBannerWidgetDefaultConfig,
   defaultWidth: 12,
   defaultHeight: 2,
+  // The one widget type other widgets can be layered onto — see
+  // registry.ts's layerable/layerTarget docblock.
+  layerTarget: true,
 });
 
 registerServerLayoutWidget({
@@ -23,6 +27,17 @@ registerServerLayoutWidget({
   defaultConfig: serverStatusWidgetDefaultConfig,
   defaultWidth: 3,
   defaultHeight: 2,
+  layerable: true,
+});
+
+registerServerLayoutWidget({
+  type: 'server-name',
+  label: 'Server Name',
+  component: ServerNameWidget,
+  defaultConfig: {},
+  defaultWidth: 4,
+  defaultHeight: 1,
+  layerable: true,
 });
 
 registerServerLayoutWidget({

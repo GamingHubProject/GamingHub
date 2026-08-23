@@ -103,10 +103,18 @@ export interface ServerLayout {
   widgets: ServerLayoutWidget[];
 }
 
+export interface AssetTag {
+  id: number;
+  name: string;
+  slug: string;
+}
+
 export interface Asset {
   id: number;
   owner_type: string | null;
   owner_id: number | null;
+  folder_id: number | null;
+  tags: AssetTag[];
   url: string;
   thumbnail_url: string;
   mime_type: string;
@@ -128,6 +136,19 @@ export interface AssetListMeta {
 export interface AssetList {
   items: Asset[];
   meta: AssetListMeta;
+}
+
+export type AssetFolderVisibility = 'public' | 'admin_only' | 'user_private';
+
+export interface AssetFolder {
+  id: number;
+  parent_id: number | null;
+  name: string;
+  slug: string;
+  visibility: AssetFolderVisibility;
+  owner_id: number | null;
+  path: string;
+  created_at: string;
 }
 
 export type ThemeTokens = Record<string, string>;

@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Asset extends Model
@@ -15,6 +17,7 @@ class Asset extends Model
     protected $fillable = [
         'owner_type',
         'owner_id',
+        'folder_id',
         'disk_path',
         'url',
         'mime_type',
@@ -42,6 +45,39 @@ class Asset extends Model
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    public function folder(): BelongsTo
+    {
+        return $this->belongsTo(AssetFolder::class, 'folder_id');
+    }
+
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(AssetTag::class, 'asset_asset_tag');
+    }
+
+    /**
+     * An asset's effective visibility is entirely its folder's — a null
+     * folder_id (unfiled, the only state Phase 1 assets can be in) is
+     * public, same as today. There's no visibility column on Asset itself:
+     * duplicating it here would let an asset drift out of sync with the
+     * folder that's supposed to be its single source of truth.
+     */
+    public function scopeVisibleTo(Builder $query, ?User $user): Builder
+    {
+        $isAdmin = $user?->hasRole('Admin') ?? false;
+
+        if ($isAdmin) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $q) use ($user) {
+            $q->whereNull('folder_id')
+                ->orWhereHas('folder', function (Builder $folderQuery) use ($user) {
+                    $folderQuery->visibleTo($user);
+                });
+        });
     }
 
     /**

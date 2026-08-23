@@ -117,13 +117,11 @@ describe('ServerLayoutWidgetContainer', () => {
     expect(screen.getByText('Node: node-1')).toBeInTheDocument();
   });
 
-  it('hides the status badge by default on the banner, shows it when show_status is on', () => {
-    const bannerWidget = { ...widget, widget_type: 'server-banner', config: null };
+  it('renders the server name for the server-name widget type', () => {
+    const nameWidget = { ...widget, widget_type: 'server-name', config: null };
 
-    const { rerender } = render(<ServerLayoutWidgetContainer widget={bannerWidget} server={server} editable={false} onRemove={() => {}} onEdit={() => {}} />);
-    expect(screen.queryByText('Running')).not.toBeInTheDocument();
+    render(<ServerLayoutWidgetContainer widget={nameWidget} server={server} editable={false} onRemove={() => {}} onEdit={() => {}} />);
 
-    rerender(<ServerLayoutWidgetContainer widget={{ ...bannerWidget, config: { show_status: true } }} server={server} editable={false} onRemove={() => {}} onEdit={() => {}} />);
-    expect(screen.getByText('Running')).toBeInTheDocument();
+    expect(screen.getByText('ad')).toBeInTheDocument();
   });
 });

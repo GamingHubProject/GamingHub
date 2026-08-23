@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\AssetController;
+use App\Http\Controllers\Api\AssetFolderController;
+use App\Http\Controllers\Api\AssetTagController;
 use App\Http\Controllers\Api\DashboardPageController;
 use App\Http\Controllers\Api\DashboardWidgetController;
 use App\Http\Controllers\Api\GameController;
@@ -32,7 +34,13 @@ Route::prefix('v1')->group(function () {
     Route::get('/theme', [ThemeController::class, 'show']);
     // Browsing the library needs no more privilege than browsing
     // games/servers/theme — only uploading/deleting are gated (below).
+    // Visibility of individual assets/folders is still enforced per-row
+    // inside the controllers (folder scoping needs the requesting user,
+    // which is why these aren't behind auth:sanctum — an anonymous
+    // visitor is a valid "user" of null for that scoping, same as today).
     Route::get('/assets', [AssetController::class, 'index']);
+    Route::get('/asset-folders', [AssetFolderController::class, 'index']);
+    Route::get('/asset-tags', [AssetTagController::class, 'index']);
     // Web Tree paths can contain slashes ("games/ark/ragnarok") — {path}
     // has to opt into matching them explicitly, same as the Blade route.
     Route::get('/pages/{path}', [PageController::class, 'show'])->where('path', '.*');
@@ -64,6 +72,14 @@ Route::prefix('v1')->group(function () {
         Route::delete('/server-layout-widgets/{widget}', [ServerLayoutWidgetController::class, 'destroy']);
 
         Route::post('/assets', [AssetController::class, 'store']);
+        Route::patch('/assets/{asset}', [AssetController::class, 'update']);
         Route::delete('/assets/{asset}', [AssetController::class, 'destroy']);
+
+        Route::post('/asset-folders', [AssetFolderController::class, 'store']);
+        Route::patch('/asset-folders/{folder}', [AssetFolderController::class, 'update']);
+        Route::delete('/asset-folders/{folder}', [AssetFolderController::class, 'destroy']);
+
+        Route::post('/asset-tags', [AssetTagController::class, 'store']);
+        Route::delete('/asset-tags/{tag}', [AssetTagController::class, 'destroy']);
     });
 });

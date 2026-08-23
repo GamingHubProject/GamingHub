@@ -6,11 +6,13 @@ use App\Assets\AssetThumbnailer;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\AssetResource;
 use App\Models\Asset;
+use App\Models\AssetFolder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -20,6 +22,12 @@ use Symfony\Component\HttpFoundation\Response;
  * gated on hasRole('Admin') inline — same pattern as every other mutating
  * endpoint in this app (DashboardWidgetController, ServerLayoutWidgetController),
  * not a narrower assets:*  scope this app has no other use for yet.
+ *
+ * "Public" is now scoped by folder visibility (visibleTo — see Asset's
+ * docblock): an anonymous/non-admin request only ever sees unfiled assets
+ * plus assets in folders they're allowed into, so this class-level comment
+ * is no longer literally "everyone sees everything" but the auth model
+ * (open read, gated write) hasn't changed.
  */
 class AssetController extends Controller
 {
@@ -27,7 +35,7 @@ class AssetController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = Asset::query()->orderByDesc('created_at');
+        $query = Asset::query()->with('tags')->visibleTo($request->user())->orderByDesc('created_at');
 
         if ($request->filled('owner_type')) {
             $query->where('owner_type', $request->string('owner_type'));
@@ -39,6 +47,14 @@ class AssetController extends Controller
 
         if ($request->filled('mime_type')) {
             $query->where('mime_type', $request->string('mime_type'));
+        }
+
+        if ($request->has('folder_id')) {
+            $query->where('folder_id', $request->integer('folder_id') ?: null);
+        }
+
+        if ($request->filled('tag_id')) {
+            $query->whereHas('tags', fn ($q) => $q->where('asset_tags.id', $request->integer('tag_id')));
         }
 
         $paginator = $query->paginate(min($request->integer('per_page', 24), 100));
@@ -75,6 +91,9 @@ class AssetController extends Controller
             'owner_type' => ['sometimes', 'nullable', 'string', 'max:255'],
             'owner_id' => ['sometimes', 'nullable', 'integer'],
             'alt_text' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'folder_id' => ['sometimes', 'nullable', 'integer', Rule::exists('asset_folders', 'id')],
+            'tag_ids' => ['sometimes', 'array'],
+            'tag_ids.*' => ['integer', Rule::exists('asset_tags', 'id')],
         ]);
 
         /** @var UploadedFile $file */
@@ -104,6 +123,7 @@ class AssetController extends Controller
         $asset = Asset::create([
             'owner_type' => $data['owner_type'] ?? null,
             'owner_id' => $data['owner_id'] ?? null,
+            'folder_id' => $data['folder_id'] ?? null,
             'disk_path' => $path,
             'url' => $disk->url($path),
             'mime_type' => $mimeType,
@@ -114,7 +134,37 @@ class AssetController extends Controller
             'uploaded_by' => $request->user()->id,
         ]);
 
-        return (new AssetResource($asset))->response()->setStatusCode(201);
+        if (! empty($data['tag_ids'])) {
+            $asset->tags()->sync($data['tag_ids']);
+        }
+
+        return (new AssetResource($asset->load('tags')))->response()->setStatusCode(201);
+    }
+
+    /**
+     * Covers the Asset Library management view's rename/move/tag actions —
+     * split from store() rather than overloading it, since an update never
+     * touches the underlying file, only these metadata columns.
+     */
+    public function update(Request $request, Asset $asset): AssetResource
+    {
+        abort_unless($request->user()->hasRole('Admin'), 403);
+
+        $data = $request->validate([
+            'alt_text' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'folder_id' => ['sometimes', 'nullable', 'integer', Rule::exists('asset_folders', 'id')],
+            'tag_ids' => ['sometimes', 'array'],
+            'tag_ids.*' => ['integer', Rule::exists('asset_tags', 'id')],
+        ]);
+
+        $asset->fill(collect($data)->except('tag_ids')->all());
+        $asset->save();
+
+        if (array_key_exists('tag_ids', $data)) {
+            $asset->tags()->sync($data['tag_ids']);
+        }
+
+        return new AssetResource($asset->load('tags'));
     }
 
     public function destroy(Request $request, Asset $asset): Response

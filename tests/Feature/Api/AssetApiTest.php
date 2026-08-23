@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Asset;
+use App\Models\AssetFolder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -57,6 +58,89 @@ class AssetApiTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonCount(1, 'data.items');
+    }
+
+    public function test_index_excludes_assets_in_an_admin_only_folder_for_a_guest(): void
+    {
+        $folder = AssetFolder::factory()->adminOnly()->create();
+        Asset::factory()->create(['folder_id' => $folder->id]);
+        Asset::factory()->create(['folder_id' => null]);
+
+        $response = $this->getJson('/api/v1/assets');
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data.items');
+    }
+
+    public function test_index_includes_assets_in_an_admin_only_folder_for_an_admin(): void
+    {
+        $folder = AssetFolder::factory()->adminOnly()->create();
+        Asset::factory()->create(['folder_id' => $folder->id]);
+        Asset::factory()->create(['folder_id' => null]);
+
+        $response = $this->actingAs($this->admin())->getJson('/api/v1/assets');
+
+        $response->assertOk();
+        $response->assertJsonCount(2, 'data.items');
+    }
+
+    public function test_index_only_shows_a_users_own_private_folder_assets_to_them(): void
+    {
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+        $folder = AssetFolder::factory()->userPrivate($owner->id)->create();
+        Asset::factory()->create(['folder_id' => $folder->id]);
+
+        $this->actingAs($other)->getJson('/api/v1/assets')->assertJsonCount(0, 'data.items');
+        $this->actingAs($owner)->getJson('/api/v1/assets')->assertJsonCount(1, 'data.items');
+    }
+
+    public function test_index_filters_by_folder_id(): void
+    {
+        $folder = AssetFolder::factory()->create();
+        Asset::factory()->create(['folder_id' => $folder->id]);
+        Asset::factory()->create(['folder_id' => null]);
+
+        $response = $this->getJson("/api/v1/assets?folder_id={$folder->id}");
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data.items');
+    }
+
+    public function test_update_requires_the_admin_role(): void
+    {
+        $asset = Asset::factory()->create();
+
+        $this->actingAs(User::factory()->create())
+            ->patchJson("/api/v1/assets/{$asset->id}", ['alt_text' => 'x'])
+            ->assertForbidden();
+    }
+
+    public function test_update_moves_an_asset_to_a_different_folder(): void
+    {
+        $folder = AssetFolder::factory()->create();
+        $asset = Asset::factory()->create(['folder_id' => null]);
+
+        $response = $this->actingAs($this->admin())->patchJson("/api/v1/assets/{$asset->id}", [
+            'folder_id' => $folder->id,
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('data.folder_id', $folder->id);
+    }
+
+    public function test_update_syncs_tags(): void
+    {
+        $asset = Asset::factory()->create();
+        $tag = \App\Models\AssetTag::factory()->create();
+
+        $response = $this->actingAs($this->admin())->patchJson("/api/v1/assets/{$asset->id}", [
+            'tag_ids' => [$tag->id],
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data.tags');
+        $this->assertTrue($asset->fresh()->tags->contains($tag));
     }
 
     public function test_store_requires_authentication(): void

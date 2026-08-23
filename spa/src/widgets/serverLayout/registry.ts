@@ -32,6 +32,19 @@ export interface ServerLayoutWidgetDefinition<TConfig = Record<string, unknown>>
    *  does, since every field here is meant to be a real toggle, not a
    *  blind textarea. */
   configForm?: ComponentType<ServerLayoutWidgetConfigFormProps<TConfig>>;
+  /**
+   * Overlap guardrail (see ServerDetail's isValidOverlapLayout): the grid
+   * runs with allowOverlap=true for the whole page, which would otherwise
+   * let any two widgets get dragged on top of each other. A dropped layout
+   * is only accepted when every overlapping pair is exactly one
+   * `layerable: true` widget over one `layerTarget: true` widget — every
+   * other combination (two layerables, a layerable over a non-target, two
+   * targets, ...) gets rejected and the drag reverts. Neither flag is set
+   * on most widget types, which keeps their normal push/collision behavior
+   * unchanged.
+   */
+  layerable?: boolean;
+  layerTarget?: boolean;
 }
 
 const registry = new Map<string, ServerLayoutWidgetDefinition<any>>();

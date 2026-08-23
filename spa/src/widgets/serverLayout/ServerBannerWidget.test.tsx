@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { ServerBannerWidget, serverBannerWidgetDefaultConfig } from './ServerBannerWidget';
 import type { Server } from '../../api/types';
 
@@ -31,31 +31,41 @@ const server: Server = {
   allocations: [],
 };
 
+function renderBanner(config = serverBannerWidgetDefaultConfig) {
+  const { container } = render(<ServerBannerWidget server={server} config={config} />);
+  return container.firstElementChild as HTMLElement;
+}
+
 describe('ServerBannerWidget', () => {
   it('renders with no background image by default', () => {
-    render(<ServerBannerWidget server={server} config={serverBannerWidgetDefaultConfig} />);
-
-    expect(screen.getByText('ad').parentElement?.style.backgroundImage).toBeFalsy();
+    expect(renderBanner().style.backgroundImage).toBeFalsy();
   });
 
   it('applies the configured background image as a CSS background', () => {
     const config = { ...serverBannerWidgetDefaultConfig, background_asset_id: 1, background_url: 'http://localhost/storage/banner.png' };
 
-    render(<ServerBannerWidget server={server} config={config} />);
-
-    expect(screen.getByText('ad').parentElement).toHaveStyle({ backgroundImage: 'url(http://localhost/storage/banner.png)' });
+    expect(renderBanner(config)).toHaveStyle({ backgroundImage: 'url(http://localhost/storage/banner.png)' });
   });
 
-  it('sizes the inline status badge to its content instead of stretching full-width', () => {
-    // Regression: a column flex container's default align-items is
-    // 'stretch', which stretches every flex item (including the badge
-    // span) to the container's full width regardless of its own
-    // display:inline-block — the container needs alignItems:'flex-start'
-    // to opt out of that.
-    const config = { ...serverBannerWidgetDefaultConfig, show_status: true };
+  it.each([
+    ['cover', 'cover'],
+    ['contain', 'contain'],
+    ['fill', '100% 100%'],
+  ] as const)('maps fit=%s to background-size %s', (fit, expectedSize) => {
+    const config = { ...serverBannerWidgetDefaultConfig, fit };
 
-    render(<ServerBannerWidget server={server} config={config} />);
+    expect(renderBanner(config)).toHaveStyle({ backgroundSize: expectedSize });
+  });
 
-    expect(screen.getByText('ad').parentElement).toHaveStyle({ alignItems: 'flex-start' });
+  it('renders no overlay when overlay_opacity is 0', () => {
+    expect(renderBanner().children.length).toBe(0);
+  });
+
+  it('renders a dark overlay at the configured opacity', () => {
+    const config = { ...serverBannerWidgetDefaultConfig, overlay_opacity: 0.4 };
+    const banner = renderBanner(config);
+
+    expect(banner.children.length).toBe(1);
+    expect(banner.children[0]).toHaveStyle({ background: 'rgba(0, 0, 0, 0.4)' });
   });
 });

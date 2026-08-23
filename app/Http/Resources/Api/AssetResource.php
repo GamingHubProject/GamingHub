@@ -15,6 +15,8 @@ class AssetResource extends JsonResource
             'id' => $this->id,
             'owner_type' => $this->owner_type,
             'owner_id' => $this->owner_id,
+            'folder_id' => $this->folder_id,
+            'tags' => AssetTagResource::collection($this->whenLoaded('tags')),
             'url' => $this->url,
             'thumbnail_url' => $this->thumbnailUrl(),
             'mime_type' => $this->mime_type,
