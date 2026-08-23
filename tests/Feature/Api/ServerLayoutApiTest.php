@@ -175,6 +175,24 @@ class ServerLayoutApiTest extends TestCase
         ]);
     }
 
+    public function test_update_persists_a_config_toggle(): void
+    {
+        $server = Server::factory()->create();
+        $layout = ServerLayout::create(['server_id' => $server->id]);
+        $widget = ServerLayoutWidget::create([
+            'server_layout_id' => $layout->id,
+            'widget_type' => 'server-status',
+        ]);
+
+        $response = $this->actingAs($this->admin())->patchJson("/api/v1/server-layout-widgets/{$widget->id}", [
+            'config' => ['show_node' => true],
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('data.config.show_node', true);
+        $this->assertSame(['show_node' => true], $widget->fresh()->config);
+    }
+
     public function test_destroy_requires_the_admin_role(): void
     {
         $server = Server::factory()->create();

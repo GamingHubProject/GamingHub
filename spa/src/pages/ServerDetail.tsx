@@ -7,6 +7,7 @@ import { useAuth } from '../providers/AuthProvider';
 import { useThemeScope } from '../providers/ThemeProvider';
 import { ServerLayoutWidgetContainer } from '../components/ServerLayoutWidgetContainer';
 import { AddServerLayoutWidgetModal } from '../components/AddServerLayoutWidgetModal';
+import { ServerLayoutWidgetConfigModal } from '../components/ServerLayoutWidgetConfigModal';
 import { getServerLayoutWidgetDefinition } from '../widgets/serverLayout/registry';
 import type { Server, ServerLayout, ServerLayoutWidget } from '../api/types';
 
@@ -37,6 +38,7 @@ export function ServerDetail() {
 
   const [editMode, setEditMode] = useState(false);
   const [addingWidget, setAddingWidget] = useState(false);
+  const [editingWidget, setEditingWidget] = useState<ServerLayoutWidget | null>(null);
 
   const { data: server, isLoading: serverLoading } = useQuery({
     queryKey: ['server', id],
@@ -88,6 +90,26 @@ export function ServerDetail() {
       if (context?.previous) {
         queryClient.setQueryData(['server-layout', id], context.previous);
       }
+    },
+  });
+
+  const updateWidgetConfigMutation = useMutation({
+    mutationFn: ({ id: widgetId, config }: { id: number; config: Record<string, unknown> }) =>
+      api.patch<ServerLayoutWidget>(`/api/v1/server-layout-widgets/${widgetId}`, { config }),
+    onMutate: async ({ id: widgetId, config }) => {
+      const previous = queryClient.getQueryData<ServerLayout>(['server-layout', id]);
+      queryClient.setQueryData<ServerLayout>(['server-layout', id], (prev) =>
+        prev ? { ...prev, widgets: prev.widgets.map((w) => (w.id === widgetId ? { ...w, config } : w)) } : prev
+      );
+      return { previous };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['server-layout', id], context.previous);
+      }
+    },
+    onSettled: () => {
+      setEditingWidget(null);
     },
   });
 
@@ -171,6 +193,7 @@ export function ServerDetail() {
               server={server}
               editable={editMode}
               onRemove={() => removeWidgetMutation.mutate(widget.id)}
+              onEdit={() => setEditingWidget(widget)}
             />
           </div>
         ))}
@@ -178,6 +201,14 @@ export function ServerDetail() {
 
       {addingWidget && (
         <AddServerLayoutWidgetModal onClose={() => setAddingWidget(false)} onAdd={(type) => addWidgetMutation.mutate(type)} />
+      )}
+
+      {editingWidget && (
+        <ServerLayoutWidgetConfigModal
+          widget={editingWidget}
+          onClose={() => setEditingWidget(null)}
+          onSave={(config) => updateWidgetConfigMutation.mutate({ id: editingWidget.id, config })}
+        />
       )}
     </div>
   );
