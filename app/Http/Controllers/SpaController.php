@@ -16,6 +16,31 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class SpaController extends Controller
 {
+    /**
+     * response()->file() otherwise leaves Content-Type to PHP's fileinfo
+     * extension sniffing the file's bytes — fine for a binary format like a
+     * font or image, but a plain-text asset like CSS has no distinguishing
+     * signature and gets misdetected as text/plain. Browsers silently
+     * refuse to apply a <link rel="stylesheet"> whose response isn't a CSS
+     * MIME type (no error, no console warning — the sheet just loads with
+     * zero parsed rules), so this was quietly breaking every external
+     * stylesheet the SPA ships without ever throwing anything visibly
+     * wrong. Extension-based, not content-sniffed — a build asset's
+     * meaning comes from what it *is* (a .css file), not a guess from its
+     * bytes.
+     *
+     * @var array<string, string>
+     */
+    private const MIME_TYPES = [
+        'css' => 'text/css',
+        'js' => 'application/javascript',
+        'mjs' => 'application/javascript',
+        'json' => 'application/json',
+        'svg' => 'image/svg+xml',
+        'woff' => 'font/woff',
+        'woff2' => 'font/woff2',
+    ];
+
     public function show(?string $path = null): Response
     {
         $root = resource_path('spa-dist');
@@ -24,7 +49,10 @@ class SpaController extends Controller
         if ($path !== null) {
             $file = realpath($root.'/'.$path);
             if ($file !== false && str_starts_with($file, $root) && is_file($file)) {
-                return response()->file($file);
+                $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+                $headers = isset(self::MIME_TYPES[$extension]) ? ['Content-Type' => self::MIME_TYPES[$extension]] : [];
+
+                return response()->file($file, $headers);
             }
         }
 
