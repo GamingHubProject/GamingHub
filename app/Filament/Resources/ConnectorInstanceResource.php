@@ -7,6 +7,7 @@ use App\Connectors\RestConnector;
 use App\Connectors\SupportsServerDiscovery;
 use App\Filament\Resources\ConnectorInstanceResource\Pages;
 use App\Models\ConnectorInstance;
+use Filament\Actions\MountableAction;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -174,91 +175,8 @@ class ConnectorInstanceResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\Action::make('testConnection')
-                    ->label('Test connection')
-                    ->icon('heroicon-o-signal')
-                    ->visible(fn (ConnectorInstance $record) => $record->type === 'rest')
-                    ->action(function (ConnectorInstance $record, RestConnector $rest): void {
-                        try {
-                            $rest->fetch($record, ['endpoint' => $record->test_endpoint ?: '/']);
-                        } catch (Throwable $e) {
-                            $record->update(['status' => 'error']);
-
-                            Notification::make()
-                                ->title('Connection failed')
-                                ->body($e->getMessage())
-                                ->danger()
-                                ->send();
-
-                            return;
-                        }
-
-                        $record->update(['status' => 'ok']);
-
-                        Notification::make()
-                            ->title('Connection OK')
-                            ->body("Reached {$record->base_url} and got a valid JSON response.")
-                            ->success()
-                            ->send();
-                    }),
-                Tables\Actions\Action::make('discoverServers')
-                    ->label('Discover servers')
-                    ->icon('heroicon-o-magnifying-glass')
-                    // Resolved through the interface, not a hardcoded
-                    // connector class — a REST connector (or any connector
-                    // package that doesn't implement SupportsServerDiscovery)
-                    // never shows this action at all, rather than showing it
-                    // and failing when clicked. Also naturally hides it when
-                    // the owning extension simply isn't installed, since
-                    // ConnectorRegistry::get() throws for an unregistered type.
-                    ->visible(function (ConnectorInstance $record): bool {
-                        try {
-                            return app(ConnectorRegistry::class)->get($record->type) instanceof SupportsServerDiscovery;
-                        } catch (Throwable) {
-                            return false;
-                        }
-                    })
-                    ->action(function (ConnectorInstance $record): void {
-                        $connector = app(ConnectorRegistry::class)->get($record->type);
-
-                        try {
-                            /** @var SupportsServerDiscovery $connector */
-                            $servers = $connector->listServers($record);
-                        } catch (Throwable $e) {
-                            $record->update(['status' => 'error']);
-
-                            Notification::make()
-                                ->title('Could not reach Pelican')
-                                ->body($e->getMessage())
-                                ->danger()
-                                ->send();
-
-                            return;
-                        }
-
-                        $record->update(['status' => 'ok', 'discovered_servers' => $servers]);
-
-                        if (empty($servers)) {
-                            Notification::make()
-                                ->title('Connected, but no servers found')
-                                ->body('This API key has no accessible servers on this panel.')
-                                ->warning()
-                                ->send();
-
-                            return;
-                        }
-
-                        $list = collect($servers)
-                            ->map(fn (array $s) => "{$s['name']} — identifier: {$s['identifier']}")
-                            ->implode("\n");
-
-                        Notification::make()
-                            ->title(count($servers).' server(s) found')
-                            ->body($list)
-                            ->success()
-                            ->persistent()
-                            ->send();
-                    }),
+                static::configureTestConnectionAction(Tables\Actions\Action::make('testConnection')),
+                static::configureDiscoverServersAction(Tables\Actions\Action::make('discoverServers')),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
@@ -274,6 +192,106 @@ class ConnectorInstanceResource extends Resource
         return [
             //
         ];
+    }
+
+    /**
+     * Shared with EditConnectorInstance's header actions, so this is
+     * reachable from a specific instance's edit page as well as the table's
+     * row actions — takes a bare Action::make() so the caller can pick
+     * either Tables\Actions\Action (table row) or Actions\Action (page
+     * header), both of which share this configuration surface.
+     */
+    public static function configureTestConnectionAction(MountableAction $action): MountableAction
+    {
+        return $action
+            ->label('Test connection')
+            ->icon('heroicon-o-signal')
+            ->visible(fn (ConnectorInstance $record) => $record->type === 'rest')
+            ->action(function (ConnectorInstance $record, RestConnector $rest): void {
+                try {
+                    $rest->fetch($record, ['endpoint' => $record->test_endpoint ?: '/']);
+                } catch (Throwable $e) {
+                    $record->update(['status' => 'error']);
+
+                    Notification::make()
+                        ->title('Connection failed')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                $record->update(['status' => 'ok']);
+
+                Notification::make()
+                    ->title('Connection OK')
+                    ->body("Reached {$record->base_url} and got a valid JSON response.")
+                    ->success()
+                    ->send();
+            });
+    }
+
+    public static function configureDiscoverServersAction(MountableAction $action): MountableAction
+    {
+        return $action
+            ->label('Discover servers')
+            ->icon('heroicon-o-magnifying-glass')
+            // Resolved through the interface, not a hardcoded connector
+            // class — a REST connector (or any connector package that
+            // doesn't implement SupportsServerDiscovery) never shows this
+            // action at all, rather than showing it and failing when
+            // clicked. Also naturally hides it when the owning extension
+            // simply isn't installed, since ConnectorRegistry::get() throws
+            // for an unregistered type.
+            ->visible(function (ConnectorInstance $record): bool {
+                try {
+                    return app(ConnectorRegistry::class)->get($record->type) instanceof SupportsServerDiscovery;
+                } catch (Throwable) {
+                    return false;
+                }
+            })
+            ->action(function (ConnectorInstance $record): void {
+                $connector = app(ConnectorRegistry::class)->get($record->type);
+
+                try {
+                    /** @var SupportsServerDiscovery $connector */
+                    $servers = $connector->listServers($record);
+                } catch (Throwable $e) {
+                    $record->update(['status' => 'error']);
+
+                    Notification::make()
+                        ->title('Could not reach Pelican')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                $record->update(['status' => 'ok', 'discovered_servers' => $servers]);
+
+                if (empty($servers)) {
+                    Notification::make()
+                        ->title('Connected, but no servers found')
+                        ->body('This API key has no accessible servers on this panel.')
+                        ->warning()
+                        ->send();
+
+                    return;
+                }
+
+                $list = collect($servers)
+                    ->map(fn (array $s) => "{$s['name']} — identifier: {$s['identifier']}")
+                    ->implode("\n");
+
+                Notification::make()
+                    ->title(count($servers).' server(s) found')
+                    ->body($list)
+                    ->success()
+                    ->persistent()
+                    ->send();
+            });
     }
 
     public static function getPages(): array

@@ -253,4 +253,56 @@ class ConnectorInstanceResourceTest extends TestCase
 
         $this->assertSame('error', $connector->fresh()->status);
     }
+
+    // Regression coverage for both actions also being reachable from the
+    // instance's own edit page, not just the list table's row actions —
+    // they went missing there at one point without any table-level test
+    // catching it, since the table and the edit page are separate Livewire
+    // components.
+
+    public function test_discover_servers_action_is_available_on_the_edit_page_and_lists_servers(): void
+    {
+        $this->installFixtureConnectorPackage();
+        InstalledPackage::factory()->create(['slug' => 'fixture-panel', 'status' => 'enabled']);
+
+        $connector = ConnectorInstance::factory()->create([
+            'type' => 'fixture-panel',
+            'base_url' => 'https://panel.test',
+            'credentials' => ['servers' => [['identifier' => 'd3aac351', 'name' => 'EU-1 Palworld']]],
+            'status' => 'untested',
+        ]);
+
+        Livewire::test(\App\Filament\Resources\ConnectorInstanceResource\Pages\EditConnectorInstance::class, ['record' => $connector->id])
+            ->assertActionExists('discoverServers')
+            ->callAction('discoverServers')
+            ->assertSuccessful();
+
+        $this->assertSame('ok', $connector->fresh()->status);
+        $this->assertSame(
+            [['identifier' => 'd3aac351', 'name' => 'EU-1 Palworld']],
+            $connector->fresh()->discovered_servers
+        );
+    }
+
+    public function test_test_connection_action_is_available_on_the_edit_page(): void
+    {
+        $connector = ConnectorInstance::factory()->create([
+            'type' => 'rest',
+            'base_url' => 'http://palworld:8212',
+            'test_endpoint' => '/v1/api/info',
+            'credentials' => ['username' => 'admin', 'password' => 'secret'],
+            'status' => 'untested',
+        ]);
+
+        $fake = new FakeHttpRequester;
+        $fake->willReturn(200, json_encode(['version' => '1.0', 'servername' => 'My Server']));
+        $this->app->instance(HttpRequestContract::class, $fake);
+
+        Livewire::test(\App\Filament\Resources\ConnectorInstanceResource\Pages\EditConnectorInstance::class, ['record' => $connector->id])
+            ->assertActionExists('testConnection')
+            ->callAction('testConnection')
+            ->assertSuccessful();
+
+        $this->assertSame('ok', $connector->fresh()->status);
+    }
 }

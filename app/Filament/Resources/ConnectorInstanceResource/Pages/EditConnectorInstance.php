@@ -13,6 +13,14 @@ class EditConnectorInstance extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // fillForm() (not refreshFormData()) so mutateFormDataBeforeFill
+            // reruns and recomputes discovered_servers_display — a derived
+            // field, not a raw record attribute, so refreshFormData() alone
+            // wouldn't pick up the new discovery results.
+            ConnectorInstanceResource::configureTestConnectionAction(Actions\Action::make('testConnection'))
+                ->after(fn () => $this->fillForm()),
+            ConnectorInstanceResource::configureDiscoverServersAction(Actions\Action::make('discoverServers'))
+                ->after(fn () => $this->fillForm()),
             Actions\DeleteAction::make(),
         ];
     }
