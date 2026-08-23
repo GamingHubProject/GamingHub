@@ -372,22 +372,26 @@ class CapabilityGateway
         return $this->router->providerFor('manual')->fetch($binding);
     }
 
+    /**
+     * Per-capability, not "is any provider on this server due at all" — a
+     * server-status probe tick must never be triggered purely because an
+     * unrelated capability's provider (e.g. a player-list Manual entry)
+     * happens to be due on its own independent cadence. Used by
+     * PollProviders to gate each capability's probe tick separately, so
+     * two providers serving different capabilities on the same server
+     * never interfere with each other's refresh timing.
+     */
+    public function hasDueProviderFor(string $capability, Server $server): bool
+    {
+        return $this->providerStack($server)
+            ->contains(fn (Provider $provider) => $this->capabilityFor($provider) === $capability && $provider->isDueForPoll());
+    }
+
     protected function hasSupport(string $capability, Model $subject): bool
     {
         if ($subject instanceof Server) {
             foreach ($this->providerStack($subject) as $provider) {
-                if ($provider->type === 'manual') {
-                    if (($provider->config['capability'] ?? null) === $capability) {
-                        return true;
-                    }
-
-                    continue;
-                }
-
-                $normalizerId = $provider->config['normalizer'] ?? null;
-
-                if ($normalizerId && $this->normalizers->has($normalizerId)
-                    && $this->normalizers->get($normalizerId)->capability($provider->config ?? []) === $capability) {
+                if ($this->capabilityFor($provider) === $capability) {
                     return true;
                 }
             }

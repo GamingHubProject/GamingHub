@@ -75,6 +75,91 @@ class PollProvidersCommandTest extends TestCase
         $this->assertSame(32, $server->max_players);
     }
 
+    public function test_an_unrelated_player_list_provider_becoming_due_does_not_force_server_status_offline(): void
+    {
+        // Regression: server-status must only be re-probed when a
+        // server-status-capable provider is actually due — not "any
+        // provider on this server is due", which let an unrelated
+        // capability's independent cadence trigger a probe(respectCadence:
+        // true) tick that server-status's own provider wasn't ready to
+        // answer, and that got treated as a real failure ('offline').
+        $server = Server::factory()->create(['status' => 'online', 'cpu_percent' => 42]);
+        $originalCpuPercent = $server->fresh()->cpu_percent;
+
+        Provider::factory()->create([
+            'server_id' => $server->id,
+            'type' => 'manual',
+            'priority' => 0,
+            'last_check' => now(), // NOT due — cadence hasn't elapsed
+            'polling_cadence_seconds' => 300,
+            'config' => ['capability' => 'server-status', 'value' => ['online' => 'true']],
+        ]);
+        Provider::factory()->create([
+            'server_id' => $server->id,
+            'type' => 'manual',
+            'priority' => 1,
+            'last_check' => null, // due
+            'config' => ['capability' => 'player-list', 'value' => ['players' => '5']],
+        ]);
+
+        $this->artisan('gaming-hub:poll-providers', ['--once' => true])->assertExitCode(0);
+
+        $server->refresh();
+        $this->assertSame('online', $server->status);
+        $this->assertSame($originalCpuPercent, $server->cpu_percent);
+    }
+
+    public function test_a_manual_player_list_provider_populates_player_counts_on_a_tick(): void
+    {
+        $server = Server::factory()->create(['current_players' => null, 'max_players' => null]);
+
+        Provider::factory()->create([
+            'server_id' => $server->id,
+            'type' => 'manual',
+            'last_check' => null,
+            'config' => [
+                'capability' => 'player-list',
+                'value' => ['players' => '7', 'max_players' => '20'],
+            ],
+        ]);
+
+        $this->artisan('gaming-hub:poll-providers', ['--once' => true])->assertExitCode(0);
+
+        $server->refresh();
+        $this->assertSame(7, $server->current_players);
+        $this->assertSame(20, $server->max_players);
+    }
+
+    public function test_a_server_status_provider_becoming_due_does_not_force_a_player_list_write(): void
+    {
+        // The reverse of the first regression test — same per-capability
+        // due-check has to cut both ways.
+        $server = Server::factory()->create(['current_players' => 99, 'max_players' => 100]);
+
+        Provider::factory()->create([
+            'server_id' => $server->id,
+            'type' => 'manual',
+            'priority' => 0,
+            'last_check' => null, // due
+            'config' => ['capability' => 'server-status', 'value' => ['online' => 'true']],
+        ]);
+        Provider::factory()->create([
+            'server_id' => $server->id,
+            'type' => 'manual',
+            'priority' => 1,
+            'last_check' => now(), // NOT due
+            'polling_cadence_seconds' => 300,
+            'config' => ['capability' => 'player-list', 'value' => ['players' => '5', 'max_players' => '10']],
+        ]);
+
+        $this->artisan('gaming-hub:poll-providers', ['--once' => true])->assertExitCode(0);
+
+        $server->refresh();
+        $this->assertSame('online', $server->status);
+        $this->assertSame(99, $server->current_players);
+        $this->assertSame(100, $server->max_players);
+    }
+
     public function test_a_connector_not_yet_due_is_skipped(): void
     {
         $server = Server::factory()->create(['current_players' => 1]);

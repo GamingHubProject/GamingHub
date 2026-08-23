@@ -81,18 +81,25 @@ class PollProviders extends Command
             return;
         }
 
-        // If every one of this server's providers is mid-cadence (none due
-        // yet), probe(respectCadence: true) would skip all of them and
-        // come back UNAVAILABLE — indistinguishable, from the merge
-        // result alone, from every provider having genuinely failed. That
-        // would wrongly mark a healthy server offline just because it
-        // wasn't its turn to be checked yet. Skip the tick entirely
-        // instead, leaving the Server row exactly as it was.
-        $hasDueProvider = Provider::where('server_id', $serverId)
-            ->get()
-            ->contains(fn (Provider $provider) => $provider->isDueForPoll());
+        $this->refreshServerStatus($gateway, $mapper, $allocationSyncer, $server);
+        $this->refreshPlayerList($gateway, $mapper, $server);
+    }
 
-        if (! $hasDueProvider) {
+    /**
+     * Gated on hasDueProviderFor('server-status', ...) specifically, not
+     * "is any provider on this server due at all" — a server can carry
+     * providers for other capabilities (player-list) with their own,
+     * independent cadence. Gating on "any provider due" meant an unrelated
+     * capability's provider becoming due was enough to trigger this probe
+     * while the actual server-status provider (e.g. Pelican) wasn't ready
+     * yet, so probe(respectCadence: true) legitimately came back
+     * UNAVAILABLE — indistinguishable, from the merge result alone, from
+     * every server-status provider having genuinely failed — and this then
+     * wrongly wrote 'offline' over a server that was actually fine.
+     */
+    protected function refreshServerStatus(CapabilityGateway $gateway, ServerFieldMapper $mapper, ServerAllocationSyncer $allocationSyncer, Server $server): void
+    {
+        if (! $gateway->hasDueProviderFor('server-status', $server)) {
             return;
         }
 
@@ -108,6 +115,41 @@ class PollProviders extends Command
 
         if (array_key_exists('allocations', $value->data)) {
             $allocationSyncer->sync($server, $value->data['allocations']);
+        }
+    }
+
+    /**
+     * Same per-capability due-check as refreshServerStatus, so this can't
+     * reintroduce the same bug in reverse (a server-status provider's
+     * cadence firing must never force a player-list write either). Unlike
+     * server-status, there's no "offline"-equivalent to force on failure —
+     * an unanswered player-list probe just leaves current_players/
+     * max_players exactly as they were, since there's no meaningful
+     * "definitely no players" fallback the way "no status data" maps to
+     * "treat as offline".
+     *
+     * Parsing a player count out of Pelican's own egg variables
+     * (MAX_PLAYERS or similar) isn't done here — Pelican has no
+     * connector/normalizer support for this capability yet, so a Manual
+     * provider is the only thing that can currently answer it. That's
+     * deliberate for now, not a gap in this method.
+     */
+    protected function refreshPlayerList(CapabilityGateway $gateway, ServerFieldMapper $mapper, Server $server): void
+    {
+        if (! $gateway->hasDueProviderFor('player-list', $server)) {
+            return;
+        }
+
+        $value = $gateway->probe('player-list', $server, respectCadence: true);
+
+        if (! $value->isOk()) {
+            return;
+        }
+
+        $updates = $mapper->map($value->data);
+
+        if ($updates !== []) {
+            $server->update($updates);
         }
     }
 }
