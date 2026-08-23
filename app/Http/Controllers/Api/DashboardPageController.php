@@ -25,6 +25,11 @@ class DashboardPageController extends Controller
         ]);
 
         $page = $request->user()->dashboardPages()->create($data);
+        // whenLoaded('widgets') in the resource needs this — a brand new
+        // page has none, but without an explicit (empty) load the key
+        // comes back missing entirely rather than [], breaking any client
+        // code that assumes page.widgets is always an array.
+        $page->load('widgets');
 
         return (new DashboardPageResource($page))->response()->setStatusCode(201);
     }

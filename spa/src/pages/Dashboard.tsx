@@ -43,6 +43,14 @@ export function Dashboard() {
 
   const activePage = pages?.find((p) => p.id === activePageId) ?? pages?.[0] ?? null;
 
+  const createPageMutation = useMutation({
+    mutationFn: () => api.post<DashboardPage>('/api/v1/dashboard/pages', { title: 'My Dashboard' }),
+    onSuccess: (page) => {
+      queryClient.setQueryData<DashboardPage[]>(['dashboard', 'pages'], (prev) => [...(prev ?? []), page]);
+      setActivePageId(page.id);
+    },
+  });
+
   const addWidgetMutation = useMutation({
     mutationFn: (type: string) => {
       const definition = getWidgetDefinition(type);
@@ -128,7 +136,17 @@ export function Dashboard() {
   if (authLoading) return <p>Loading…</p>;
   if (!user) return <p>You need to be logged in to view your dashboard.</p>;
   if (pagesLoading) return <p>Loading dashboard…</p>;
-  if (!activePage) return <p>No dashboard pages yet.</p>;
+
+  if (!activePage) {
+    return (
+      <div>
+        <p>No dashboard pages yet.</p>
+        <button onClick={() => createPageMutation.mutate()} disabled={createPageMutation.isPending}>
+          {createPageMutation.isPending ? 'Creating…' : '+ Create dashboard'}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>

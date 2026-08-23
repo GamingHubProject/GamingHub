@@ -36,6 +36,21 @@ class DashboardApiTest extends TestCase
         $this->assertDatabaseHas('dashboard_pages', ['title' => 'New Page', 'user_id' => $user->id]);
     }
 
+    public function test_store_response_includes_an_empty_widgets_array_not_a_missing_key(): void
+    {
+        // whenLoaded('widgets') in DashboardPageResource returns a
+        // MissingValue (key omitted entirely) unless the relation was
+        // explicitly loaded — a brand new page has no widgets to eager
+        // load implicitly, so this needs the resource to see an empty,
+        // already-loaded collection rather than an unloaded relation.
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/api/v1/dashboard/pages', ['title' => 'New Page']);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.widgets', []);
+    }
+
     public function test_dashboard_endpoints_401_for_a_guest(): void
     {
         $this->getJson('/api/v1/dashboard/pages')->assertUnauthorized();
