@@ -9,23 +9,21 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class AssetFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
-        $slug = fake()->unique()->slug(2);
+        $path = 'assets/2026/08/'.fake()->regexify('[a-f0-9]{16}').'.png';
 
         return [
-            'name' => ucwords(str_replace('-', ' ', $slug)),
-            'asset_id' => "system:icon/{$slug}",
-            'path' => "system/icons/{$slug}.png",
-            'origin' => fake()->randomElement(['game_integration', 'admin_upload', 'system']),
-            'mimetype' => 'image/png',
-            'filesize' => fake()->numberBetween(1000, 500000),
-            'permissions' => 'public',
+            'owner_type' => null,
+            'owner_id' => null,
+            'disk_path' => $path,
+            'url' => 'http://localhost/storage/'.$path,
+            'mime_type' => 'image/png',
+            'size' => fake()->numberBetween(1000, 500000),
+            'width' => 800,
+            'height' => 400,
+            'alt_text' => null,
+            'uploaded_by' => null,
         ];
     }
 }

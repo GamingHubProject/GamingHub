@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AssetController;
 use App\Http\Controllers\Api\DashboardPageController;
 use App\Http\Controllers\Api\DashboardWidgetController;
 use App\Http\Controllers\Api\GameController;
@@ -29,6 +30,9 @@ Route::prefix('v1')->group(function () {
     // server itself; only the widgets sub-resource's writes are gated.
     Route::get('/servers/{server}/layout', [ServerLayoutController::class, 'show']);
     Route::get('/theme', [ThemeController::class, 'show']);
+    // Browsing the library needs no more privilege than browsing
+    // games/servers/theme — only uploading/deleting are gated (below).
+    Route::get('/assets', [AssetController::class, 'index']);
     // Web Tree paths can contain slashes ("games/ark/ragnarok") — {path}
     // has to opt into matching them explicitly, same as the Blade route.
     Route::get('/pages/{path}', [PageController::class, 'show'])->where('path', '.*');
@@ -58,5 +62,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/servers/{server}/layout/widgets', [ServerLayoutWidgetController::class, 'store']);
         Route::patch('/server-layout-widgets/{widget}', [ServerLayoutWidgetController::class, 'update']);
         Route::delete('/server-layout-widgets/{widget}', [ServerLayoutWidgetController::class, 'destroy']);
+
+        Route::post('/assets', [AssetController::class, 'store']);
+        Route::delete('/assets/{asset}', [AssetController::class, 'destroy']);
     });
 });

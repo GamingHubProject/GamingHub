@@ -103,6 +103,33 @@ export interface ServerLayout {
   widgets: ServerLayoutWidget[];
 }
 
+export interface Asset {
+  id: number;
+  owner_type: string | null;
+  owner_id: number | null;
+  url: string;
+  thumbnail_url: string;
+  mime_type: string;
+  size: number;
+  width: number | null;
+  height: number | null;
+  alt_text: string | null;
+  uploaded_by: number | null;
+  created_at: string;
+}
+
+export interface AssetListMeta {
+  current_page: number;
+  last_page: number;
+  total: number;
+  per_page: number;
+}
+
+export interface AssetList {
+  items: Asset[];
+  meta: AssetListMeta;
+}
+
 export type ThemeTokens = Record<string, string>;
 
 export interface ApiEnvelope<T> {

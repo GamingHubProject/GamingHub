@@ -54,6 +54,23 @@ describe('api client', () => {
     expect((init.headers as Record<string, string>)['X-XSRF-TOKEN']).toBeUndefined();
   });
 
+  it('does not set a Content-Type header for a FormData upload, so the browser can set the multipart boundary', async () => {
+    document.cookie = 'XSRF-TOKEN=abc123';
+    const fetchMock = vi.fn().mockResolvedValue(mockFetchResponse({ data: { id: 1 } }, { status: 201 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const formData = new FormData();
+    formData.append('file', new Blob(['x']), 'x.png');
+
+    await api.upload('/api/v1/assets', formData);
+
+    const postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+    expect(postCall).toBeDefined();
+    const [, init] = postCall!;
+    expect((init.headers as Record<string, string>)['Content-Type']).toBeUndefined();
+    expect(init.body).toBe(formData);
+  });
+
   it('throws ApiError with the response status and message on failure', async () => {
     const fetchMock = vi.fn().mockResolvedValue(mockFetchResponse({ message: 'Unauthenticated.' }, { status: 401 }));
     vi.stubGlobal('fetch', fetchMock);

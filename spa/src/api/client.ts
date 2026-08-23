@@ -35,9 +35,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     await ensureCsrfCookie();
   }
 
+  // A FormData body (file upload) must NOT get an explicit Content-Type —
+  // the browser fills in the multipart boundary itself; setting one here
+  // would break it.
+  const isFormData = init.body instanceof FormData;
+
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+    ...(init.body && !isFormData ? { 'Content-Type': 'application/json' } : {}),
     ...(init.headers as Record<string, string> | undefined),
   };
 
@@ -77,4 +82,5 @@ export const api = {
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PATCH', body: body !== undefined ? JSON.stringify(body) : undefined }),
   delete: <T = void>(path: string) => request<T>(path, { method: 'DELETE' }),
+  upload: <T>(path: string, formData: FormData) => request<T>(path, { method: 'POST', body: formData }),
 };

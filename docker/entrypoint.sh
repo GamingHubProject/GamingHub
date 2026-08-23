@@ -10,4 +10,10 @@ fi
 
 php artisan migrate --force
 
+# Idempotent (artisan skips it if the link already exists) — has to run
+# here, not at image build time: app_storage is a runtime-mounted volume
+# (see docker-compose*.yml), so anything written to storage/ during the
+# build is shadowed by the volume the moment the container actually starts.
+php artisan storage:link
+
 exec "$@"
