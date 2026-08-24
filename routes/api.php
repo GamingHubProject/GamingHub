@@ -7,9 +7,9 @@ use App\Http\Controllers\Api\DashboardPageController;
 use App\Http\Controllers\Api\DashboardWidgetController;
 use App\Http\Controllers\Api\GameController;
 use App\Http\Controllers\Api\PageController;
+use App\Http\Controllers\Api\PageLayoutController;
+use App\Http\Controllers\Api\PageLayoutWidgetController;
 use App\Http\Controllers\Api\ServerController;
-use App\Http\Controllers\Api\ServerLayoutController;
-use App\Http\Controllers\Api\ServerLayoutWidgetController;
 use App\Http\Controllers\Api\ThemeController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -28,9 +28,15 @@ Route::prefix('v1')->group(function () {
     Route::get('/games/{slug}/servers', [GameController::class, 'servers']);
     Route::get('/servers/{server}', [ServerController::class, 'show']);
     // Shared/admin-owned, not a player's own — every visitor sees the same
-    // layout (see App\Models\ServerLayout's docblock). Public like the
-    // server itself; only the widgets sub-resource's writes are gated.
-    Route::get('/servers/{server}/layout', [ServerLayoutController::class, 'show']);
+    // layout (see App\Models\PageLayout's docblock). Public like the
+    // subject page itself; only the widgets sub-resource's writes are
+    // gated. One thin read endpoint per subject type (Server/Game/Home),
+    // each already route-bound to its real subject — see
+    // PageLayoutController's docblock for why this isn't one generic
+    // "resolve by string type" route instead.
+    Route::get('/servers/{server}/layout', [PageLayoutController::class, 'showForServer']);
+    Route::get('/games/{slug}/layout', [PageLayoutController::class, 'showForGame']);
+    Route::get('/home/layout', [PageLayoutController::class, 'showForHome']);
     Route::get('/theme', [ThemeController::class, 'show']);
     // Browsing the library needs no more privilege than browsing
     // games/servers/theme — only uploading/deleting are gated (below).
@@ -67,9 +73,13 @@ Route::prefix('v1')->group(function () {
         // this app; every other per-request authorization check in this
         // codebase (e.g. DashboardWidgetController's ownership check) is
         // likewise done inline rather than via middleware.
-        Route::post('/servers/{server}/layout/widgets', [ServerLayoutWidgetController::class, 'store']);
-        Route::patch('/server-layout-widgets/{widget}', [ServerLayoutWidgetController::class, 'update']);
-        Route::delete('/server-layout-widgets/{widget}', [ServerLayoutWidgetController::class, 'destroy']);
+        // Subject-agnostic — see PageLayoutWidgetController's docblock.
+        // The frontend always fetches the layout first (one of the
+        // subject-specific GET routes above), so it already has the real
+        // layout id by the time it adds a widget.
+        Route::post('/page-layouts/{layout}/widgets', [PageLayoutWidgetController::class, 'store']);
+        Route::patch('/page-layout-widgets/{widget}', [PageLayoutWidgetController::class, 'update']);
+        Route::delete('/page-layout-widgets/{widget}', [PageLayoutWidgetController::class, 'destroy']);
 
         Route::post('/assets', [AssetController::class, 'store']);
         Route::patch('/assets/{asset}', [AssetController::class, 'update']);

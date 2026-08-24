@@ -1,36 +1,37 @@
-import { getServerLayoutWidgetDefinition } from '../widgets/serverLayout/registry';
-import type { Server, ServerLayoutWidget } from '../api/types';
+import { getPageLayoutWidgetDefinition } from '../widgets/pageLayout/registry';
+import type { PageLayoutWidgetContext } from '../widgets/pageLayout/registry';
+import type { PageLayoutWidget } from '../api/types';
 
 /**
  * Always a bordered "card" (per the design brief), but the drag-handle
  * header bar with its label + remove/settings buttons only renders in
- * edit mode — a normal player visiting the server page should see clean
- * cards, not admin-tool chrome. The grid itself also disables
- * dragging/resizing outright when not editable (see ServerDetail.tsx's
- * isDraggable/isResizable), so this isn't just cosmetic. The settings gear
- * only appears for a widget type that actually has a configForm — most of
- * the 5 types have nothing to configure.
+ * edit mode — a normal visitor to the page should see clean cards, not
+ * admin-tool chrome. The grid itself also disables dragging/resizing
+ * outright when not editable (see PageLayoutEditor's isDraggable/
+ * isResizable), so this isn't just cosmetic. The settings gear only
+ * appears for a widget type that actually has a configForm — most widget
+ * types have nothing to configure.
  */
-export function ServerLayoutWidgetContainer({
+export function PageLayoutWidgetContainer({
   widget,
-  server,
+  context,
   editable,
   layered = false,
   onRemove,
   onEdit,
 }: {
-  widget: ServerLayoutWidget;
-  server: Server;
+  widget: PageLayoutWidget;
+  context: PageLayoutWidgetContext;
   editable: boolean;
   /** True when this widget is currently overlapping the banner (see
-   *  ServerDetail's layeredWidgetIds) — drops the card border/background/
+   *  PageLayoutEditor's layeredWidgetIds) — drops the card border/background/
    *  scroll so the content floats directly on the banner image instead of
    *  sitting in its own visible box on top of it. */
   layered?: boolean;
   onRemove: () => void;
   onEdit: () => void;
 }) {
-  const definition = getServerLayoutWidgetDefinition(widget.widget_type);
+  const definition = getPageLayoutWidgetDefinition(widget.widget_type);
   const config = widget.config ?? definition?.defaultConfig ?? {};
 
   return (
@@ -79,7 +80,7 @@ export function ServerLayoutWidgetContainer({
       )}
       <div style={{ flex: 1, overflow: layered ? 'visible' : 'auto' }}>
         {definition ? (
-          <definition.component server={server} config={config} layered={layered} />
+          <definition.component context={context} config={config} layered={layered} />
         ) : (
           <p style={{ padding: 12 }}>Unsupported widget type: {widget.widget_type}</p>
         )}

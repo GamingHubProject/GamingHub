@@ -4,12 +4,11 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApiClientProvider } from '../providers/ApiClientProvider';
 import { AuthProvider } from '../providers/AuthProvider';
-// Registers the real 5 server-layout widget types (side effect).
-import '../widgets/serverLayout';
+// Registers the real page-layout widget types (side effect).
+import '../widgets/pageLayout';
 import { ServerDetail } from './ServerDetail';
-import type { Server, ServerLayout, User } from '../api/types';
+import type { PageLayout, Server, User } from '../api/types';
 
-const adminUser: User = { id: 1, name: 'Rose', email: 'rose@example.com', avatar: null, bio: null, preferences: null, is_admin: true };
 const playerUser: User = { id: 2, name: 'Player', email: 'player@example.com', avatar: null, bio: null, preferences: null, is_admin: false };
 
 const server: Server = {
@@ -40,20 +39,13 @@ const server: Server = {
   allocations: [],
 };
 
-function renderServerDetail(
-  client: {
-    get: (path: string) => Promise<unknown>;
-    post?: (path: string, body?: unknown) => Promise<unknown>;
-    delete?: (path: string) => Promise<unknown>;
-    patch?: (path: string, body?: unknown) => Promise<unknown>;
-  }
-) {
+function renderServerDetail(client: { get: (path: string) => Promise<unknown> }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const fullClient = {
     get: client.get,
-    post: client.post ?? (async () => { throw new Error('post not expected'); }),
-    patch: client.patch ?? (async () => { throw new Error('patch not expected'); }),
-    delete: client.delete ?? (async () => { throw new Error('delete not expected'); }),
+    post: async () => { throw new Error('post not expected'); },
+    patch: async () => { throw new Error('patch not expected'); },
+    delete: async () => { throw new Error('delete not expected'); },
   };
 
   return render(
@@ -71,104 +63,43 @@ function renderServerDetail(
   );
 }
 
-function get(user: User | null, layout: ServerLayout) {
+function get(user: User | null, layout: PageLayout) {
   return async (path: string) => {
     if (path.includes('/user')) {
       if (!user) throw Object.assign(new Error('Unauthenticated.'), { status: 401 });
       return user;
     }
-    if (path.includes('/layout')) return layout;
+    if (path === `/api/v1/servers/2/layout`) return layout;
     if (path.includes('/servers/')) return server;
     return null;
   };
 }
 
 describe('ServerDetail', () => {
-  it('renders the 6 cards read-only for a non-admin, with no edit controls', async () => {
-    const layout: ServerLayout = {
+  it('shows Server not found when the server fetch comes back empty', async () => {
+    renderServerDetail({
+      get: async (path) => {
+        if (path.includes('/user')) throw Object.assign(new Error('Unauthenticated.'), { status: 401 });
+        if (path.includes('/servers/')) return null;
+        return null;
+      },
+    });
+
+    await waitFor(() => expect(screen.getByText('Server not found.')).toBeInTheDocument());
+  });
+
+  it('fetches this server\'s layout from the correct endpoint and renders its widgets', async () => {
+    const layout: PageLayout = {
       id: 1,
-      server_id: 2,
+      subject_type: 'server',
+      subject_id: 2,
       widgets: [
-        { id: 1, server_layout_id: 1, widget_type: 'server-banner', config: null, position_x: 0, position_y: 0, width: 12, height: 2 },
-        { id: 6, server_layout_id: 1, widget_type: 'server-name', config: null, position_x: 0, position_y: 0, width: 4, height: 1 },
-        { id: 2, server_layout_id: 1, widget_type: 'server-status', config: null, position_x: 0, position_y: 2, width: 3, height: 2 },
-        { id: 3, server_layout_id: 1, widget_type: 'server-metrics', config: null, position_x: 3, position_y: 2, width: 4, height: 3 },
-        { id: 4, server_layout_id: 1, widget_type: 'server-player-count', config: null, position_x: 7, position_y: 2, width: 3, height: 2 },
-        { id: 5, server_layout_id: 1, widget_type: 'server-allocations', config: null, position_x: 0, position_y: 5, width: 4, height: 3 },
+        { id: 1, page_layout_id: 1, widget_type: 'server-name', config: null, position_x: 0, position_y: 0, width: 4, height: 1 },
       ],
     };
 
     renderServerDetail({ get: get(playerUser, layout) });
 
     await waitFor(() => expect(screen.getByText('ad')).toBeInTheDocument());
-    expect(screen.getByText('Running')).toBeInTheDocument();
-    expect(screen.getByText('CPU')).toBeInTheDocument();
-    expect(screen.queryByText('Edit layout')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Remove widget')).not.toBeInTheDocument();
-  });
-
-  it('shows the Edit layout toggle for an admin, hidden for a non-admin', async () => {
-    const emptyLayout: ServerLayout = { id: 1, server_id: 2, widgets: [] };
-
-    const { unmount } = renderServerDetail({ get: get(adminUser, emptyLayout) });
-    await waitFor(() => expect(screen.getByText('Edit layout')).toBeInTheDocument());
-    unmount();
-
-    renderServerDetail({ get: get(playerUser, emptyLayout) });
-    await waitFor(() => expect(document.querySelector('.react-grid-layout')).toBeInTheDocument());
-    expect(screen.queryByText('Edit layout')).not.toBeInTheDocument();
-  });
-
-  it('lets an admin add a card, which posts to the layout widgets endpoint', async () => {
-    const emptyLayout: ServerLayout = { id: 1, server_id: 2, widgets: [] };
-    let posted: { path: string; body: unknown } | null = null;
-
-    renderServerDetail({
-      get: get(adminUser, emptyLayout),
-      post: async (path: string, body?: unknown) => {
-        posted = { path, body };
-        return { id: 99, server_layout_id: 1, widget_type: 'server-banner', config: null, position_x: 0, position_y: 0, width: 12, height: 2 };
-      },
-    });
-
-    await waitFor(() => expect(screen.getByText('Edit layout')).toBeInTheDocument());
-    screen.getByText('Edit layout').click();
-
-    await waitFor(() => expect(screen.getByText('+ Add card')).toBeInTheDocument());
-    screen.getByText('+ Add card').click();
-
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Add card' })).toBeInTheDocument());
-    screen.getByRole('button', { name: 'Add card' }).click();
-
-    await waitFor(() => expect(posted).not.toBeNull());
-    expect(posted!.path).toBe('/api/v1/servers/2/layout/widgets');
-    expect(posted!.body).toMatchObject({ widget_type: 'server-banner', width: 12, height: 2 });
-  });
-
-  it('lets an admin remove a card, which deletes it from the layout', async () => {
-    const layout: ServerLayout = {
-      id: 1,
-      server_id: 2,
-      widgets: [
-        { id: 1, server_layout_id: 1, widget_type: 'server-banner', config: null, position_x: 0, position_y: 0, width: 12, height: 2 },
-      ],
-    };
-    let deletedPath: string | null = null;
-
-    renderServerDetail({
-      get: get(adminUser, layout),
-      delete: async (path: string) => {
-        deletedPath = path;
-      },
-    });
-
-    await waitFor(() => expect(screen.getByText('Edit layout')).toBeInTheDocument());
-    screen.getByText('Edit layout').click();
-
-    await waitFor(() => expect(screen.getByLabelText('Remove widget')).toBeInTheDocument());
-    screen.getByLabelText('Remove widget').click();
-
-    await waitFor(() => expect(deletedPath).toBe('/api/v1/server-layout-widgets/1'));
-    await waitFor(() => expect(screen.queryByLabelText('Remove widget')).not.toBeInTheDocument());
   });
 });

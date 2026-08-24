@@ -1,5 +1,4 @@
-import type { Server } from '../../api/types';
-import type { ServerLayoutWidgetConfigFormProps } from './registry';
+import type { PageLayoutWidgetConfigFormProps, PageLayoutWidgetContext } from './registry';
 
 export interface ServerNameWidgetConfig {
   font_size: number;
@@ -21,9 +20,20 @@ export const serverNameWidgetDefaultConfig: ServerNameWidgetConfig = {
  * against all of them, so this is configurable per-server rather than a
  * theme constant. The text-shadow below isn't configurable and always
  * applies while layered — a legibility floor under whatever color is
- * picked, not a style choice.
+ * picked, not a style choice. validFor: ['server'] guarantees
+ * context.server is set — see registry.ts.
  */
-export function ServerNameWidget({ server, config, layered }: { server: Server; config: ServerNameWidgetConfig; layered?: boolean }) {
+export function ServerNameWidget({
+  context,
+  config,
+  layered,
+}: {
+  context: PageLayoutWidgetContext;
+  config: ServerNameWidgetConfig;
+  layered?: boolean;
+}) {
+  const server = context.server!;
+
   return (
     <div style={{ padding: layered ? 0 : '8px 12px', height: '100%', display: 'flex', alignItems: 'center' }}>
       <h1
@@ -40,7 +50,7 @@ export function ServerNameWidget({ server, config, layered }: { server: Server; 
   );
 }
 
-export function ServerNameWidgetConfigForm({ config, onChange }: ServerLayoutWidgetConfigFormProps<ServerNameWidgetConfig>) {
+export function ServerNameWidgetConfigForm({ config, onChange }: PageLayoutWidgetConfigFormProps<ServerNameWidgetConfig>) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <label>

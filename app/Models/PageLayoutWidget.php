@@ -5,10 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ServerLayoutWidget extends Model
+class PageLayoutWidget extends Model
 {
     protected $fillable = [
-        'server_layout_id',
+        'page_layout_id',
         'widget_type',
         'config',
         'position_x',
@@ -30,6 +30,6 @@ class ServerLayoutWidget extends Model
 
     public function layout(): BelongsTo
     {
-        return $this->belongsTo(ServerLayout::class, 'server_layout_id');
+        return $this->belongsTo(PageLayout::class, 'page_layout_id');
     }
 }

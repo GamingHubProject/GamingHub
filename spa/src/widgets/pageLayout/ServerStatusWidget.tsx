@@ -1,6 +1,5 @@
 import { StatusBadge } from '../shared/StatusBadge';
-import type { Server } from '../../api/types';
-import type { ServerLayoutWidgetConfigFormProps } from './registry';
+import type { PageLayoutWidgetConfigFormProps, PageLayoutWidgetContext } from './registry';
 
 export interface ServerStatusWidgetConfig {
   show_node: boolean;
@@ -13,8 +12,19 @@ export const serverStatusWidgetDefaultConfig: ServerStatusWidgetConfig = { show_
 // stays legible against any banner image without needing one. Layered
 // mode only drops the padding (so it isn't floating in from the widget's
 // corner) and adds the node line's text-shadow, since that line — unlike
-// the badge — is plain text with no background of its own.
-export function ServerStatusWidget({ server, config, layered }: { server: Server; config: ServerStatusWidgetConfig; layered?: boolean }) {
+// the badge — is plain text with no background of its own. validFor:
+// ['server'] guarantees context.server is set — see registry.ts.
+export function ServerStatusWidget({
+  context,
+  config,
+  layered,
+}: {
+  context: PageLayoutWidgetContext;
+  config: ServerStatusWidgetConfig;
+  layered?: boolean;
+}) {
+  const server = context.server!;
+
   return (
     <div style={{ padding: layered ? 0 : 12, height: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -36,7 +46,7 @@ export function ServerStatusWidget({ server, config, layered }: { server: Server
   );
 }
 
-export function ServerStatusWidgetConfigForm({ config, onChange }: ServerLayoutWidgetConfigFormProps<ServerStatusWidgetConfig>) {
+export function ServerStatusWidgetConfigForm({ config, onChange }: PageLayoutWidgetConfigFormProps<ServerStatusWidgetConfig>) {
   return (
     <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <input

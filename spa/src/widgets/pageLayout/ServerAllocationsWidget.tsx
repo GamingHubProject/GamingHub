@@ -1,6 +1,9 @@
-import type { Server } from '../../api/types';
+import type { PageLayoutWidgetContext } from './registry';
 
-export function ServerAllocationsWidget({ server }: { server: Server }) {
+// validFor: ['server'] guarantees context.server is set — see registry.ts.
+export function ServerAllocationsWidget({ context }: { context: PageLayoutWidgetContext }) {
+  const server = context.server!;
+
   if (server.allocations.length === 0) {
     return (
       <div style={{ padding: 12 }}>

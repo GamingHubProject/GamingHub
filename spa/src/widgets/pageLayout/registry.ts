@@ -1,0 +1,91 @@
+import type { ComponentType } from 'react';
+import type { Game, Server } from '../../api/types';
+
+export interface PageLayoutWidgetConfigFormProps<TConfig> {
+  config: TConfig;
+  onChange: (next: TConfig) => void;
+}
+
+/** Every page type that can hold an admin-editable widget layout — see
+ *  PageLayoutEditor. 'home' is the singleton main Portal page. */
+export type PageLayoutSubjectType = 'server' | 'game' | 'home';
+
+/**
+ * What a widget component actually has to work with, beyond its own
+ * config. Only the field matching the current page is ever populated
+ * (server on a Server page, game on a Game page, neither on Home) — a
+ * widget declaring `validFor` trusts that field is present rather than
+ * checking for undefined itself, the same way the old server-only
+ * components trusted `server` was always there.
+ */
+export interface PageLayoutWidgetContext {
+  subjectType: PageLayoutSubjectType;
+  server?: Server;
+  game?: Game;
+}
+
+/**
+ * Not the same shape as widgets/registry.ts's WidgetDefinition — a page
+ * layout widget's component receives its subject via `context` instead of
+ * fetching its own data via a config.server_id like the dashboard's
+ * ServerStatusWidget does (a page layout widget always has exactly one
+ * subject in scope, determined by which page it's on).
+ */
+export interface PageLayoutWidgetDefinition<TConfig = Record<string, unknown>> {
+  type: string;
+  label: string;
+  /** Grouping for the Add Widget picker (see AddPageLayoutWidgetModal) —
+   *  purely a UI label, not used for anything else. */
+  category: 'Server' | 'Game' | 'General';
+  /** Which page types this widget can be added to. Enforced by the Add
+   *  Widget picker (it filters the list to the current page's subject
+   *  type) — not re-checked server-side, same trust boundary the backend
+   *  already has for widget_type in general (an opaque string + config
+   *  blob it never validates the meaning of). */
+  validFor: PageLayoutSubjectType[];
+  /**
+   * `layered` is only ever true for a `layerable: true` widget currently
+   * overlapping the banner (see PageLayoutEditor's layeredWidgetIds). A
+   * component that never expects to be layerable can safely ignore the
+   * prop entirely.
+   */
+  component: ComponentType<{ context: PageLayoutWidgetContext; config: TConfig; layered?: boolean }>;
+  /** Sensible starting size when an admin adds this widget — types differ
+   *  enough (a wide short banner vs. a small status badge) that one
+   *  default for all of them would look wrong for most of them. */
+  defaultWidth: number;
+  defaultHeight: number;
+  defaultConfig: TConfig;
+  /** Widgets without one just don't show a settings gear at all — there's
+   *  nothing to raw-JSON-fallback to like the dashboard's WidgetConfigModal
+   *  does, since every field here is meant to be a real toggle, not a
+   *  blind textarea. */
+  configForm?: ComponentType<PageLayoutWidgetConfigFormProps<TConfig>>;
+  /**
+   * Overlap guardrail (see PageLayoutEditor's isValidOverlapLayout): the
+   * grid runs with allowOverlap=true for the whole page, which would
+   * otherwise let any two widgets get dragged on top of each other. A
+   * dropped layout is only accepted when every overlapping pair is
+   * exactly one `layerable: true` widget over one `layerTarget: true`
+   * widget — every other combination (two layerables, a layerable over a
+   * non-target, two targets, ...) gets rejected and the drag reverts.
+   * Neither flag is set on most widget types, which keeps their normal
+   * push/collision behavior unchanged.
+   */
+  layerable?: boolean;
+  layerTarget?: boolean;
+}
+
+const registry = new Map<string, PageLayoutWidgetDefinition<any>>();
+
+export function registerPageLayoutWidget<TConfig>(definition: PageLayoutWidgetDefinition<TConfig>): void {
+  registry.set(definition.type, definition);
+}
+
+export function getPageLayoutWidgetDefinition(type: string): PageLayoutWidgetDefinition | undefined {
+  return registry.get(type);
+}
+
+export function listPageLayoutWidgetDefinitions(): PageLayoutWidgetDefinition[] {
+  return Array.from(registry.values());
+}

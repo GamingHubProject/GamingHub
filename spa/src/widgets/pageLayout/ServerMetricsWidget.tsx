@@ -1,7 +1,10 @@
 import { ProgressBar } from '../shared/ProgressBar';
-import type { Server } from '../../api/types';
+import type { PageLayoutWidgetContext } from './registry';
 
-export function ServerMetricsWidget({ server }: { server: Server }) {
+// validFor: ['server'] guarantees context.server is set — see registry.ts.
+export function ServerMetricsWidget({ context }: { context: PageLayoutWidgetContext }) {
+  const server = context.server!;
+
   if (server.cpu_percent === null && server.memory_percent === null) {
     return (
       <div style={{ padding: 12 }}>

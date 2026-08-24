@@ -86,9 +86,11 @@ export interface DashboardPage {
   widgets: DashboardWidget[];
 }
 
-export interface ServerLayoutWidget {
+export type PageLayoutSubjectType = 'server' | 'game' | 'home';
+
+export interface PageLayoutWidget {
   id: number;
-  server_layout_id: number;
+  page_layout_id: number;
   widget_type: string;
   config: Record<string, unknown> | null;
   position_x: number;
@@ -97,10 +99,11 @@ export interface ServerLayoutWidget {
   height: number;
 }
 
-export interface ServerLayout {
+export interface PageLayout {
   id: number;
-  server_id: number;
-  widgets: ServerLayoutWidget[];
+  subject_type: PageLayoutSubjectType;
+  subject_id: number;
+  widgets: PageLayoutWidget[];
 }
 
 export interface AssetTag {

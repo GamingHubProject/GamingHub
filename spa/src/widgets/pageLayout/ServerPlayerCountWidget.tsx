@@ -1,9 +1,12 @@
-import type { Server } from '../../api/types';
+import type { PageLayoutWidgetContext } from './registry';
 
 // Separate from ServerMetricsWidget on purpose — not every connector
 // reports players the same way (or at all), so this can be omitted from a
-// layout independently of CPU/RAM.
-export function ServerPlayerCountWidget({ server }: { server: Server }) {
+// layout independently of CPU/RAM. validFor: ['server'] guarantees
+// context.server is set — see registry.ts.
+export function ServerPlayerCountWidget({ context }: { context: PageLayoutWidgetContext }) {
+  const server = context.server!;
+
   if (server.max_players === null) {
     return (
       <div style={{ padding: 12 }}>

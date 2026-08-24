@@ -1,13 +1,16 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '../providers/ApiClientProvider';
+import { useAuth } from '../providers/AuthProvider';
 import { useThemeScope } from '../providers/ThemeProvider';
 import { ServerCard } from '../components/ServerCard';
+import { PageLayoutEditor } from '../components/PageLayoutEditor';
 import type { Game, Server } from '../api/types';
 
 export function GameDetail() {
   const { slug } = useParams<{ slug: string }>();
   const api = useApi();
+  const { user } = useAuth();
 
   const { data: game, isLoading: gameLoading } = useQuery({
     queryKey: ['game', slug],
@@ -28,6 +31,13 @@ export function GameDetail() {
 
   return (
     <div>
+      <PageLayoutEditor
+        layoutUrl={`/api/v1/games/${slug}/layout`}
+        queryKey={['page-layout', 'game', slug]}
+        context={{ subjectType: 'game', game }}
+        isAdmin={user?.is_admin ?? false}
+      />
+
       <h1>{game.name}</h1>
       {game.description && <p>{game.description}</p>}
 

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 // Registers the real widget types (side effect) — isValidOverlapLayout
 // looks up layerable/layerTarget via the real registry, not a mock.
-import '../widgets/serverLayout';
-import { isValidOverlapLayout, layeredWidgetIds } from './ServerDetail';
+import '../widgets/pageLayout';
+import { isValidOverlapLayout, layeredWidgetIds } from './PageLayoutEditor';
 import type { Layout } from 'react-grid-layout';
-import type { ServerLayoutWidget } from '../api/types';
+import type { PageLayoutWidget } from '../api/types';
 
-function widget(id: number, widget_type: string, x: number, y: number, w: number, h: number): ServerLayoutWidget {
-  return { id, server_layout_id: 1, widget_type, config: null, position_x: x, position_y: y, width: w, height: h };
+function widget(id: number, widget_type: string, x: number, y: number, w: number, h: number): PageLayoutWidget {
+  return { id, page_layout_id: 1, widget_type, config: null, position_x: x, position_y: y, width: w, height: h };
 }
 
 function layout(id: number, x: number, y: number, w: number, h: number): Layout {

@@ -1,24 +1,24 @@
 import { useState } from 'react';
 import { Modal } from './Modal';
-import { getServerLayoutWidgetDefinition } from '../widgets/serverLayout/registry';
-import type { ServerLayoutWidget } from '../api/types';
+import { getPageLayoutWidgetDefinition } from '../widgets/pageLayout/registry';
+import type { PageLayoutWidget } from '../api/types';
 
 /**
  * Only ever mounted when the widget's definition has a configForm (see
- * ServerLayoutWidgetContainer) — unlike the dashboard's WidgetConfigModal,
+ * PageLayoutWidgetContainer) — unlike the dashboard's WidgetConfigModal,
  * there's no raw-JSON textarea fallback, since every field here is meant
  * to be a real toggle an admin picks from, not blind JSON editing.
  */
-export function ServerLayoutWidgetConfigModal({
+export function PageLayoutWidgetConfigModal({
   widget,
   onClose,
   onSave,
 }: {
-  widget: ServerLayoutWidget;
+  widget: PageLayoutWidget;
   onClose: () => void;
   onSave: (config: Record<string, unknown>) => void;
 }) {
-  const definition = getServerLayoutWidgetDefinition(widget.widget_type);
+  const definition = getPageLayoutWidgetDefinition(widget.widget_type);
   const [config, setConfig] = useState<Record<string, unknown>>(widget.config ?? definition?.defaultConfig ?? {});
 
   if (!definition?.configForm) return null;

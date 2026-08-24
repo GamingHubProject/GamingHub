@@ -1,38 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import { ServerBannerWidget, serverBannerWidgetDefaultConfig } from './ServerBannerWidget';
-import type { Server } from '../../api/types';
+import type { PageLayoutWidgetContext } from './registry';
 
-const server: Server = {
-  id: 2,
-  game_id: 1,
-  server_group_id: null,
-  name: 'ad',
-  slug: 'ad',
-  description: null,
-  status: 'running',
-  max_players: null,
-  current_players: null,
-  cpu_current: null,
-  cpu_limit: null,
-  cpu_percent: null,
-  memory_current: null,
-  memory_limit: null,
-  memory_percent: null,
-  disk_current: null,
-  disk_limit: null,
-  disk_percent: null,
-  network_rx: null,
-  network_tx: null,
-  node_name: null,
-  supported_features: null,
-  game_version: null,
-  last_polled_at: null,
-  allocations: [],
-};
+const context: PageLayoutWidgetContext = { subjectType: 'server' };
 
 function renderBanner(config = serverBannerWidgetDefaultConfig) {
-  const { container } = render(<ServerBannerWidget server={server} config={config} />);
+  const { container } = render(<ServerBannerWidget context={context} config={config} />);
   return container.firstElementChild as HTMLElement;
 }
 

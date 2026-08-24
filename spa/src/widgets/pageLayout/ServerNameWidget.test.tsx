@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ServerNameWidget, serverNameWidgetDefaultConfig } from './ServerNameWidget';
+import type { PageLayoutWidgetContext } from './registry';
 import type { Server } from '../../api/types';
 
 const server: Server = {
@@ -31,16 +32,18 @@ const server: Server = {
   allocations: [],
 };
 
+const context: PageLayoutWidgetContext = { subjectType: 'server', server };
+
 describe('ServerNameWidget', () => {
   it('renders the server name at the configured font size', () => {
-    render(<ServerNameWidget server={server} config={serverNameWidgetDefaultConfig} />);
+    render(<ServerNameWidget context={context} config={serverNameWidgetDefaultConfig} />);
 
     expect(screen.getByText('ad')).toHaveStyle({ fontSize: '24' });
   });
 
   it('does not apply the configured color or a text-shadow when not layered', () => {
     const config = { ...serverNameWidgetDefaultConfig, text_color: '#ff0000' };
-    render(<ServerNameWidget server={server} config={config} />);
+    render(<ServerNameWidget context={context} config={config} />);
 
     const heading = screen.getByText('ad');
     expect(heading).not.toHaveStyle({ color: '#ff0000' });
@@ -49,7 +52,7 @@ describe('ServerNameWidget', () => {
 
   it('applies the configured color and a text-shadow when layered', () => {
     const config = { ...serverNameWidgetDefaultConfig, text_color: '#ff0000' };
-    render(<ServerNameWidget server={server} config={config} layered />);
+    render(<ServerNameWidget context={context} config={config} layered />);
 
     const heading = screen.getByText('ad');
     expect(heading).toHaveStyle({ color: '#ff0000', textShadow: '0 1px 3px rgba(0, 0, 0, 0.8)' });

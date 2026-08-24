@@ -1,7 +1,7 @@
 import { AssetPicker } from '../../components/AssetPicker';
 import type { AssetPreview } from '../../components/AssetPicker';
-import type { Asset, Server } from '../../api/types';
-import type { ServerLayoutWidgetConfigFormProps } from './registry';
+import type { Asset } from '../../api/types';
+import type { PageLayoutWidgetConfigFormProps, PageLayoutWidgetContext } from './registry';
 
 export type BannerFit = 'cover' | 'contain' | 'fill';
 
@@ -42,7 +42,7 @@ const BACKGROUND_SIZE: Record<BannerFit, string> = {
 // isValidOverlapLayout for how that's enforced). Isolating it this way
 // means future work on the background (new fit modes, video backgrounds,
 // ...) only ever touches this file.
-export function ServerBannerWidget({ config }: { server: Server; config: ServerBannerWidgetConfig }) {
+export function ServerBannerWidget({ config }: { context: PageLayoutWidgetContext; config: ServerBannerWidgetConfig }) {
   return (
     <div
       style={{
@@ -67,7 +67,7 @@ export function ServerBannerWidget({ config }: { server: Server; config: ServerB
   );
 }
 
-export function ServerBannerWidgetConfigForm({ config, onChange }: ServerLayoutWidgetConfigFormProps<ServerBannerWidgetConfig>) {
+export function ServerBannerWidgetConfigForm({ config, onChange }: PageLayoutWidgetConfigFormProps<ServerBannerWidgetConfig>) {
   function handleAssetChange(asset: Asset | null) {
     onChange({ ...config, background_asset_id: asset?.id ?? null, background_url: asset?.url ?? null });
   }

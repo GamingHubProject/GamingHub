@@ -3,23 +3,25 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Api\ServerLayoutWidgetResource;
-use App\Models\ServerLayout;
-use App\Models\ServerLayoutWidget;
-use GamingHub\Core\Models\Server;
+use App\Http\Resources\Api\PageLayoutWidgetResource;
+use App\Models\PageLayout;
+use App\Models\PageLayoutWidget;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Every mutating action here is Admin-role gated, not ownership gated —
- * unlike DashboardWidgetController (a widget's owner is whoever owns its
- * page), a server layout has no owner at all. Read access (see
- * ServerLayoutController) is public; only these writes are restricted.
+ * same as before the page_layouts generalization. Subject-agnostic: a
+ * widget row already points at its PageLayout via page_layout_id, so
+ * store() is the only method that needs a subject at all, and even that's
+ * just "which layout" — never "which kind of subject". The frontend
+ * always fetches the layout (PageLayoutController) before adding a widget,
+ * so it already has the real layout id by the time it calls this.
  */
-class ServerLayoutWidgetController extends Controller
+class PageLayoutWidgetController extends Controller
 {
-    public function store(Request $request, Server $server): JsonResponse
+    public function store(Request $request, PageLayout $layout): JsonResponse
     {
         abort_unless($request->user()->hasRole('Admin'), 403);
 
@@ -32,19 +34,17 @@ class ServerLayoutWidgetController extends Controller
             'height' => ['sometimes', 'integer', 'min:1'],
         ]);
 
-        $layout = ServerLayout::firstOrCreate(['server_id' => $server->id]);
-        $data['server_layout_id'] = $layout->id;
+        $data['page_layout_id'] = $layout->id;
 
-        $widget = ServerLayoutWidget::create($data);
-        // Same reasoning as DashboardWidgetController::store — omitted
-        // position/size fields need a refresh to reflect the DB defaults
-        // the row actually got, instead of serializing as null.
+        $widget = PageLayoutWidget::create($data);
+        // Omitted position/size fields need a refresh to reflect the DB
+        // defaults the row actually got, instead of serializing as null.
         $widget->refresh();
 
-        return (new ServerLayoutWidgetResource($widget))->response()->setStatusCode(201);
+        return (new PageLayoutWidgetResource($widget))->response()->setStatusCode(201);
     }
 
-    public function update(Request $request, ServerLayoutWidget $widget): ServerLayoutWidgetResource
+    public function update(Request $request, PageLayoutWidget $widget): PageLayoutWidgetResource
     {
         abort_unless($request->user()->hasRole('Admin'), 403);
 
@@ -59,10 +59,10 @@ class ServerLayoutWidgetController extends Controller
 
         $widget->update($data);
 
-        return new ServerLayoutWidgetResource($widget);
+        return new PageLayoutWidgetResource($widget);
     }
 
-    public function destroy(Request $request, ServerLayoutWidget $widget): Response
+    public function destroy(Request $request, PageLayoutWidget $widget): Response
     {
         abort_unless($request->user()->hasRole('Admin'), 403);
 
