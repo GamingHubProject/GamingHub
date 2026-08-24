@@ -61,6 +61,30 @@ export function isValidOverlapLayout(rglLayout: Layout[], widgets: ServerLayoutW
   return true;
 }
 
+/**
+ * Which widgets are *currently* sitting on top of the banner — used for
+ * chrome-stripping (see ServerLayoutWidgetContainer's `layered` prop), not
+ * drag validity (that's isValidOverlapLayout, a separate concern that only
+ * runs during a drag). Any layerable widget overlapping any layerTarget
+ * counts; isValidOverlapLayout already guarantees that's the *only* kind
+ * of overlap that can exist in a committed layout, so no extra pairing
+ * check is needed here.
+ */
+export function layeredWidgetIds(widgets: ServerLayoutWidget[]): Set<number> {
+  const rects = widgets.map((w) => ({ widget: w, rect: layoutFor([w])[0] }));
+  const targets = rects.filter(({ widget }) => getServerLayoutWidgetDefinition(widget.widget_type)?.layerTarget);
+  const ids = new Set<number>();
+
+  for (const { widget, rect } of rects) {
+    if (!getServerLayoutWidgetDefinition(widget.widget_type)?.layerable) continue;
+    if (targets.some((t) => rectsOverlap(rect, t.rect))) {
+      ids.add(widget.id);
+    }
+  }
+
+  return ids;
+}
+
 function nextWidgetPosition(widgets: ServerLayoutWidget[]): { x: number; y: number } {
   const bottom = widgets.reduce((max, w) => Math.max(max, w.position_y + w.height), 0);
   return { x: 0, y: bottom };
@@ -239,23 +263,27 @@ export function ServerDetail() {
         onDragStop={persistLayout}
         onResizeStop={persistLayout}
       >
-        {(layout?.widgets ?? []).map((widget) => {
-          const definition = getServerLayoutWidgetDefinition(widget.widget_type);
-          return (
-            // The banner (layerTarget) always paints behind everything
-            // else, regardless of DOM/add order, so a layered Name/Status
-            // widget is never accidentally hidden underneath it.
-            <div key={widget.id} style={{ zIndex: definition?.layerTarget ? 0 : 1 }}>
-              <ServerLayoutWidgetContainer
-                widget={widget}
-                server={server}
-                editable={editMode}
-                onRemove={() => removeWidgetMutation.mutate(widget.id)}
-                onEdit={() => setEditingWidget(widget)}
-              />
-            </div>
-          );
-        })}
+        {(() => {
+          const layeredIds = layeredWidgetIds(layout?.widgets ?? []);
+          return (layout?.widgets ?? []).map((widget) => {
+            const definition = getServerLayoutWidgetDefinition(widget.widget_type);
+            return (
+              // The banner (layerTarget) always paints behind everything
+              // else, regardless of DOM/add order, so a layered Name/Status
+              // widget is never accidentally hidden underneath it.
+              <div key={widget.id} style={{ zIndex: definition?.layerTarget ? 0 : 1 }}>
+                <ServerLayoutWidgetContainer
+                  widget={widget}
+                  server={server}
+                  editable={editMode}
+                  layered={layeredIds.has(widget.id)}
+                  onRemove={() => removeWidgetMutation.mutate(widget.id)}
+                  onEdit={() => setEditingWidget(widget)}
+                />
+              </div>
+            );
+          });
+        })()}
       </ResponsiveGridLayout>
 
       {addingWidget && (

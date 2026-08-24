@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 // Registers the real widget types (side effect) — isValidOverlapLayout
 // looks up layerable/layerTarget via the real registry, not a mock.
 import '../widgets/serverLayout';
-import { isValidOverlapLayout } from './ServerDetail';
+import { isValidOverlapLayout, layeredWidgetIds } from './ServerDetail';
 import type { Layout } from 'react-grid-layout';
 import type { ServerLayoutWidget } from '../api/types';
 
@@ -62,5 +62,29 @@ describe('isValidOverlapLayout', () => {
     const rgl = [layout(1, 0, 0, 12, 2), layout(2, 0, 0, 12, 2)];
 
     expect(isValidOverlapLayout(rgl, widgets)).toBe(false);
+  });
+});
+
+describe('layeredWidgetIds', () => {
+  it('flags a layerable widget overlapping the banner', () => {
+    const widgets = [widget(1, 'server-banner', 0, 0, 12, 2), widget(2, 'server-name', 0, 0, 4, 1)];
+
+    expect(layeredWidgetIds(widgets)).toEqual(new Set([2]));
+  });
+
+  it('does not flag a layerable widget that is not currently overlapping the banner', () => {
+    const widgets = [widget(1, 'server-banner', 0, 0, 12, 2), widget(2, 'server-name', 0, 5, 4, 1)];
+
+    expect(layeredWidgetIds(widgets)).toEqual(new Set());
+  });
+
+  it('never flags the banner itself or a non-layerable widget', () => {
+    const widgets = [
+      widget(1, 'server-banner', 0, 0, 12, 2),
+      widget(2, 'server-name', 0, 0, 4, 1),
+      widget(3, 'server-metrics', 0, 2, 4, 3),
+    ];
+
+    expect(layeredWidgetIds(widgets)).toEqual(new Set([2]));
   });
 });

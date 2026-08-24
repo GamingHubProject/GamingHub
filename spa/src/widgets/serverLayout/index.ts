@@ -1,7 +1,7 @@
 import { registerServerLayoutWidget } from './registry';
 import { ServerBannerWidget, ServerBannerWidgetConfigForm, serverBannerWidgetDefaultConfig } from './ServerBannerWidget';
 import { ServerStatusWidget, ServerStatusWidgetConfigForm, serverStatusWidgetDefaultConfig } from './ServerStatusWidget';
-import { ServerNameWidget } from './ServerNameWidget';
+import { ServerNameWidget, ServerNameWidgetConfigForm, serverNameWidgetDefaultConfig } from './ServerNameWidget';
 import { ServerMetricsWidget } from './ServerMetricsWidget';
 import { ServerPlayerCountWidget } from './ServerPlayerCountWidget';
 import { ServerAllocationsWidget } from './ServerAllocationsWidget';
@@ -34,7 +34,8 @@ registerServerLayoutWidget({
   type: 'server-name',
   label: 'Server Name',
   component: ServerNameWidget,
-  defaultConfig: {},
+  configForm: ServerNameWidgetConfigForm,
+  defaultConfig: serverNameWidgetDefaultConfig,
   defaultWidth: 4,
   defaultHeight: 1,
   layerable: true,

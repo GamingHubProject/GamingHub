@@ -124,4 +124,30 @@ describe('ServerLayoutWidgetContainer', () => {
 
     expect(screen.getByText('ad')).toBeInTheDocument();
   });
+
+  it('drops the card border/background when layered', () => {
+    const { container } = render(
+      <ServerLayoutWidgetContainer widget={widget} server={server} editable={false} layered onRemove={() => {}} onEdit={() => {}} />
+    );
+
+    expect(container.firstElementChild).not.toHaveStyle({ border: '1px solid var(--border, #ddd)' });
+  });
+
+  it('keeps the card border/background when not layered', () => {
+    const { container } = render(
+      <ServerLayoutWidgetContainer widget={widget} server={server} editable={false} onRemove={() => {}} onEdit={() => {}} />
+    );
+
+    expect(container.firstElementChild).toHaveStyle({ border: '1px solid var(--border, #ddd)' });
+  });
+
+  it('passes layered through to the widget component', () => {
+    const nameWidget = { ...widget, widget_type: 'server-name', config: null };
+
+    render(
+      <ServerLayoutWidgetContainer widget={nameWidget} server={server} editable={false} layered onRemove={() => {}} onEdit={() => {}} />
+    );
+
+    expect(screen.getByText('ad')).toHaveStyle({ textShadow: '0 1px 3px rgba(0, 0, 0, 0.8)' });
+  });
 });

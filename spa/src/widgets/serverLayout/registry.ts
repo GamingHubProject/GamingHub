@@ -20,7 +20,16 @@ export interface ServerLayoutWidgetConfigFormProps<TConfig> {
 export interface ServerLayoutWidgetDefinition<TConfig = Record<string, unknown>> {
   type: string;
   label: string;
-  component: ComponentType<{ server: Server; config: TConfig }>;
+  /**
+   * `layered` is only ever true for a `layerable: true` widget currently
+   * overlapping the banner (see ServerDetail's layeredWidgetIds) — every
+   * other widget always gets `undefined`. A component that never expects
+   * to be layerable can safely ignore the prop entirely; one that does
+   * (server-name, server-status) uses it to drop its own padding/shadow
+   * assumptions and rely on ServerLayoutWidgetContainer's chrome-stripping
+   * instead of fighting it.
+   */
+  component: ComponentType<{ server: Server; config: TConfig; layered?: boolean }>;
   /** Sensible starting size when an admin adds this widget — types differ
    *  enough (a wide short banner vs. a small status badge) that one
    *  default for all of them would look wrong for most of them. */

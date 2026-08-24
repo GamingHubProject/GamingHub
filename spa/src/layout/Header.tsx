@@ -19,18 +19,14 @@ export function Header() {
             Gated on is_admin, not just being logged in — a non-admin user
             has nothing to do there. */}
         {user?.is_admin && <Link to="/admin">Admin</Link>}
-        {/* Asset Library is reachable via a link on the /admin placeholder
-            page too, but it's Admin's most-used destination day to day —
-            surfacing it directly in the header saves the extra hop. */}
-        {user?.is_admin && <Link to="/admin/assets">Assets</Link>}
         {user && <Link to="/dashboard">Dashboard</Link>}
-        {!isLoading && (user ? <UserMenu name={user.name} /> : <Link to="/login">Log in</Link>)}
+        {!isLoading && (user ? <UserMenu name={user.name} isAdmin={user.is_admin} /> : <Link to="/login">Log in</Link>)}
       </div>
     </header>
   );
 }
 
-function UserMenu({ name }: { name: string }) {
+function UserMenu({ name, isAdmin }: { name: string; isAdmin: boolean }) {
   const api = useApi();
   const { refetch } = useAuth();
   const navigate = useNavigate();
@@ -81,6 +77,15 @@ function UserMenu({ name }: { name: string }) {
             zIndex: 10,
           }}
         >
+          {isAdmin && (
+            <Link
+              to="/admin/assets"
+              onClick={() => setOpen(false)}
+              style={{ display: 'block', width: '100%', padding: '8px 12px', color: 'inherit', textDecoration: 'none' }}
+            >
+              Assets
+            </Link>
+          )}
           {/* No profile page built yet — placeholder only. */}
           <button type="button" disabled style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--muted, #999)', cursor: 'not-allowed' }}>
             Profile

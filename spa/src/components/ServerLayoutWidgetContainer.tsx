@@ -15,12 +15,18 @@ export function ServerLayoutWidgetContainer({
   widget,
   server,
   editable,
+  layered = false,
   onRemove,
   onEdit,
 }: {
   widget: ServerLayoutWidget;
   server: Server;
   editable: boolean;
+  /** True when this widget is currently overlapping the banner (see
+   *  ServerDetail's layeredWidgetIds) — drops the card border/background/
+   *  scroll so the content floats directly on the banner image instead of
+   *  sitting in its own visible box on top of it. */
+  layered?: boolean;
   onRemove: () => void;
   onEdit: () => void;
 }) {
@@ -29,14 +35,18 @@ export function ServerLayoutWidgetContainer({
 
   return (
     <div
-      style={{
-        border: '1px solid var(--border, #ddd)',
-        borderRadius: 8,
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
+      style={
+        layered
+          ? { height: '100%', display: 'flex', flexDirection: 'column' }
+          : {
+              border: '1px solid var(--border, #ddd)',
+              borderRadius: 8,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }
+      }
     >
       {editable && (
         <div
@@ -67,9 +77,9 @@ export function ServerLayoutWidgetContainer({
           </div>
         </div>
       )}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div style={{ flex: 1, overflow: layered ? 'visible' : 'auto' }}>
         {definition ? (
-          <definition.component server={server} config={config} />
+          <definition.component server={server} config={config} layered={layered} />
         ) : (
           <p style={{ padding: 12 }}>Unsupported widget type: {widget.widget_type}</p>
         )}
