@@ -7,8 +7,9 @@ export interface PageLayoutWidgetConfigFormProps<TConfig> {
 }
 
 /** Every page type that can hold an admin-editable widget layout — see
- *  PageLayoutEditor. 'home' is the singleton main Portal page. */
-export type PageLayoutSubjectType = 'server' | 'game' | 'home';
+ *  PageLayoutEditor. 'home' is the singleton main Portal page, 'games-list'
+ *  the singleton /games listing page. */
+export type PageLayoutSubjectType = 'server' | 'game' | 'home' | 'games-list';
 
 /**
  * What a widget component actually has to work with, beyond its own
@@ -74,6 +75,16 @@ export interface PageLayoutWidgetDefinition<TConfig = Record<string, unknown>> {
    */
   layerable?: boolean;
   layerTarget?: boolean;
+  /**
+   * Always render without the card border/background (read-only view;
+   * edit mode still shows the drag-handle header, same as a layered
+   * widget) — for a widget that IS a page's own content rather than a
+   * card sitting on the page, e.g. game-card in 'all' mode standing in
+   * for what used to be an unboxed, hardcoded games grid. Unlike
+   * `layered`, this isn't conditional on overlapping anything; it's a
+   * static property of the widget type itself.
+   */
+  chromeless?: boolean;
 }
 
 const registry = new Map<string, PageLayoutWidgetDefinition<any>>();

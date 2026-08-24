@@ -78,10 +78,10 @@ describe('PageLayoutEditor', () => {
     renderEditor(
       { isAdmin: true },
       {
-        get: async () => emptyLayout,
+        get: async (path: string) => (path.includes('/games') ? [] : emptyLayout),
         post: async (path: string, body?: unknown) => {
           posted = { path, body };
-          return { id: 99, page_layout_id: 1, widget_type: 'server-banner', config: null, position_x: 0, position_y: 0, width: 12, height: 2 };
+          return { id: 99, page_layout_id: 1, widget_type: 'game-card', config: null, position_x: 0, position_y: 0, width: 12, height: 4 };
         },
       }
     );
@@ -92,11 +92,15 @@ describe('PageLayoutEditor', () => {
     await waitFor(() => expect(screen.getByText('+ Add widget')).toBeInTheDocument());
     screen.getByText('+ Add widget').click();
 
-    // Home's context has no valid widgets today (every registered type is
-    // still validFor: ['server']) — the picker correctly shows nothing to
-    // add. Covered separately below with an explicitly generic subject.
-    await waitFor(() => expect(screen.getByText('No widget types are available on this page yet.')).toBeInTheDocument());
-    expect(posted).toBeNull();
+    // Home is validFor for both new cross-linking widgets — Game Card is
+    // the simpler one to click through without also stubbing a server
+    // fetch for the widget's own render after it's added.
+    await waitFor(() => expect(screen.getByText('Game Card')).toBeInTheDocument());
+    screen.getByText('Game Card').click();
+
+    await waitFor(() => expect(posted).not.toBeNull());
+    expect(posted!.path).toBe('/api/v1/page-layouts/1/widgets');
+    expect(posted!.body).toMatchObject({ widget_type: 'game-card', width: 12, height: 4 });
   });
 
   it('lets an admin remove a widget, which deletes it from the layout', async () => {

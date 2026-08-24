@@ -5,13 +5,8 @@ import { ServerNameWidget, ServerNameWidgetConfigForm, serverNameWidgetDefaultCo
 import { ServerMetricsWidget } from './ServerMetricsWidget';
 import { ServerPlayerCountWidget } from './ServerPlayerCountWidget';
 import { ServerAllocationsWidget } from './ServerAllocationsWidget';
-
-// Every widget type today is Server-only (validFor: ['server']) — the
-// page_layouts generalization added Game/Home as page types that *can*
-// hold a layout, but deliberately shipped no new widget types for them
-// this pass (see the design discussion). A future Game/General widget
-// just adds 'game'/'home' to its own validFor; nothing here needs to
-// change for that.
+import { GameCardWidget, GameCardWidgetConfigForm, gameCardWidgetDefaultConfig } from './GameCardWidget';
+import { ServerCardWidget, ServerCardWidgetConfigForm, serverCardWidgetDefaultConfig } from './ServerCardWidget';
 
 registerPageLayoutWidget({
   type: 'server-banner',
@@ -85,6 +80,36 @@ registerPageLayoutWidget({
   defaultConfig: {},
   defaultWidth: 4,
   defaultHeight: 3,
+});
+
+registerPageLayoutWidget({
+  type: 'game-card',
+  label: 'Game Card',
+  category: 'Game',
+  validFor: ['home', 'games-list', 'server'],
+  component: GameCardWidget,
+  configForm: GameCardWidgetConfigForm,
+  defaultConfig: gameCardWidgetDefaultConfig,
+  defaultWidth: 12,
+  defaultHeight: 4,
+  // GameCard (both 'all' mode's grid of cards and a single card) already
+  // has its own border — the outer widget card chrome would double-box
+  // it, and 'all' mode is standing in for what used to be a completely
+  // unboxed grid (see PageLayoutController's seeded DEFAULT_WIDGETS), so
+  // an unchanged fresh-install look depends on this being chromeless.
+  chromeless: true,
+});
+
+registerPageLayoutWidget({
+  type: 'server-card',
+  label: 'Server Card',
+  category: 'Server',
+  validFor: ['home', 'games-list', 'game'],
+  component: ServerCardWidget,
+  configForm: ServerCardWidgetConfigForm,
+  defaultConfig: serverCardWidgetDefaultConfig,
+  defaultWidth: 4,
+  defaultHeight: 2,
 });
 
 export {

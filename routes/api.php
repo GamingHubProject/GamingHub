@@ -30,13 +30,15 @@ Route::prefix('v1')->group(function () {
     // Shared/admin-owned, not a player's own — every visitor sees the same
     // layout (see App\Models\PageLayout's docblock). Public like the
     // subject page itself; only the widgets sub-resource's writes are
-    // gated. One thin read endpoint per subject type (Server/Game/Home),
-    // each already route-bound to its real subject — see
-    // PageLayoutController's docblock for why this isn't one generic
-    // "resolve by string type" route instead.
+    // gated. One thin read endpoint per subject type (Server/Game/Home/
+    // the games list), each already route-bound to its real subject —
+    // see PageLayoutController's docblock for why this isn't one generic
+    // "resolve by string type" route instead. /games-list/layout (not
+    // /games/layout) to stay unambiguous next to /games/{slug} above.
     Route::get('/servers/{server}/layout', [PageLayoutController::class, 'showForServer']);
     Route::get('/games/{slug}/layout', [PageLayoutController::class, 'showForGame']);
     Route::get('/home/layout', [PageLayoutController::class, 'showForHome']);
+    Route::get('/games-list/layout', [PageLayoutController::class, 'showForGamesList']);
     Route::get('/theme', [ThemeController::class, 'show']);
     // Browsing the library needs no more privilege than browsing
     // games/servers/theme — only uploading/deleting are gated (below).

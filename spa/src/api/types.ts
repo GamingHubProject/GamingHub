@@ -22,6 +22,10 @@ export interface ServerAllocation {
 export interface Server {
   id: number;
   game_id: number;
+  // Only present when the backend eager-loaded the owning Game (e.g.
+  // ServerController::show) — see ServerCardWidget, which needs it to
+  // build a /games/{slug}/servers/{id} link without a second fetch.
+  game_slug?: string | null;
   server_group_id: number | null;
   name: string;
   slug: string;
@@ -86,7 +90,7 @@ export interface DashboardPage {
   widgets: DashboardWidget[];
 }
 
-export type PageLayoutSubjectType = 'server' | 'game' | 'home';
+export type PageLayoutSubjectType = 'server' | 'game' | 'home' | 'games-list';
 
 export interface PageLayoutWidget {
   id: number;

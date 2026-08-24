@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use GamingHub\Core\Models\Game;
 use GamingHub\Core\Models\Server;
 use GamingHub\Core\Models\ServerAllocation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -38,6 +39,17 @@ class ServerApiTest extends TestCase
         $response->assertOk();
         $response->assertJsonCount(1, 'data.allocations');
         $response->assertJsonPath('data.allocations.0.port', 25565);
+    }
+
+    public function test_show_includes_the_owning_games_slug(): void
+    {
+        $game = Game::factory()->create(['slug' => 'palworld']);
+        $server = Server::factory()->create(['game_id' => $game->id]);
+
+        $response = $this->getJson("/api/v1/servers/{$server->id}");
+
+        $response->assertOk();
+        $response->assertJsonPath('data.game_slug', 'palworld');
     }
 
     public function test_show_404s_for_an_unknown_server(): void

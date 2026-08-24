@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ApiClientProvider } from '../providers/ApiClientProvider';
 // Registers the real widget types (side effect) — the same import
 // App.tsx does. Without it the registry is empty and every widget falls
 // back to "Unsupported widget type".
@@ -142,6 +145,24 @@ describe('PageLayoutWidgetContainer', () => {
     );
 
     expect(container.firstElementChild).toHaveStyle({ border: '1px solid var(--border, #ddd)' });
+  });
+
+  it('drops the card border for a widget type registered chromeless (game-card), even when not layered', () => {
+    const gameCardWidget = { ...widget, widget_type: 'game-card', config: null };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const apiClient = { get: async () => [] };
+
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <ApiClientProvider client={apiClient as any}>
+          <MemoryRouter>
+            <PageLayoutWidgetContainer widget={gameCardWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+          </MemoryRouter>
+        </ApiClientProvider>
+      </QueryClientProvider>
+    );
+
+    expect(container.firstElementChild).not.toHaveStyle({ border: '1px solid var(--border, #ddd)' });
   });
 
   it('passes layered through to the widget component', () => {

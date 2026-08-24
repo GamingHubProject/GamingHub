@@ -19,6 +19,12 @@ class ServerResource extends JsonResource
         return [
             'id' => $this->id,
             'game_id' => $this->game_id,
+            // The SPA's server route is slug-based
+            // (/games/{slug}/servers/{id}), not id-based — a standalone
+            // server-card widget (config: server_id only, no page context
+            // to borrow a slug from, see ServerCardWidget) needs this to
+            // build its own link without a second /games fetch.
+            'game_slug' => $this->whenLoaded('game', fn () => $this->game->slug),
             'server_group_id' => $this->server_group_id,
             'name' => $this->name,
             'slug' => $this->slug,

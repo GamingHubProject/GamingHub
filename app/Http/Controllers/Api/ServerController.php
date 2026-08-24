@@ -10,6 +10,6 @@ class ServerController extends Controller
 {
     public function show(Server $server): ServerResource
     {
-        return new ServerResource($server->load('allocations'));
+        return new ServerResource($server->load('allocations', 'game'));
     }
 }

@@ -120,8 +120,8 @@ class PageLayoutApiTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonPath('data.subject_type', 'home');
-        $response->assertJsonPath('data.subject_id', PageLayout::HOME_SUBJECT_ID);
-        $this->assertDatabaseHas('page_layouts', ['subject_type' => 'home', 'subject_id' => PageLayout::HOME_SUBJECT_ID]);
+        $response->assertJsonPath('data.subject_id', PageLayout::SINGLETON_SUBJECT_ID);
+        $this->assertDatabaseHas('page_layouts', ['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
     }
 
     public function test_home_show_is_a_singleton_across_repeat_requests(): void
@@ -132,11 +132,61 @@ class PageLayoutApiTest extends TestCase
         $this->assertSame(1, PageLayout::where('subject_type', 'home')->count());
     }
 
+    public function test_home_show_seeds_a_default_game_card_widget_on_first_creation(): void
+    {
+        $response = $this->getJson('/api/v1/home/layout');
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data.widgets');
+        $response->assertJsonPath('data.widgets.0.widget_type', 'game-card');
+        $response->assertJsonPath('data.widgets.0.config.mode', 'all');
+    }
+
+    public function test_home_show_does_not_reseed_a_layout_an_admin_has_already_emptied(): void
+    {
+        $this->getJson('/api/v1/home/layout')->assertOk();
+        $layout = PageLayout::where('subject_type', 'home')->first();
+        $layout->widgets()->delete();
+
+        $response = $this->getJson('/api/v1/home/layout');
+
+        $response->assertJsonCount(0, 'data.widgets');
+    }
+
+    // --- Games list subject ---
+
+    public function test_games_list_show_auto_creates_the_singleton_layout_seeded_with_a_game_card(): void
+    {
+        $response = $this->getJson('/api/v1/games-list/layout');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.subject_type', 'games-list');
+        $response->assertJsonPath('data.subject_id', PageLayout::SINGLETON_SUBJECT_ID);
+        $response->assertJsonCount(1, 'data.widgets');
+        $response->assertJsonPath('data.widgets.0.widget_type', 'game-card');
+    }
+
+    public function test_games_list_show_is_a_singleton_across_repeat_requests(): void
+    {
+        $this->getJson('/api/v1/games-list/layout')->assertOk();
+        $this->getJson('/api/v1/games-list/layout')->assertOk();
+
+        $this->assertSame(1, PageLayout::where('subject_type', 'games-list')->count());
+    }
+
+    public function test_home_and_games_list_singletons_never_collide(): void
+    {
+        $this->getJson('/api/v1/home/layout')->assertOk();
+        $this->getJson('/api/v1/games-list/layout')->assertOk();
+
+        $this->assertSame(2, PageLayout::where('subject_id', PageLayout::SINGLETON_SUBJECT_ID)->count());
+    }
+
     // --- Widget writes (subject-agnostic) ---
 
     public function test_store_requires_authentication(): void
     {
-        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::HOME_SUBJECT_ID]);
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
 
         $this->postJson("/api/v1/page-layouts/{$layout->id}/widgets", ['widget_type' => 'server-status'])
             ->assertUnauthorized();
@@ -144,7 +194,7 @@ class PageLayoutApiTest extends TestCase
 
     public function test_store_requires_the_admin_role(): void
     {
-        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::HOME_SUBJECT_ID]);
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
         $user = User::factory()->create();
 
         $this->actingAs($user)
@@ -173,7 +223,7 @@ class PageLayoutApiTest extends TestCase
 
     public function test_store_falls_back_to_default_position_and_size_when_omitted(): void
     {
-        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::HOME_SUBJECT_ID]);
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
 
         $response = $this->actingAs($this->admin())->postJson("/api/v1/page-layouts/{$layout->id}/widgets", [
             'widget_type' => 'server-status',
@@ -188,7 +238,7 @@ class PageLayoutApiTest extends TestCase
 
     public function test_update_requires_the_admin_role(): void
     {
-        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::HOME_SUBJECT_ID]);
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
         $widget = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'server-status']);
         $user = User::factory()->create();
 
@@ -199,7 +249,7 @@ class PageLayoutApiTest extends TestCase
 
     public function test_update_persists_a_new_position_and_size(): void
     {
-        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::HOME_SUBJECT_ID]);
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
         $widget = PageLayoutWidget::create([
             'page_layout_id' => $layout->id,
             'widget_type' => 'server-metrics',
@@ -228,7 +278,7 @@ class PageLayoutApiTest extends TestCase
 
     public function test_update_persists_a_config_toggle(): void
     {
-        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::HOME_SUBJECT_ID]);
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
         $widget = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'server-status']);
 
         $response = $this->actingAs($this->admin())->patchJson("/api/v1/page-layout-widgets/{$widget->id}", [
@@ -242,7 +292,7 @@ class PageLayoutApiTest extends TestCase
 
     public function test_destroy_requires_the_admin_role(): void
     {
-        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::HOME_SUBJECT_ID]);
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
         $widget = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'server-allocations']);
         $user = User::factory()->create();
 
@@ -254,7 +304,7 @@ class PageLayoutApiTest extends TestCase
 
     public function test_destroy_removes_the_widget(): void
     {
-        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::HOME_SUBJECT_ID]);
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
         $widget = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'server-allocations']);
 
         $response = $this->actingAs($this->admin())->deleteJson("/api/v1/page-layout-widgets/{$widget->id}");

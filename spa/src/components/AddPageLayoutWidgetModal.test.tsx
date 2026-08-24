@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-// Registers the real page-layout widget types (side effect) — every one
-// today is validFor: ['server'], category: 'Server'.
+// Registers the real page-layout widget types (side effect).
 import '../widgets/pageLayout';
 import { AddPageLayoutWidgetModal } from './AddPageLayoutWidgetModal';
 
@@ -13,13 +12,23 @@ describe('AddPageLayoutWidgetModal', () => {
     expect(screen.getByText('Banner')).toBeInTheDocument();
     expect(screen.getByText('Status')).toBeInTheDocument();
     expect(screen.getByText('Server Name')).toBeInTheDocument();
+    // Cross-linking widgets, validFor includes 'server' too.
+    expect(screen.getByText('Game Card')).toBeInTheDocument();
   });
 
-  it('shows nothing to add on a Home page, since no widget type is validFor home today', () => {
+  it('offers only the two cross-linking widgets on a Home page — no Server-only widget type is validFor home', () => {
     render(<AddPageLayoutWidgetModal subjectType="home" onClose={() => {}} onAdd={() => {}} />);
 
-    expect(screen.getByText('No widget types are available on this page yet.')).toBeInTheDocument();
+    expect(screen.getByText('Game Card')).toBeInTheDocument();
+    expect(screen.getByText('Server Card')).toBeInTheDocument();
     expect(screen.queryByText('Banner')).not.toBeInTheDocument();
+    expect(screen.queryByText('No widget types are available on this page yet.')).not.toBeInTheDocument();
+  });
+
+  it('shows nothing to add on a page type with no valid widgets at all', () => {
+    render(<AddPageLayoutWidgetModal subjectType={'unknown-page-type' as any} onClose={() => {}} onAdd={() => {}} />);
+
+    expect(screen.getByText('No widget types are available on this page yet.')).toBeInTheDocument();
   });
 
   it('filters by search text against the label', () => {

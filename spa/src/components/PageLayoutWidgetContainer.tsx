@@ -33,11 +33,12 @@ export function PageLayoutWidgetContainer({
 }) {
   const definition = getPageLayoutWidgetDefinition(widget.widget_type);
   const config = widget.config ?? definition?.defaultConfig ?? {};
+  const chromeless = layered || (definition?.chromeless ?? false);
 
   return (
     <div
       style={
-        layered
+        chromeless
           ? { height: '100%', display: 'flex', flexDirection: 'column' }
           : {
               border: '1px solid var(--border, #ddd)',
@@ -78,7 +79,7 @@ export function PageLayoutWidgetContainer({
           </div>
         </div>
       )}
-      <div style={{ flex: 1, overflow: layered ? 'visible' : 'auto' }}>
+      <div style={{ flex: 1, overflow: chromeless ? 'visible' : 'auto' }}>
         {definition ? (
           <definition.component context={context} config={config} layered={layered} />
         ) : (
