@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '../../providers/ApiClientProvider';
 import { GameCard } from '../../components/GameCard';
-import type { Game } from '../../api/types';
+import { AssetPicker } from '../../components/AssetPicker';
+import type { AssetPreview } from '../../components/AssetPicker';
+import type { Asset, Game } from '../../api/types';
 import type { PageLayoutWidgetConfigFormProps } from './registry';
 
 export interface GameCardWidgetConfig {
@@ -13,12 +15,22 @@ export interface GameCardWidgetConfig {
   // "resolve id to slug" lookup. Both null/unused in 'all' mode.
   game_id: number | null;
   game_slug: string | null;
+  // 'single' mode only — an icon override for just this widget instance,
+  // not an edit to the Game record itself (same reasoning as the banner
+  // override above: this is widget config, not shared data). Falls back
+  // to the game's own icon_url when unset. Meaningless/unused in 'all'
+  // mode, same as game_id/game_slug are unused in 'single' mode's
+  // opposite direction.
+  icon_asset_id: number | null;
+  icon_url: string | null;
 }
 
 export const gameCardWidgetDefaultConfig: GameCardWidgetConfig = {
   mode: 'all',
   game_id: null,
   game_slug: null,
+  icon_asset_id: null,
+  icon_url: null,
 };
 
 // 'all' mode renders the exact same grid+GameCard markup the Home and
@@ -46,9 +58,12 @@ export function GameCardWidget({ config }: { config: GameCardWidgetConfig }) {
     if (!config.game_slug) return <p style={{ padding: 12, opacity: 0.7 }}>No game selected yet.</p>;
     if (singleLoading) return <p style={{ padding: 12 }}>Loading…</p>;
     if (!singleGame) return <p style={{ padding: 12, opacity: 0.7 }}>Game not found.</p>;
+    // Override applied at render time only — never sent back to the Game
+    // record itself, see the config field's docblock.
+    const displayGame = config.icon_url ? { ...singleGame, icon_url: config.icon_url } : singleGame;
     return (
       <div style={{ padding: 12, maxWidth: 260 }}>
-        <GameCard game={singleGame} />
+        <GameCard game={displayGame} />
       </div>
     );
   }
@@ -95,20 +110,38 @@ export function GameCardWidgetConfigForm({ config, onChange }: PageLayoutWidgetC
       </label>
 
       {config.mode === 'single' && (
-        <select
-          value={config.game_slug ?? ''}
-          onChange={(event) => {
-            const game = games?.find((g) => g.slug === event.target.value);
-            onChange({ ...config, game_id: game?.id ?? null, game_slug: game?.slug ?? null });
-          }}
-        >
-          <option value="">Choose a game…</option>
-          {games?.map((game) => (
-            <option key={game.id} value={game.slug}>
-              {game.name}
-            </option>
-          ))}
-        </select>
+        <>
+          <select
+            value={config.game_slug ?? ''}
+            onChange={(event) => {
+              const game = games?.find((g) => g.slug === event.target.value);
+              onChange({ ...config, game_id: game?.id ?? null, game_slug: game?.slug ?? null });
+            }}
+          >
+            <option value="">Choose a game…</option>
+            {games?.map((game) => (
+              <option key={game.id} value={game.slug}>
+                {game.name}
+              </option>
+            ))}
+          </select>
+
+          <label>
+            Icon override (optional)
+            <div style={{ marginTop: 4 }}>
+              <AssetPicker
+                value={
+                  config.icon_url
+                    ? ({ thumbnail_url: config.icon_url, alt_text: null } as AssetPreview)
+                    : null
+                }
+                onChange={(asset: Asset | null) =>
+                  onChange({ ...config, icon_asset_id: asset?.id ?? null, icon_url: asset?.url ?? null })
+                }
+              />
+            </div>
+          </label>
+        </>
       )}
     </div>
   );

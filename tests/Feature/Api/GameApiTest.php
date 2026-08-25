@@ -66,4 +66,26 @@ class GameApiTest extends TestCase
 
         $this->getJson('/api/v1/games/disabled-game/servers')->assertNotFound();
     }
+
+    public function test_index_includes_the_servers_count(): void
+    {
+        $ark = Game::factory()->create(['slug' => 'ark', 'status' => 'enabled']);
+        Server::factory()->count(3)->create(['game_id' => $ark->id]);
+
+        $response = $this->getJson('/api/v1/games');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.0.servers_count', 3);
+    }
+
+    public function test_show_includes_the_servers_count(): void
+    {
+        $ark = Game::factory()->create(['slug' => 'ark', 'status' => 'enabled']);
+        Server::factory()->count(2)->create(['game_id' => $ark->id]);
+
+        $response = $this->getJson('/api/v1/games/ark');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.servers_count', 2);
+    }
 }

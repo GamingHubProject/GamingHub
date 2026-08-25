@@ -79,7 +79,16 @@ export function PageLayoutWidgetContainer({
           </div>
         </div>
       )}
-      <div style={{ flex: 1, overflow: chromeless ? 'visible' : 'auto' }}>
+      {/* overflow is keyed on `layered` alone, not `chromeless` — a
+          layered widget's content is meant to escape onto the banner
+          beneath it (overflow: visible), but a chromeless widget (e.g.
+          game-card's 'all' mode) is still a normal, contained grid cell:
+          its content should stay clipped/scrollable within the widget's
+          own box, same as any bordered widget. Conflating the two here
+          previously made game-card's grid spill out past its resize
+          handle instead of staying resizable as one block — confirmed
+          live, not assumed. */}
+      <div style={{ flex: 1, overflow: layered ? 'visible' : 'auto' }}>
         {definition ? (
           <definition.component context={context} config={config} layered={layered} />
         ) : (

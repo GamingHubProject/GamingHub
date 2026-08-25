@@ -13,6 +13,7 @@ class GameController extends Controller
     public function index(): AnonymousResourceCollection
     {
         $games = Game::query()
+            ->withCount('servers')
             ->where('status', 'enabled')
             ->orderBy('name')
             ->get();
@@ -23,6 +24,7 @@ class GameController extends Controller
     public function show(string $slug): GameResource
     {
         $game = Game::query()
+            ->withCount('servers')
             ->where('slug', $slug)
             ->where('status', 'enabled')
             ->firstOrFail();

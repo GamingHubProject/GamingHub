@@ -6,7 +6,21 @@ export interface Game {
   icon_url: string | null;
   status: string;
   has_servers: boolean;
+  // Only meaningful when has_servers is true — see GameCard. Optional
+  // (not always eager-loaded server-side, same convention as Server's
+  // game_slug) rather than required.
+  servers_count?: number;
   metadata: Record<string, unknown> | null;
+}
+
+export interface ServerGroup {
+  id: number;
+  game_id: number;
+  game_slug?: string | null;
+  name: string;
+  description: string | null;
+  servers_count: number;
+  running_count: number;
 }
 
 export interface ServerAllocation {

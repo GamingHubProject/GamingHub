@@ -18,6 +18,13 @@ class GameResource extends JsonResource
             'icon_url' => $this->icon_url,
             'status' => $this->status,
             'has_servers' => $this->has_servers,
+            // Only ever meaningful when has_servers is true — GameCard
+            // shows "External" instead of a count otherwise (see its
+            // docblock). Relies on the controller eager-loading the count
+            // (Game::withCount('servers')); whenCounted degrades to
+            // omitting the key rather than a slow per-row query if a
+            // caller ever forgets to.
+            'servers_count' => $this->whenCounted('servers'),
             'metadata' => $this->metadata,
         ];
     }

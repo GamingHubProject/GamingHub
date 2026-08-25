@@ -7,6 +7,7 @@ import { ServerPlayerCountWidget } from './ServerPlayerCountWidget';
 import { ServerAllocationsWidget } from './ServerAllocationsWidget';
 import { GameCardWidget, GameCardWidgetConfigForm, gameCardWidgetDefaultConfig } from './GameCardWidget';
 import { ServerCardWidget, ServerCardWidgetConfigForm, serverCardWidgetDefaultConfig } from './ServerCardWidget';
+import { ServerGroupCardWidget, ServerGroupCardWidgetConfigForm, serverGroupCardWidgetDefaultConfig } from './ServerGroupCardWidget';
 
 registerPageLayoutWidget({
   type: 'server-banner',
@@ -108,6 +109,18 @@ registerPageLayoutWidget({
   component: ServerCardWidget,
   configForm: ServerCardWidgetConfigForm,
   defaultConfig: serverCardWidgetDefaultConfig,
+  defaultWidth: 4,
+  defaultHeight: 2,
+});
+
+registerPageLayoutWidget({
+  type: 'server-group-card',
+  label: 'Server Group Card',
+  category: 'Server',
+  validFor: ['home', 'games-list', 'game'],
+  component: ServerGroupCardWidget,
+  configForm: ServerGroupCardWidgetConfigForm,
+  defaultConfig: serverGroupCardWidgetDefaultConfig,
   defaultWidth: 4,
   defaultHeight: 2,
 });

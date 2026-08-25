@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\PageController;
 use App\Http\Controllers\Api\PageLayoutController;
 use App\Http\Controllers\Api\PageLayoutWidgetController;
 use App\Http\Controllers\Api\ServerController;
+use App\Http\Controllers\Api\ServerGroupController;
 use App\Http\Controllers\Api\ThemeController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,11 @@ Route::prefix('v1')->group(function () {
     Route::get('/games', [GameController::class, 'index']);
     Route::get('/games/{slug}', [GameController::class, 'show']);
     Route::get('/games/{slug}/servers', [GameController::class, 'servers']);
+    // For server-group-card's config picker (cascading game -> group,
+    // mirroring server-card's game -> server picker) and the widget's own
+    // render.
+    Route::get('/games/{slug}/server-groups', [ServerGroupController::class, 'forGame']);
+    Route::get('/server-groups/{group}', [ServerGroupController::class, 'show']);
     Route::get('/servers/{server}', [ServerController::class, 'show']);
     // Shared/admin-owned, not a player's own — every visitor sees the same
     // layout (see App\Models\PageLayout's docblock). Public like the

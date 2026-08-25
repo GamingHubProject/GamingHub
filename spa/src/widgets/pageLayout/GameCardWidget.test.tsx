@@ -45,11 +45,23 @@ describe('GameCardWidget', () => {
 
   it("'single' mode renders just the configured game", async () => {
     renderWidget(
-      { mode: 'single', game_id: 1, game_slug: 'palworld' },
+      { mode: 'single', game_id: 1, game_slug: 'palworld', icon_asset_id: null, icon_url: null },
       { get: async (path: string) => (path === '/api/v1/games/palworld' ? palworld : null) }
     );
 
     await waitFor(() => expect(screen.getByText('Palworld')).toBeInTheDocument());
     expect(screen.queryByText('Ark')).not.toBeInTheDocument();
+  });
+
+  it("'single' mode uses the configured icon_url override instead of the game's own icon_url", async () => {
+    const { container } = renderWidget(
+      { mode: 'single', game_id: 1, game_slug: 'palworld', icon_asset_id: 7, icon_url: 'http://localhost/storage/override.png' },
+      { get: async (path: string) => (path === '/api/v1/games/palworld' ? palworld : null) }
+    );
+
+    // alt="" gives the <img> role "presentation", not "img" (per ARIA) —
+    // querying by tag rather than role here, unlike other image assertions
+    // in this codebase that have real alt text to query by role with.
+    await waitFor(() => expect(container.querySelector('img')).toHaveAttribute('src', 'http://localhost/storage/override.png'));
   });
 });

@@ -16,11 +16,12 @@ describe('AddPageLayoutWidgetModal', () => {
     expect(screen.getByText('Game Card')).toBeInTheDocument();
   });
 
-  it('offers only the two cross-linking widgets on a Home page — no Server-only widget type is validFor home', () => {
+  it('offers only the three cross-linking widgets on a Home page — no Server-only widget type is validFor home', () => {
     render(<AddPageLayoutWidgetModal subjectType="home" onClose={() => {}} onAdd={() => {}} />);
 
     expect(screen.getByText('Game Card')).toBeInTheDocument();
     expect(screen.getByText('Server Card')).toBeInTheDocument();
+    expect(screen.getByText('Server Group Card')).toBeInTheDocument();
     expect(screen.queryByText('Banner')).not.toBeInTheDocument();
     expect(screen.queryByText('No widget types are available on this page yet.')).not.toBeInTheDocument();
   });
