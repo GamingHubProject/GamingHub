@@ -26,12 +26,29 @@ export const cardPaddingStyle: CSSProperties = {
   padding: 'clamp(6px, 6cqh, 16px)',
 };
 
+/**
+ * The icon-before-name row (see CardIcon) — icon and title share this flex
+ * row instead of each sitting in its own block-level element, which is
+ * what stacked them vertically before this existed. `minWidth: 0` on the
+ * row lets the title's own `text-overflow: ellipsis` (cardTitleStyle)
+ * actually kick in inside a flex child, which otherwise refuses to shrink
+ * below its content's natural width.
+ */
+export const cardHeaderRowStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 'clamp(4px, 4cqh, 10px)',
+  minWidth: 0,
+};
+
 export const cardTitleStyle: CSSProperties = {
   margin: '0 0 clamp(2px, 2cqh, 8px)',
   fontSize: 'clamp(0.7rem, 9cqh, 1.25rem)',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+  minWidth: 0,
 };
 
 export const cardBodyStyle: CSSProperties = {

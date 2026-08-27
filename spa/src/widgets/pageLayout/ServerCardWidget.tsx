@@ -7,7 +7,7 @@ import { ProgressBar } from '../shared/ProgressBar';
 import { AssetPicker } from '../../components/AssetPicker';
 import type { AssetPreview } from '../../components/AssetPicker';
 import { CardIcon } from '../shared/CardIcon';
-import { cardBodyStyle, cardContainerStyle, cardMetaStyle, cardPaddingStyle, cardTitleStyle } from '../shared/cardScale';
+import { cardBodyStyle, cardContainerStyle, cardHeaderRowStyle, cardMetaStyle, cardPaddingStyle, cardTitleStyle } from '../shared/cardScale';
 import type { Asset, Game, Server } from '../../api/types';
 import type { PageLayoutWidgetConfigFormProps } from './registry';
 
@@ -69,8 +69,10 @@ export function ServerCardWidget({ config }: { config: ServerCardWidgetConfig })
         ...cardPaddingStyle,
       }}
     >
-      <CardIcon url={config.icon_url} show={config.show_icon} />
-      <h4 style={cardTitleStyle}>{server.name}</h4>
+      <div style={{ ...cardHeaderRowStyle, marginBottom: 'clamp(2px, 2cqh, 8px)' }}>
+        <CardIcon url={config.icon_url} show={config.show_icon} />
+        <h4 style={{ ...cardTitleStyle, margin: 0 }}>{server.name}</h4>
+      </div>
       {config.show_status && <StatusBadge status={server.status} />}
       {config.show_player_count && server.max_players !== null && (
         <p style={{ ...cardBodyStyle, margin: '8px 0 0' }}>

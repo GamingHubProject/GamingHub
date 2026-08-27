@@ -5,7 +5,7 @@ import { useApi } from '../../providers/ApiClientProvider';
 import { AssetPicker } from '../../components/AssetPicker';
 import type { AssetPreview } from '../../components/AssetPicker';
 import { CardIcon } from '../shared/CardIcon';
-import { cardBodyStyle, cardContainerStyle, cardPaddingStyle, cardTitleStyle } from '../shared/cardScale';
+import { cardBodyStyle, cardContainerStyle, cardHeaderRowStyle, cardPaddingStyle, cardTitleStyle } from '../shared/cardScale';
 import type { Asset, Game, ServerGroup } from '../../api/types';
 import type { PageLayoutWidgetConfigFormProps } from './registry';
 
@@ -56,8 +56,10 @@ export function ServerGroupCardWidget({ config }: { config: ServerGroupCardWidge
         ...cardPaddingStyle,
       }}
     >
-      <CardIcon url={config.icon_url} show={config.show_icon} />
-      <h4 style={cardTitleStyle}>{group.name}</h4>
+      <div style={{ ...cardHeaderRowStyle, marginBottom: 'clamp(2px, 2cqh, 8px)' }}>
+        <CardIcon url={config.icon_url} show={config.show_icon} />
+        <h4 style={{ ...cardTitleStyle, margin: 0 }}>{group.name}</h4>
+      </div>
       <p style={{ ...cardBodyStyle, margin: 0 }}>
         {group.running_count}/{group.servers_count} running
       </p>

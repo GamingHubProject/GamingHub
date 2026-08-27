@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { CardIcon } from '../widgets/shared/CardIcon';
-import { cardBodyStyle, cardContainerStyle, cardMetaStyle, cardPaddingStyle, cardTitleStyle } from '../widgets/shared/cardScale';
+import { cardBodyStyle, cardContainerStyle, cardHeaderRowStyle, cardMetaStyle, cardPaddingStyle, cardTitleStyle } from '../widgets/shared/cardScale';
 import type { Game } from '../api/types';
 
 /**
@@ -22,8 +22,10 @@ export function GameCard({ game, showIcon = true }: { game: Game; showIcon?: boo
         ...cardPaddingStyle,
       }}
     >
-      <CardIcon url={game.icon_url} show={showIcon} />
-      <h3 style={cardTitleStyle}>{game.name}</h3>
+      <div style={{ ...cardHeaderRowStyle, marginBottom: 'clamp(2px, 2cqh, 8px)' }}>
+        <CardIcon url={game.icon_url} show={showIcon} />
+        <h3 style={{ ...cardTitleStyle, margin: 0 }}>{game.name}</h3>
+      </div>
       {game.description && <p style={{ ...cardBodyStyle, margin: 0, whiteSpace: 'normal' }}>{game.description}</p>}
       {/* has_servers=false already means "hosted elsewhere, not Gaming
           Hub-managed" (see GameResource's Filament form helper text) —
