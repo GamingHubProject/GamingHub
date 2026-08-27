@@ -4,6 +4,9 @@ namespace App\Experience;
 
 use GamingHub\Core\Models\Game;
 use GamingHub\Core\Models\Server;
+use App\Models\Asset;
+use App\Models\PageLayout;
+use App\Models\SiteOption;
 use App\Models\Theme;
 
 /**
@@ -40,5 +43,21 @@ class ThemeResolver
             ->first();
 
         return $theme?->tokens ?? [];
+    }
+
+    /**
+     * A separate, much simpler axis from resolve()'s platform/game/server
+     * color cascade: font is scoped by *page* (page_layouts' subject),
+     * which is the only scoping that covers Home and the Games listing —
+     * neither has a Game/Server to hang a Theme row off of. Just two
+     * levels: this page's own override, else the platform-wide default —
+     * a null font_asset_id on the layout *is* "sync to global", not a
+     * separate flag.
+     */
+    public function resolveFont(?PageLayout $layout): ?Asset
+    {
+        $assetId = $layout?->font_asset_id ?? SiteOption::value('font_asset_id');
+
+        return $assetId ? Asset::find($assetId) : null;
     }
 }

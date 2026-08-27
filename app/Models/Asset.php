@@ -98,6 +98,33 @@ class Asset extends Model
 
     public function hasThumbnail(): bool
     {
-        return $this->mime_type !== 'image/svg+xml';
+        return ! static::isNonRasterMime($this->mime_type);
+    }
+
+    /**
+     * True for a mime that has no fixed pixel dimensions and nothing
+     * visual to thumbnail — SVG (vector) and, since the Theme font system,
+     * woff/woff2 (fonts). Shared between here and AssetController::
+     * dimensions()/store() so the "no getimagesize(), no thumbnail" branch
+     * only has one definition of what counts as non-raster.
+     *
+     * Deliberately doesn't include 'application/octet-stream' — some
+     * servers' fileinfo databases do report that for a .woff2 file, but
+     * it's also the generic fallback for arbitrary binary data; treating
+     * it as "definitely a font" here would be wrong for anything else that
+     * mimetype could mean. If that turns out to be a real problem on a
+     * given server, the fix belongs in AssetController (checking the
+     * upload's extension too), not by widening this to a mime that isn't
+     * actually specific to fonts.
+     */
+    public static function isNonRasterMime(string $mimeType): bool
+    {
+        return in_array($mimeType, [
+            'image/svg+xml',
+            'font/woff',
+            'font/woff2',
+            'application/font-woff',
+            'application/font-woff2',
+        ], true);
     }
 }

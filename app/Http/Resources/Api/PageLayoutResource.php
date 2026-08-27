@@ -14,6 +14,7 @@ class PageLayoutResource extends JsonResource
             'id' => $this->id,
             'subject_type' => $this->subject_type,
             'subject_id' => $this->subject_id,
+            'font_asset_id' => $this->font_asset_id,
             'widgets' => PageLayoutWidgetResource::collection($this->whenLoaded('widgets')),
         ];
     }

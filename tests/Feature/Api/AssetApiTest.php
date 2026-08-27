@@ -228,6 +228,21 @@ class AssetApiTest extends TestCase
         Storage::disk('public')->assertMissing($asset->thumbnailPath());
     }
 
+    public function test_store_does_not_generate_a_thumbnail_for_a_font_and_reuses_the_original_url(): void
+    {
+        $file = UploadedFile::fake()->create('font.woff2', 50, 'font/woff2');
+
+        $response = $this->actingAs($this->admin())->postJson('/api/v1/assets', ['file' => $file]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.mime_type', 'font/woff2');
+        $response->assertJsonPath('data.width', null);
+
+        $asset = Asset::first();
+        $this->assertSame($asset->url, $response->json('data.thumbnail_url'));
+        Storage::disk('public')->assertMissing($asset->thumbnailPath());
+    }
+
     public function test_store_rejects_a_disallowed_file_type(): void
     {
         $file = UploadedFile::fake()->create('malware.exe', 10, 'application/x-msdownload');

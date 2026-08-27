@@ -109,9 +109,9 @@ class AssetController extends Controller
         // Thumbnail generated before anything touches disk — if it throws
         // (a corrupt-but-validation-passing file), nothing has been
         // written yet, so there's no orphaned original to clean up.
-        $thumbnail = $mimeType !== 'image/svg+xml'
-            ? $this->thumbnailer->make($bytes, $mimeType, config('assets.thumbnail.max_width'), config('assets.thumbnail.max_height'))
-            : null;
+        $thumbnail = Asset::isNonRasterMime($mimeType)
+            ? null
+            : $this->thumbnailer->make($bytes, $mimeType, config('assets.thumbnail.max_width'), config('assets.thumbnail.max_height'));
 
         $disk = Storage::disk(config('assets.disk'));
         $disk->put($path, $bytes);
@@ -188,7 +188,7 @@ class AssetController extends Controller
      */
     private function dimensions(UploadedFile $file, string $mimeType): array
     {
-        if ($mimeType === 'image/svg+xml') {
+        if (Asset::isNonRasterMime($mimeType)) {
             return [null, null];
         }
 

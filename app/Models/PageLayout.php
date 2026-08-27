@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -30,10 +31,16 @@ class PageLayout extends Model
     protected $fillable = [
         'subject_type',
         'subject_id',
+        'font_asset_id',
     ];
 
     public function widgets(): HasMany
     {
         return $this->hasMany(PageLayoutWidget::class);
+    }
+
+    public function font(): BelongsTo
+    {
+        return $this->belongsTo(Asset::class, 'font_asset_id');
     }
 }

@@ -7,7 +7,7 @@ import { AddPageLayoutWidgetModal } from './AddPageLayoutWidgetModal';
 import { PageLayoutWidgetConfigModal } from './PageLayoutWidgetConfigModal';
 import { getPageLayoutWidgetDefinition } from '../widgets/pageLayout/registry';
 import type { PageLayoutWidgetContext } from '../widgets/pageLayout/registry';
-import type { PageLayout, PageLayoutWidget } from '../api/types';
+import type { AssetFolder, AssetList, PageLayout, PageLayoutWidget } from '../api/types';
 
 const ResponsiveGridLayout = WidthProvider(GridLayout);
 const GRID_COLS = 12;
@@ -87,6 +87,60 @@ export function layeredWidgetIds(widgets: PageLayoutWidget[]): Set<number> {
 function nextWidgetPosition(widgets: PageLayoutWidget[]): { x: number; y: number } {
   const bottom = widgets.reduce((max, w) => Math.max(max, w.position_y + w.height), 0);
   return { x: 0, y: bottom };
+}
+
+/**
+ * The one field a layout itself has (as opposed to its widgets) — this
+ * page's font override. "Sync to global" is the null option, not a
+ * separate checkbox — see ThemeResolver::resolveFont's docblock. The
+ * Fonts folder is fetched via its own lazily-creating endpoint rather
+ * than assumed to already exist (see AssetFolderController::fonts).
+ */
+function PageFontControl({ layout, queryKey }: { layout: PageLayout; queryKey: unknown[] }) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+
+  const { data: fontsFolder } = useQuery({
+    queryKey: ['asset-folders', 'fonts'],
+    queryFn: () => api.get<AssetFolder>('/api/v1/asset-folders/fonts'),
+  });
+
+  const { data: fontAssets } = useQuery({
+    queryKey: ['assets', { folderId: fontsFolder?.id }],
+    queryFn: () => api.get<AssetList>(`/api/v1/assets?folder_id=${fontsFolder!.id}`),
+    enabled: !!fontsFolder,
+  });
+
+  const updateFontMutation = useMutation({
+    mutationFn: (fontAssetId: number | null) =>
+      api.patch<PageLayout>(`/api/v1/page-layouts/${layout.id}`, { font_asset_id: fontAssetId }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<PageLayout>(queryKey, (prev) => (prev ? { ...prev, font_asset_id: updated.font_asset_id } : prev));
+      // ThemeProvider's ['theme', ...] query key is keyed on subjectType/
+      // subjectId (which route we're on), not on the layout's own
+      // font_asset_id — so it never notices this PATCH on its own.
+      // Without this the new/cleared override wouldn't show up until a
+      // full reload.
+      queryClient.invalidateQueries({ queryKey: ['theme'] });
+    },
+  });
+
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
+      Page font
+      <select
+        value={layout.font_asset_id ?? ''}
+        onChange={(event) => updateFontMutation.mutate(event.target.value ? Number(event.target.value) : null)}
+      >
+        <option value="">Sync to global</option>
+        {fontAssets?.items?.map((asset) => (
+          <option key={asset.id} value={asset.id}>
+            {asset.alt_text ?? `Font #${asset.id}`}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 /**
@@ -243,7 +297,8 @@ export function PageLayoutEditor({
   return (
     <div>
       {isAdmin && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <PageFontControl layout={layout} queryKey={queryKey} />
           {editMode && <button onClick={() => setAddingWidget(true)}>+ Add widget</button>}
           <button onClick={() => setEditMode((value) => !value)}>{editMode ? 'Done editing' : 'Edit layout'}</button>
         </div>

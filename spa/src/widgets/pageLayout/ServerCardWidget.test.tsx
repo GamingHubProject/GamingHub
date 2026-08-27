@@ -67,7 +67,7 @@ describe('ServerCardWidget', () => {
 
   it('hides status and player count when their toggles are off', async () => {
     renderWidget(
-      { server_id: 2, show_status: false, show_player_count: false, show_resources: false },
+      { server_id: 2, show_status: false, show_player_count: false, show_resources: false, show_icon: false, icon_asset_id: null, icon_url: null },
       { get: async () => server }
     );
 

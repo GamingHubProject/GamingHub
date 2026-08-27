@@ -40,7 +40,7 @@ function renderEditor(
 
 describe('PageLayoutEditor', () => {
   it('renders nothing extra for an empty, non-editing layout', async () => {
-    const emptyLayout: PageLayout = { id: 1, subject_type: 'home', subject_id: 0, widgets: [] };
+    const emptyLayout: PageLayout = { id: 1, subject_type: 'home', subject_id: 0, font_asset_id: null, widgets: [] };
 
     renderEditor({ isAdmin: false }, { get: async () => emptyLayout });
 
@@ -49,7 +49,7 @@ describe('PageLayoutEditor', () => {
   });
 
   it('shows the Edit layout toggle for an admin, hidden for a non-admin', async () => {
-    const emptyLayout: PageLayout = { id: 1, subject_type: 'home', subject_id: 0, widgets: [] };
+    const emptyLayout: PageLayout = { id: 1, subject_type: 'home', subject_id: 0, font_asset_id: null, widgets: [] };
 
     const { unmount } = renderEditor({ isAdmin: true }, { get: async () => emptyLayout });
     await waitFor(() => expect(screen.getByText('Edit layout')).toBeInTheDocument());
@@ -61,7 +61,7 @@ describe('PageLayoutEditor', () => {
   });
 
   it('shows the grid in edit mode even when the layout is empty, so an admin has somewhere to drop the first widget', async () => {
-    const emptyLayout: PageLayout = { id: 1, subject_type: 'home', subject_id: 0, widgets: [] };
+    const emptyLayout: PageLayout = { id: 1, subject_type: 'home', subject_id: 0, font_asset_id: null, widgets: [] };
 
     renderEditor({ isAdmin: true }, { get: async () => emptyLayout });
 
@@ -72,7 +72,7 @@ describe('PageLayoutEditor', () => {
   });
 
   it('lets an admin add a widget via the redesigned picker, which posts to the page-layouts widgets endpoint', async () => {
-    const emptyLayout: PageLayout = { id: 1, subject_type: 'home', subject_id: 0, widgets: [] };
+    const emptyLayout: PageLayout = { id: 1, subject_type: 'home', subject_id: 0, font_asset_id: null, widgets: [] };
     let posted: { path: string; body: unknown } | null = null;
 
     renderEditor(
@@ -108,6 +108,7 @@ describe('PageLayoutEditor', () => {
       id: 1,
       subject_type: 'home',
       subject_id: 0,
+      font_asset_id: null,
       widgets: [{ id: 1, page_layout_id: 1, widget_type: 'server-banner', config: null, position_x: 0, position_y: 0, width: 12, height: 2 }],
     };
     let deletedPath: string | null = null;

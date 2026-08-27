@@ -4,7 +4,11 @@ import { Link } from 'react-router-dom';
 import { useApi } from '../../providers/ApiClientProvider';
 import { StatusBadge } from '../shared/StatusBadge';
 import { ProgressBar } from '../shared/ProgressBar';
-import type { Game, Server } from '../../api/types';
+import { AssetPicker } from '../../components/AssetPicker';
+import type { AssetPreview } from '../../components/AssetPicker';
+import { CardIcon } from '../shared/CardIcon';
+import { cardBodyStyle, cardContainerStyle, cardMetaStyle, cardPaddingStyle, cardTitleStyle } from '../shared/cardScale';
+import type { Asset, Game, Server } from '../../api/types';
 import type { PageLayoutWidgetConfigFormProps } from './registry';
 
 export interface ServerCardWidgetConfig {
@@ -12,6 +16,14 @@ export interface ServerCardWidgetConfig {
   show_status: boolean;
   show_player_count: boolean;
   show_resources: boolean;
+  // Server has no icon field of its own (unlike Game) — this is purely a
+  // widget-level asset, same show_icon-toggle pattern as GameCardWidget/
+  // ServerGroupCardWidget (see widgets/shared/CardIcon.tsx). Off by
+  // default: a server usually has nothing to show here until an admin
+  // picks one.
+  show_icon: boolean;
+  icon_asset_id: number | null;
+  icon_url: string | null;
 }
 
 // Minimal by default (name + link only) — an admin opts into more, rather
@@ -21,6 +33,9 @@ export const serverCardWidgetDefaultConfig: ServerCardWidgetConfig = {
   show_status: true,
   show_player_count: true,
   show_resources: false,
+  show_icon: false,
+  icon_asset_id: null,
+  icon_url: null,
 };
 
 // Cross-linking widget: a specific server's card placeable on Home, the
@@ -48,22 +63,22 @@ export function ServerCardWidget({ config }: { config: ServerCardWidgetConfig })
       to={`/games/${server.game_slug}/servers/${server.id}`}
       style={{
         display: 'block',
-        padding: 16,
-        height: '100%',
-        boxSizing: 'border-box',
         textDecoration: 'none',
         color: 'inherit',
+        ...cardContainerStyle,
+        ...cardPaddingStyle,
       }}
     >
-      <h4 style={{ margin: '0 0 8px' }}>{server.name}</h4>
+      <CardIcon url={config.icon_url} show={config.show_icon} />
+      <h4 style={cardTitleStyle}>{server.name}</h4>
       {config.show_status && <StatusBadge status={server.status} />}
       {config.show_player_count && server.max_players !== null && (
-        <p style={{ margin: '8px 0 0', fontSize: '0.9rem', opacity: 0.85 }}>
+        <p style={{ ...cardBodyStyle, margin: '8px 0 0' }}>
           {server.current_players ?? 0}/{server.max_players} players
         </p>
       )}
       {config.show_resources && (
-        <div style={{ marginTop: 8 }}>
+        <div style={{ ...cardMetaStyle, marginTop: 8 }}>
           {server.cpu_percent !== null && <ProgressBar label="CPU" percent={server.cpu_percent} />}
           {server.memory_percent !== null && <ProgressBar label="RAM" percent={server.memory_percent} />}
         </div>
@@ -169,6 +184,26 @@ export function ServerCardWidgetConfigForm({ config, onChange }: PageLayoutWidge
         />
         Show CPU/RAM
       </label>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input
+          type="checkbox"
+          checked={config.show_icon}
+          onChange={(event) => onChange({ ...config, show_icon: event.target.checked })}
+        />
+        Show icon
+      </label>
+      {config.show_icon && (
+        <label>
+          Icon
+          <div style={{ marginTop: 4 }}>
+            <AssetPicker
+              value={config.icon_url ? ({ thumbnail_url: config.icon_url, alt_text: null } as AssetPreview) : null}
+              onChange={(asset: Asset | null) => onChange({ ...config, icon_asset_id: asset?.id ?? null, icon_url: asset?.url ?? null })}
+            />
+          </div>
+        </label>
+      )}
     </div>
   );
 }

@@ -163,4 +163,54 @@ class AssetFolderApiTest extends TestCase
         $response->assertNoContent();
         $this->assertDatabaseMissing('asset_folders', ['id' => $folder->id]);
     }
+
+    // --- Fonts folder (Theme font system) ---
+
+    public function test_fonts_requires_the_admin_role(): void
+    {
+        $user = \App\Models\User::factory()->create();
+
+        $this->actingAs($user)->getJson('/api/v1/asset-folders/fonts')->assertForbidden();
+    }
+
+    public function test_fonts_lazily_creates_the_folder_on_first_call(): void
+    {
+        $this->assertDatabaseMissing('asset_folders', ['slug' => 'fonts']);
+
+        $response = $this->actingAs($this->admin())->getJson('/api/v1/asset-folders/fonts');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.slug', 'fonts');
+        $response->assertJsonPath('data.name', 'Fonts');
+        $response->assertJsonPath('data.visibility', 'admin_only');
+        $this->assertDatabaseHas('asset_folders', ['slug' => 'fonts', 'parent_id' => null]);
+    }
+
+    public function test_fonts_is_idempotent_across_repeat_calls(): void
+    {
+        $admin = $this->admin();
+
+        $first = $this->actingAs($admin)->getJson('/api/v1/asset-folders/fonts');
+        $second = $this->actingAs($admin)->getJson('/api/v1/asset-folders/fonts');
+
+        $first->assertOk();
+        $second->assertOk();
+        $this->assertSame($first->json('data.id'), $second->json('data.id'));
+        $this->assertSame(1, AssetFolder::query()->where('slug', 'fonts')->count());
+    }
+
+    public function test_fonts_recreates_the_folder_if_it_was_deleted(): void
+    {
+        $admin = $this->admin();
+        $first = $this->actingAs($admin)->getJson('/api/v1/asset-folders/fonts');
+        $firstId = $first->json('data.id');
+
+        AssetFolder::find($firstId)->delete();
+
+        $second = $this->actingAs($admin)->getJson('/api/v1/asset-folders/fonts');
+
+        $second->assertOk();
+        $second->assertJsonPath('data.slug', 'fonts');
+        $this->assertNotSame($firstId, $second->json('data.id'));
+    }
 }

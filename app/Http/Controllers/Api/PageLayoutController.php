@@ -8,6 +8,8 @@ use App\Models\PageLayout;
 use GamingHub\Core\Models\Game;
 use GamingHub\Core\Models\Server;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Public — same visibility as the subject page itself. One thin,
@@ -59,6 +61,26 @@ class PageLayoutController extends Controller
     public function showForGamesList(): JsonResponse
     {
         return $this->respond($this->resolve('games-list', PageLayout::SINGLETON_SUBJECT_ID));
+    }
+
+    /**
+     * The only field a layout itself has to edit (as opposed to its
+     * widgets, which go through PageLayoutWidgetController) — the per-page
+     * font override. null clears it back to "sync to global" (see
+     * ThemeResolver::resolveFont's docblock).
+     */
+    public function update(Request $request, PageLayout $layout): PageLayoutResource
+    {
+        abort_unless($request->user()->hasRole('Admin'), 403);
+
+        $data = $request->validate([
+            'font_asset_id' => ['sometimes', 'nullable', 'integer', Rule::exists('assets', 'id')],
+        ]);
+
+        $layout->update($data);
+        $layout->loadMissing('widgets');
+
+        return new PageLayoutResource($layout);
     }
 
     private function resolve(string $subjectType, int $subjectId): PageLayout

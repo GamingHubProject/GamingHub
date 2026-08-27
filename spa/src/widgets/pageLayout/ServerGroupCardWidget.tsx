@@ -2,15 +2,27 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useApi } from '../../providers/ApiClientProvider';
-import type { Game, ServerGroup } from '../../api/types';
+import { AssetPicker } from '../../components/AssetPicker';
+import type { AssetPreview } from '../../components/AssetPicker';
+import { CardIcon } from '../shared/CardIcon';
+import { cardBodyStyle, cardContainerStyle, cardPaddingStyle, cardTitleStyle } from '../shared/cardScale';
+import type { Asset, Game, ServerGroup } from '../../api/types';
 import type { PageLayoutWidgetConfigFormProps } from './registry';
 
 export interface ServerGroupCardWidgetConfig {
   server_group_id: number | null;
+  // Same widget-level-only icon pattern as ServerCardWidget — ServerGroup
+  // has no icon field of its own either.
+  show_icon: boolean;
+  icon_asset_id: number | null;
+  icon_url: string | null;
 }
 
 export const serverGroupCardWidgetDefaultConfig: ServerGroupCardWidgetConfig = {
   server_group_id: null,
+  show_icon: false,
+  icon_asset_id: null,
+  icon_url: null,
 };
 
 // Cross-linking widget like ServerCardWidget, but for a ServerGroup rather
@@ -38,15 +50,15 @@ export function ServerGroupCardWidget({ config }: { config: ServerGroupCardWidge
       to={`/games/${group.game_slug}`}
       style={{
         display: 'block',
-        padding: 16,
-        height: '100%',
-        boxSizing: 'border-box',
         textDecoration: 'none',
         color: 'inherit',
+        ...cardContainerStyle,
+        ...cardPaddingStyle,
       }}
     >
-      <h4 style={{ margin: '0 0 8px' }}>{group.name}</h4>
-      <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.85 }}>
+      <CardIcon url={config.icon_url} show={config.show_icon} />
+      <h4 style={cardTitleStyle}>{group.name}</h4>
+      <p style={{ ...cardBodyStyle, margin: 0 }}>
         {group.running_count}/{group.servers_count} running
       </p>
     </Link>
@@ -125,6 +137,26 @@ export function ServerGroupCardWidgetConfigForm({
           </select>
         </div>
       </label>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input
+          type="checkbox"
+          checked={config.show_icon}
+          onChange={(event) => onChange({ ...config, show_icon: event.target.checked })}
+        />
+        Show icon
+      </label>
+      {config.show_icon && (
+        <label>
+          Icon
+          <div style={{ marginTop: 4 }}>
+            <AssetPicker
+              value={config.icon_url ? ({ thumbnail_url: config.icon_url, alt_text: null } as AssetPreview) : null}
+              onChange={(asset: Asset | null) => onChange({ ...config, icon_asset_id: asset?.id ?? null, icon_url: asset?.url ?? null })}
+            />
+          </div>
+        </label>
+      )}
     </div>
   );
 }

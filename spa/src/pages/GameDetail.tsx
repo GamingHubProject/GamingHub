@@ -24,7 +24,7 @@ export function GameDetail() {
     enabled: !!slug && !!game?.has_servers,
   });
 
-  useThemeScope({ gameId: game?.id });
+  useThemeScope({ gameId: game?.id, subjectType: 'game', subjectId: game?.id });
 
   if (gameLoading) return <p>Loading…</p>;
   if (!game) return <p>Game not found.</p>;

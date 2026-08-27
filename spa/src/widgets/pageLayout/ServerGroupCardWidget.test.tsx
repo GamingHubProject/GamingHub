@@ -38,14 +38,14 @@ describe('ServerGroupCardWidget', () => {
   });
 
   it('renders the group name and running/total fraction', async () => {
-    renderWidget({ server_group_id: 3 }, { get: async () => group });
+    renderWidget({ server_group_id: 3, show_icon: false, icon_asset_id: null, icon_url: null }, { get: async () => group });
 
     await waitFor(() => expect(screen.getByText('Official Servers')).toBeInTheDocument());
     expect(screen.getByText('3/5 running')).toBeInTheDocument();
   });
 
   it('links to the parent Game Detail page using game_slug', async () => {
-    renderWidget({ server_group_id: 3 }, { get: async () => group });
+    renderWidget({ server_group_id: 3, show_icon: false, icon_asset_id: null, icon_url: null }, { get: async () => group });
 
     await waitFor(() => expect(screen.getByRole('link')).toHaveAttribute('href', '/games/ark'));
   });

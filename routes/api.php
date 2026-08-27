@@ -86,6 +86,7 @@ Route::prefix('v1')->group(function () {
         // subject-specific GET routes above), so it already has the real
         // layout id by the time it adds a widget.
         Route::post('/page-layouts/{layout}/widgets', [PageLayoutWidgetController::class, 'store']);
+        Route::patch('/page-layouts/{layout}', [PageLayoutController::class, 'update']);
         Route::patch('/page-layout-widgets/{widget}', [PageLayoutWidgetController::class, 'update']);
         Route::delete('/page-layout-widgets/{widget}', [PageLayoutWidgetController::class, 'destroy']);
 
@@ -93,6 +94,12 @@ Route::prefix('v1')->group(function () {
         Route::patch('/assets/{asset}', [AssetController::class, 'update']);
         Route::delete('/assets/{asset}', [AssetController::class, 'destroy']);
 
+        // Static path, must come before /asset-folders/{folder}-style
+        // dynamic routes if any existed — kept alongside store() for the
+        // same "Admin-only write surface" grouping even though it's
+        // technically idempotent-after-first-call (see the controller
+        // method's docblock).
+        Route::get('/asset-folders/fonts', [AssetFolderController::class, 'fonts']);
         Route::post('/asset-folders', [AssetFolderController::class, 'store']);
         Route::patch('/asset-folders/{folder}', [AssetFolderController::class, 'update']);
         Route::delete('/asset-folders/{folder}', [AssetFolderController::class, 'destroy']);

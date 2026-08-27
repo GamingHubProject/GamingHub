@@ -30,6 +30,25 @@ class AssetFolderController extends Controller
         return response()->json(['data' => AssetFolderResource::collection($folders)]);
     }
 
+    /**
+     * The Theme font system's dedicated folder — lazily created the first
+     * time anything asks for it (same idiom PageLayout already uses for
+     * Home/the games list), not a migration-time seeder. No "protected
+     * from deletion" flag: if an admin deletes it, the next call here just
+     * recreates it, same resilience model as a PageLayout row.
+     */
+    public function fonts(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->hasRole('Admin'), 403);
+
+        $folder = AssetFolder::firstOrCreate(
+            ['parent_id' => null, 'slug' => 'fonts'],
+            ['name' => 'Fonts', 'visibility' => 'admin_only', 'path' => AssetFolder::buildPath(null, 'fonts'), 'created_by' => $request->user()->id]
+        );
+
+        return (new AssetFolderResource($folder))->response()->setStatusCode(200);
+    }
+
     public function store(Request $request): JsonResponse
     {
         abort_unless($request->user()->hasRole('Admin'), 403);

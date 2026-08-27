@@ -121,6 +121,9 @@ export interface PageLayout {
   id: number;
   subject_type: PageLayoutSubjectType;
   subject_id: number;
+  // null = "sync to global" (inherit the platform default font) — see
+  // ThemeResolver::resolveFont's docblock. Not a separate boolean.
+  font_asset_id: number | null;
   widgets: PageLayoutWidget[];
 }
 

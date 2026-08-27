@@ -165,12 +165,13 @@ describe('PageLayoutWidgetContainer', () => {
     expect(container.firstElementChild).not.toHaveStyle({ border: '1px solid var(--border, #ddd)' });
   });
 
-  it('keeps overflow contained (auto) for a chromeless-but-not-layered widget, unlike a layered one', () => {
+  it('keeps overflow contained (hidden) for a chromeless-but-not-layered widget, unlike a layered one', () => {
     // Regression test: chromeless and layered used to share one
     // overflow:visible condition, which let game-card's 'all' mode grid
     // spill out past its own resize handle instead of staying clipped to
     // one resizable block — see PageLayoutWidgetContainer's inline
-    // comment on the overflow style.
+    // comment on the overflow style. `hidden` (not `auto`) since resized
+    // content now scales via container queries instead of scrolling.
     const gameCardWidget = { ...widget, widget_type: 'game-card', config: null };
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const apiClient = { get: async () => [] };
@@ -186,7 +187,7 @@ describe('PageLayoutWidgetContainer', () => {
     );
 
     const contentDiv = container.firstElementChild?.lastElementChild;
-    expect(contentDiv).toHaveStyle({ overflow: 'auto' });
+    expect(contentDiv).toHaveStyle({ overflow: 'hidden' });
   });
 
   it('passes layered through to the widget component', () => {

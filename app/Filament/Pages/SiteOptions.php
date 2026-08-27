@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\Asset;
 use App\Models\SiteOption;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -65,6 +66,15 @@ class SiteOptions extends Page implements HasForms
                 Forms\Components\TextInput::make('discord_webhook')
                     ->label('Discord webhook')
                     ->helperText('Optional — for future news/alerts. Not validated or tested here.'),
+                Forms\Components\Select::make('font_asset_id')
+                    ->label('Platform default font')
+                    ->helperText('Upload a .woff/.woff2 file into the Fonts folder from the Asset Library first (Admin > Assets), then pick it here. A page can override this — see that page\'s "Edit layout" controls.')
+                    ->options(fn () => Asset::query()
+                        ->whereHas('folder', fn ($q) => $q->where('slug', 'fonts'))
+                        ->get()
+                        ->mapWithKeys(fn (Asset $asset) => [$asset->id => $asset->alt_text ?: basename($asset->disk_path)]))
+                    ->searchable()
+                    ->nullable(),
             ])
             ->statePath('data');
     }

@@ -312,4 +312,44 @@ class PageLayoutApiTest extends TestCase
         $response->assertNoContent();
         $this->assertDatabaseMissing('page_layout_widgets', ['id' => $widget->id]);
     }
+
+    // --- Per-page font override ---
+
+    public function test_update_requires_the_admin_role_for_font(): void
+    {
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->patchJson("/api/v1/page-layouts/{$layout->id}", ['font_asset_id' => 1])
+            ->assertForbidden();
+    }
+
+    public function test_update_sets_the_pages_font_override(): void
+    {
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
+        $asset = \App\Models\Asset::factory()->create();
+
+        $response = $this->actingAs($this->admin())->patchJson("/api/v1/page-layouts/{$layout->id}", [
+            'font_asset_id' => $asset->id,
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('data.font_asset_id', $asset->id);
+        $this->assertSame($asset->id, $layout->fresh()->font_asset_id);
+    }
+
+    public function test_update_clears_the_font_override_back_to_sync_with_global(): void
+    {
+        $asset = \App\Models\Asset::factory()->create();
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID, 'font_asset_id' => $asset->id]);
+
+        $response = $this->actingAs($this->admin())->patchJson("/api/v1/page-layouts/{$layout->id}", [
+            'font_asset_id' => null,
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('data.font_asset_id', null);
+        $this->assertNull($layout->fresh()->font_asset_id);
+    }
 }

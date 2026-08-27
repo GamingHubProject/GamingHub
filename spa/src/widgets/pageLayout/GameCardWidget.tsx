@@ -15,12 +15,19 @@ export interface GameCardWidgetConfig {
   // "resolve id to slug" lookup. Both null/unused in 'all' mode.
   game_id: number | null;
   game_slug: string | null;
+  // Applies in both modes (unlike icon_asset_id/icon_url below) — same
+  // show_icon-toggle pattern as ServerCardWidget/ServerGroupCardWidget
+  // (see widgets/shared/CardIcon.tsx). Defaults true, unlike those two:
+  // Game already has its own icon_url most of the time, so showing it is
+  // the natural default here rather than something an admin opts into.
+  show_icon: boolean;
   // 'single' mode only — an icon override for just this widget instance,
   // not an edit to the Game record itself (same reasoning as the banner
   // override above: this is widget config, not shared data). Falls back
   // to the game's own icon_url when unset. Meaningless/unused in 'all'
   // mode, same as game_id/game_slug are unused in 'single' mode's
-  // opposite direction.
+  // opposite direction — each card in the grid there uses its own game's
+  // icon_url.
   icon_asset_id: number | null;
   icon_url: string | null;
 }
@@ -29,6 +36,7 @@ export const gameCardWidgetDefaultConfig: GameCardWidgetConfig = {
   mode: 'all',
   game_id: null,
   game_slug: null,
+  show_icon: true,
   icon_asset_id: null,
   icon_url: null,
 };
@@ -62,8 +70,8 @@ export function GameCardWidget({ config }: { config: GameCardWidgetConfig }) {
     // record itself, see the config field's docblock.
     const displayGame = config.icon_url ? { ...singleGame, icon_url: config.icon_url } : singleGame;
     return (
-      <div style={{ padding: 12, maxWidth: 260 }}>
-        <GameCard game={displayGame} />
+      <div style={{ padding: 12, maxWidth: 260, height: '100%', boxSizing: 'border-box' }}>
+        <GameCard game={displayGame} showIcon={config.show_icon} />
       </div>
     );
   }
@@ -74,10 +82,27 @@ export function GameCardWidget({ config }: { config: GameCardWidgetConfig }) {
   // pages always hardcoded (no wrapping padding of its own), now just
   // living inside a chromeless widget instead. See registry.ts's
   // chromeless flag on this widget's registration.
+  //
+  // gridAutoRows is an explicit height (not auto) so each GameCard gets a
+  // definite box to run its own container query against — "each card
+  // scales individually" (per the confirmed design) needs every card to
+  // be its own container-query context, not just the widget as a whole.
+  // height:100% + overflow:hidden means a grid that overflows its widget
+  // box clips rather than growing/scrolling, matching "grid clips, not
+  // scrolls" for 'all' mode specifically.
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+        gridAutoRows: '200px',
+        gap: 16,
+        height: '100%',
+        overflow: 'hidden',
+      }}
+    >
       {games?.map((game) => (
-        <GameCard key={game.id} game={game} />
+        <GameCard key={game.id} game={game} showIcon={config.show_icon} />
       ))}
     </div>
   );
@@ -107,6 +132,15 @@ export function GameCardWidgetConfigForm({ config, onChange }: PageLayoutWidgetC
           onChange={() => onChange({ ...config, mode: 'single' })}
         />{' '}
         One game
+      </label>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input
+          type="checkbox"
+          checked={config.show_icon}
+          onChange={(event) => onChange({ ...config, show_icon: event.target.checked })}
+        />
+        Show icon
       </label>
 
       {config.mode === 'single' && (

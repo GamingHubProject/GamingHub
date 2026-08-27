@@ -45,7 +45,7 @@ describe('GameCardWidget', () => {
 
   it("'single' mode renders just the configured game", async () => {
     renderWidget(
-      { mode: 'single', game_id: 1, game_slug: 'palworld', icon_asset_id: null, icon_url: null },
+      { mode: 'single', game_id: 1, game_slug: 'palworld', show_icon: true, icon_asset_id: null, icon_url: null },
       { get: async (path: string) => (path === '/api/v1/games/palworld' ? palworld : null) }
     );
 
@@ -55,7 +55,7 @@ describe('GameCardWidget', () => {
 
   it("'single' mode uses the configured icon_url override instead of the game's own icon_url", async () => {
     const { container } = renderWidget(
-      { mode: 'single', game_id: 1, game_slug: 'palworld', icon_asset_id: 7, icon_url: 'http://localhost/storage/override.png' },
+      { mode: 'single', game_id: 1, game_slug: 'palworld', show_icon: true, icon_asset_id: 7, icon_url: 'http://localhost/storage/override.png' },
       { get: async (path: string) => (path === '/api/v1/games/palworld' ? palworld : null) }
     );
 

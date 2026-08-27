@@ -18,7 +18,7 @@ export function ServerDetail() {
     refetchInterval: 30_000,
   });
 
-  useThemeScope({ gameId: server?.game_id, serverId: server?.id });
+  useThemeScope({ gameId: server?.game_id, serverId: server?.id, subjectType: 'server', subjectId: server?.id });
 
   const isAdmin = user?.is_admin ?? false;
 
