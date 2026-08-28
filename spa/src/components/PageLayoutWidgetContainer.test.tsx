@@ -76,6 +76,32 @@ describe('PageLayoutWidgetContainer', () => {
     expect(removed).toBe(true);
   });
 
+  it('defaults the drag handle to widget-drag-handle, matching the page grids own draggableHandle selector', () => {
+    const { container } = render(
+      <PageLayoutWidgetContainer widget={widget} context={context} editable={true} onRemove={() => {}} onEdit={() => {}} />
+    );
+
+    expect(container.querySelector('.widget-drag-handle')).not.toBeNull();
+  });
+
+  it('uses a custom dragHandleClassName instead, when passed (e.g. a group child)', () => {
+    const { container } = render(
+      <PageLayoutWidgetContainer
+        widget={widget}
+        context={context}
+        editable={true}
+        onRemove={() => {}}
+        onEdit={() => {}}
+        dragHandleClassName="group-child-drag-handle"
+      />
+    );
+
+    expect(container.querySelector('.group-child-drag-handle')).not.toBeNull();
+    // Must not also carry the page grid's own class — that's the exact
+    // collision this prop exists to avoid.
+    expect(container.querySelector('.widget-drag-handle')).toBeNull();
+  });
+
   it('does not show a selection checkbox unless selectable is passed', () => {
     render(<PageLayoutWidgetContainer widget={widget} context={context} editable={true} onRemove={() => {}} onEdit={() => {}} />);
 

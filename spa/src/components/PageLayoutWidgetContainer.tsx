@@ -22,6 +22,7 @@ export function PageLayoutWidgetContainer({
   selectable = false,
   selected = false,
   onToggleSelect,
+  dragHandleClassName = 'widget-drag-handle',
 }: {
   widget: PageLayoutWidget;
   context: PageLayoutWidgetContext;
@@ -41,6 +42,20 @@ export function PageLayoutWidgetContainer({
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
+  /**
+   * react-grid-layout's `draggableHandle` is a bare CSS selector matched
+   * by walking up from the mousedown target — it has no concept of "which
+   * grid instance" a match belongs to. A top-level widget's header and a
+   * Group's own header both need the page grid's own handle class (so the
+   * *outer* grid picks up their drag), but a widget rendered *inside* a
+   * Group needs a different class entirely — otherwise the outer grid's
+   * Draggable also matches a child's header and drags the whole Group
+   * instead of the child (confirmed live: this was exactly the bug).
+   * GroupWidgetContainer passes its own distinct class for its children;
+   * every other caller uses the default, matching the page grid's own
+   * draggableHandle in PageLayoutEditor.
+   */
+  dragHandleClassName?: string;
 }) {
   const definition = getPageLayoutWidgetDefinition(widget.widget_type);
   const config = widget.config ?? definition?.defaultConfig ?? {};
@@ -63,7 +78,7 @@ export function PageLayoutWidgetContainer({
     >
       {editable && (
         <div
-          className="widget-drag-handle"
+          className={dragHandleClassName}
           style={{
             display: 'flex',
             justifyContent: 'space-between',

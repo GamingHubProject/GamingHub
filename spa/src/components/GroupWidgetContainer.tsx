@@ -6,6 +6,11 @@ import type { PageLayoutWidget } from '../api/types';
 const ResponsiveGridLayout = WidthProvider(GridLayout);
 const GRID_COLS = 12;
 const ROW_HEIGHT = 80;
+// Deliberately distinct from the page grid's own "widget-drag-handle" —
+// see PageLayoutWidgetContainer's dragHandleClassName docblock for why
+// reusing that class here would let the *outer* grid's Draggable also
+// match a child's header and drag the whole Group instead of the child.
+const CHILD_DRAG_HANDLE_CLASS = 'group-child-drag-handle';
 
 function layoutFor(widgets: PageLayoutWidget[]): Layout[] {
   return widgets.map((widget) => ({
@@ -139,7 +144,7 @@ export function GroupWidgetContainer({
             rowHeight={ROW_HEIGHT}
             isDraggable={editable}
             isResizable={editable}
-            draggableHandle=".widget-drag-handle"
+            draggableHandle={`.${CHILD_DRAG_HANDLE_CLASS}`}
             draggableCancel=".widget-no-drag"
             resizeHandles={['se']}
             onDragStop={persistChildren}
@@ -153,6 +158,7 @@ export function GroupWidgetContainer({
                   editable={editable}
                   onRemove={() => onRemoveChild(child.id)}
                   onEdit={() => onEditChild(child)}
+                  dragHandleClassName={CHILD_DRAG_HANDLE_CLASS}
                 />
               </div>
             ))}

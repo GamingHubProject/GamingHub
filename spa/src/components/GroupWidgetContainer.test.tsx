@@ -152,4 +152,41 @@ describe('GroupWidgetContainer', () => {
     expect(removedChildId).toBe(1);
     expect(removedGroup).toBe(false);
   });
+
+  it("uses a drag-handle class distinct from the page grid's, so dragging a child never gets intercepted by the outer grid", () => {
+    // Regression test: the group's own header and a child's header used
+    // to share the literal "widget-drag-handle" class with the *page*
+    // grid's draggableHandle selector — react-grid-layout matches that
+    // selector by walking up from the mousedown target with no concept of
+    // "which grid instance" it belongs to, so dragging a child actually
+    // dragged the whole Group instead (confirmed live before this fix).
+    const children: PageLayoutWidget[] = [
+      { id: 1, page_layout_id: 1, group_widget_id: 10, widget_type: 'picture', config: null, position_x: 0, position_y: 0, width: 4, height: 2 },
+    ];
+
+    const { container } = renderWithProviders(
+      <GroupWidgetContainer
+        children={children}
+        context={context}
+        editable={true}
+        onRemoveGroup={noop}
+        onRemoveChild={noop}
+        onEditChild={noop}
+        onPersistChildren={noop}
+        onUngroup={noop}
+        onSaveTemplate={noop}
+      />
+    );
+
+    // The group's own header still uses the page grid's class — it's a
+    // normal top-level item there, meant to be dragged by that grid.
+    expect(container.querySelector('.widget-drag-handle')).not.toBeNull();
+
+    // The child's header uses a different class entirely, and must not
+    // also carry the page grid's class (that's exactly what caused the
+    // collision).
+    const childHandle = container.querySelector('.group-child-drag-handle');
+    expect(childHandle).not.toBeNull();
+    expect(childHandle).not.toHaveClass('widget-drag-handle');
+  });
 });
