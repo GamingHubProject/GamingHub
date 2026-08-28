@@ -329,4 +329,40 @@ describe('PageLayoutWidgetContainer', () => {
     expect(container.firstElementChild).not.toHaveStyle({ border: '1px solid var(--border, #ddd)' });
     expect(container.firstElementChild).not.toHaveStyle({ backgroundColor: 'rgba(255, 0, 0, 1)' });
   });
+
+  it('applies a resolved border color instead of the var(--border) default when set', async () => {
+    const borderColorWidget = { ...widget, config: { style: { border_enabled: true, border_thickness: 2, border_color: '#123456' } } };
+    const { container } = renderWithTheme(
+      <PageLayoutWidgetContainer widget={borderColorWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+    );
+
+    await waitFor(() => expect(container.firstElementChild).toHaveStyle({ border: '2px solid #123456' }));
+  });
+
+  it('applies a resolved border radius instead of the default 8px when set', async () => {
+    const radiusWidget = { ...widget, config: { style: { border_radius: 20 } } };
+    const { container } = renderWithTheme(
+      <PageLayoutWidgetContainer widget={radiusWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+    );
+
+    await waitFor(() => expect(container.firstElementChild).toHaveStyle({ borderRadius: '20px' }));
+  });
+
+  it('sets --card-text-scale from the resolved textScale, for self-scaling widgets to consume via CSS', async () => {
+    const scaledWidget = { ...widget, config: { style: { text_scale: 1.5 } } };
+    const { container } = renderWithTheme(
+      <PageLayoutWidgetContainer widget={scaledWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+    );
+
+    await waitFor(() => expect((container.firstElementChild as HTMLElement).style.getPropertyValue('--card-text-scale')).toBe('1.5'));
+  });
+
+  it('defaults --card-text-scale to 1 when nothing overrides it anywhere', async () => {
+    const { container } = renderWithTheme(
+      <PageLayoutWidgetContainer widget={widget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+    );
+
+    await waitFor(() => expect(screen.getByText('Running')).toBeInTheDocument());
+    expect((container.firstElementChild as HTMLElement).style.getPropertyValue('--card-text-scale')).toBe('1');
+  });
 });

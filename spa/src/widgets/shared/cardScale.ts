@@ -42,9 +42,29 @@ export const cardHeaderRowStyle: CSSProperties = {
   minWidth: 0,
 };
 
+/**
+ * Every bound in every clamp() below is multiplied by
+ * `--card-text-scale` (see PageLayoutWidgetContainer, which sets it from
+ * the universal style system's resolved `textScale` — WidgetStyleSection's
+ * percentage adjustment for self-scaling widgets). `var(--card-text-scale,
+ * 1)` defaults to a no-op 1× when nothing overrides it, so a widget
+ * nobody's touched the style of renders at exactly the same size as
+ * before this existed. Scaling MIN/PREF/MAX together (not just the
+ * preferred value) is what makes the adjustment actually visible at the
+ * extremes of the container-query range, not just in the middle —
+ * multiplying only the preferred value would have no effect once the
+ * container is small/large enough to hit the min/max instead. Each
+ * property keeps its own relative min/pref/max, so the title stays
+ * proportionally larger than the body/meta text at every scale factor —
+ * "nudge the whole card" without breaking that hierarchy.
+ */
+function scaledClamp(minRem: number, prefCqh: number, maxRem: number): string {
+  return `clamp(calc(${minRem}rem * var(--card-text-scale, 1)), calc(${prefCqh}cqh * var(--card-text-scale, 1)), calc(${maxRem}rem * var(--card-text-scale, 1)))`;
+}
+
 export const cardTitleStyle: CSSProperties = {
   margin: '0 0 clamp(2px, 2cqh, 8px)',
-  fontSize: 'clamp(0.7rem, 9cqh, 1.25rem)',
+  fontSize: scaledClamp(0.7, 9, 1.25),
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -52,13 +72,13 @@ export const cardTitleStyle: CSSProperties = {
 };
 
 export const cardBodyStyle: CSSProperties = {
-  fontSize: 'clamp(0.6rem, 6cqh, 0.9rem)',
+  fontSize: scaledClamp(0.6, 6, 0.9),
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
 };
 
 export const cardMetaStyle: CSSProperties = {
-  fontSize: 'clamp(0.55rem, 5cqh, 0.8rem)',
+  fontSize: scaledClamp(0.55, 5, 0.8),
   opacity: 0.85,
 };

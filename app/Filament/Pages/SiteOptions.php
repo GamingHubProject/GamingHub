@@ -92,12 +92,26 @@ class SiteOptions extends Page implements HasForms
                             ->label('Border thickness (px)')
                             ->numeric()
                             ->minValue(1),
+                        Forms\Components\ColorPicker::make('widget_style_defaults.border_color')
+                            ->label('Default border color'),
+                        Forms\Components\TextInput::make('widget_style_defaults.border_radius')
+                            ->label('Default border roundness (px)')
+                            ->numeric()
+                            ->minValue(0),
                         Forms\Components\ColorPicker::make('widget_style_defaults.text_color')
                             ->label('Default text color'),
                         Forms\Components\TextInput::make('widget_style_defaults.text_size')
                             ->label('Default text size (px)')
+                            ->helperText('Self-scaling card widgets (Game/Server/Server Group Card) use the relative adjustment below instead.')
                             ->numeric()
                             ->minValue(1),
+                        Forms\Components\TextInput::make('widget_style_defaults.text_scale')
+                            ->label('Default text size adjustment for self-scaling cards')
+                            ->helperText('0.5–2, where 1 means unchanged (e.g. 1.1 = 10% larger).')
+                            ->numeric()
+                            ->minValue(0.5)
+                            ->maxValue(2)
+                            ->step(0.05),
                         Forms\Components\ColorPicker::make('widget_style_defaults.background_color')
                             ->label('Default background color'),
                         Forms\Components\TextInput::make('widget_style_defaults.background_opacity')

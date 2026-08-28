@@ -78,8 +78,11 @@ class SiteOptionsTest extends TestCase
                 'widget_style_defaults' => [
                     'border_enabled' => true,
                     'border_thickness' => 2,
+                    'border_color' => '#00ff00',
+                    'border_radius' => 12,
                     'text_size' => 16,
                     'text_color' => '#ff0000',
+                    'text_scale' => 1.2,
                     'background_color' => '#000000',
                     'background_opacity' => 0.5,
                 ],
@@ -89,6 +92,9 @@ class SiteOptionsTest extends TestCase
 
         $values = SiteOption::current()->values;
         $this->assertSame(true, $values['widget_style_defaults']['border_enabled']);
+        $this->assertSame('#00ff00', $values['widget_style_defaults']['border_color']);
+        $this->assertSame(12, $values['widget_style_defaults']['border_radius']);
+        $this->assertSame(1.2, $values['widget_style_defaults']['text_scale']);
         $this->assertSame(2, $values['widget_style_defaults']['border_thickness']);
         $this->assertSame('#ff0000', $values['widget_style_defaults']['text_color']);
         $this->assertSame(0.5, $values['widget_style_defaults']['background_opacity']);

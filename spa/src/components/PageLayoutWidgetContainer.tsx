@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { getPageLayoutWidgetDefinition } from '../widgets/pageLayout/registry';
 import type { PageLayoutWidgetContext } from '../widgets/pageLayout/registry';
 import { useWidgetStyleDefaults } from '../providers/ThemeProvider';
@@ -65,12 +66,21 @@ export function PageLayoutWidgetContainer({
   const chromeless = layered || (definition?.chromeless ?? false);
   const globalStyleDefaults = useWidgetStyleDefaults();
   const resolvedStyle = resolveWidgetStyle(widget.config, globalStyleDefaults);
+  // Set unconditionally, on every widget regardless of type — harmless
+  // for anything that isn't self-scaling (nothing references the var), and
+  // this is the one place that needs to know about it at all: cardScale.ts's
+  // clamp()s pick it up purely through CSS inheritance from here, with no
+  // per-card-widget code required. `var(--card-text-scale, 1)` in
+  // cardScale.ts already no-ops to 1 on its own, so this could be omitted
+  // when textScale === 1 — set every time anyway, simpler than a condition
+  // that saves nothing.
+  const cardTextScaleVar = { '--card-text-scale': resolvedStyle.textScale } as CSSProperties;
 
   return (
     <div
       style={
         chromeless
-          ? { height: '100%', display: 'flex', flexDirection: 'column' }
+          ? { height: '100%', display: 'flex', flexDirection: 'column', ...cardTextScaleVar }
           : {
               // A layered/chromeless widget never gets a border or
               // background from here — it's meant to float transparently
@@ -78,15 +88,18 @@ export function PageLayoutWidgetContainer({
               // Border/Background overriding that would defeat the point.
               // Only reachable in this branch to begin with, so no extra
               // condition needed on top of resolvedStyle itself.
-              border: resolvedStyle.borderEnabled ? `${resolvedStyle.borderThickness}px solid var(--border, #ddd)` : 'none',
+              border: resolvedStyle.borderEnabled
+                ? `${resolvedStyle.borderThickness}px solid ${resolvedStyle.borderColor ?? 'var(--border, #ddd)'}`
+                : 'none',
               backgroundColor: resolvedStyle.backgroundColor
                 ? hexWithOpacity(resolvedStyle.backgroundColor, resolvedStyle.backgroundOpacity)
                 : undefined,
-              borderRadius: 8,
+              borderRadius: resolvedStyle.borderRadius,
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
+              ...cardTextScaleVar,
             }
       }
     >
