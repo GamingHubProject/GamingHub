@@ -63,7 +63,11 @@ export function PageLayoutWidgetContainer({
 }) {
   const definition = getPageLayoutWidgetDefinition(widget.widget_type);
   const config = widget.config ?? definition?.defaultConfig ?? {};
-  const chromeless = layered || (definition?.chromeless ?? false);
+  const chromelessFlag = definition?.chromeless;
+  // Border only — see registry.ts's chromeless docblock. `layered` skips
+  // Border too (an overlay floating on the banner beneath it), on top of
+  // whatever the widget type's own flag says.
+  const skipBorder = layered || (typeof chromelessFlag === 'function' ? chromelessFlag(config) : chromelessFlag ?? false);
   const globalStyleDefaults = useWidgetStyleDefaults();
   const resolvedStyle = resolveWidgetStyle(widget.config, globalStyleDefaults);
   // Set unconditionally, on every widget regardless of type — harmless
@@ -78,30 +82,33 @@ export function PageLayoutWidgetContainer({
 
   return (
     <div
-      style={
-        chromeless
-          ? { height: '100%', display: 'flex', flexDirection: 'column', ...cardTextScaleVar }
-          : {
-              // A layered/chromeless widget never gets a border or
-              // background from here — it's meant to float transparently
-              // (on a Picture, or as a page's own unboxed content), and
-              // Border/Background overriding that would defeat the point.
-              // Only reachable in this branch to begin with, so no extra
-              // condition needed on top of resolvedStyle itself.
-              border: resolvedStyle.borderEnabled
-                ? `${resolvedStyle.borderThickness}px solid ${resolvedStyle.borderColor ?? 'var(--border, #ddd)'}`
-                : 'none',
-              backgroundColor: resolvedStyle.backgroundColor
-                ? hexWithOpacity(resolvedStyle.backgroundColor, resolvedStyle.backgroundOpacity)
-                : undefined,
-              borderRadius: resolvedStyle.borderRadius,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-              ...cardTextScaleVar,
-            }
-      }
+      style={{
+        // A layered widget never gets a border from here — it's meant to
+        // float transparently on the banner beneath it, and a border
+        // would defeat that. A chromeless widget type (or mode) skips it
+        // for the different reason of already drawing its own (see
+        // registry.ts's chromeless docblock) — either way, `skipBorder`
+        // already accounts for both.
+        border: skipBorder
+          ? 'none'
+          : resolvedStyle.borderEnabled
+            ? `${resolvedStyle.borderThickness}px solid ${resolvedStyle.borderColor ?? 'var(--border, #ddd)'}`
+            : 'none',
+        // Background always applies regardless of `chromeless` — unlike
+        // Border, no widget type draws its own background, so there's
+        // nothing to double up. Only `layered` skips it, same floating-
+        // on-the-banner reasoning as Border above.
+        backgroundColor:
+          !layered && resolvedStyle.backgroundColor
+            ? hexWithOpacity(resolvedStyle.backgroundColor, resolvedStyle.backgroundOpacity)
+            : undefined,
+        borderRadius: resolvedStyle.borderRadius,
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        ...cardTextScaleVar,
+      }}
     >
       {editable && (
         <div

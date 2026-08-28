@@ -89,15 +89,25 @@ export interface PageLayoutWidgetDefinition<TConfig = Record<string, unknown>> {
   layerable?: boolean;
   layerTarget?: boolean;
   /**
-   * Always render without the card border/background (read-only view;
-   * edit mode still shows the drag-handle header, same as a layered
-   * widget) — for a widget that IS a page's own content rather than a
-   * card sitting on the page, e.g. game-card in 'all' mode standing in
-   * for what used to be an unboxed, hardcoded games grid. Unlike
-   * `layered`, this isn't conditional on overlapping anything; it's a
-   * static property of the widget type itself.
+   * Skip the container's own Border chrome — for a widget that already
+   * draws a border of its own, so an outer container border would
+   * double-box it, e.g. game-card's 'all' mode standing in for what used
+   * to be an unboxed, hardcoded games grid of individually-bordered
+   * cards. Either a static `true`, or a function of the widget's own
+   * config for a widget type where that depends on which mode it's in
+   * (game-card's 'all' vs 'single' — only 'all' mode's grid needs this;
+   * 'single' mode's lone card can still take a container border on top of
+   * its own, confirmed as the intended asymmetry).
+   *
+   * Background is NOT affected by this flag — a widget's own content
+   * never draws its own background the way game-card draws its own
+   * border, so Background chrome always applies regardless (see
+   * PageLayoutWidgetContainer). Only `layered` (a per-instance overlay
+   * state, not this per-type flag) skips both Border and Background, since
+   * a layered widget is meant to float transparently on the banner
+   * beneath it.
    */
-  chromeless?: boolean;
+  chromeless?: boolean | ((config: TConfig) => boolean);
   /**
    * This widget already scales its own text proportionally via container
    * queries (see widgets/shared/cardScale.ts) — a fixed Text size/color

@@ -228,6 +228,53 @@ describe('PageLayoutWidgetContainer', () => {
     expect(container.firstElementChild).not.toHaveStyle({ border: '1px solid var(--border, #ddd)' });
   });
 
+  it("still applies a background color to game-card in 'all' mode — only Border is skipped for chromeless widget types, never Background", async () => {
+    const gameCardWidget = { ...widget, widget_type: 'game-card', config: null };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const apiClient = {
+      get: async (url: string) =>
+        url.startsWith('/api/v1/theme')
+          ? { tokens: {}, font: null, widgetStyle: { background_color: '#ff0000', background_opacity: 1 } }
+          : [],
+    };
+
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <ApiClientProvider client={apiClient as any}>
+          <ThemeProvider>
+            <MemoryRouter>
+              <PageLayoutWidgetContainer widget={gameCardWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+            </MemoryRouter>
+          </ThemeProvider>
+        </ApiClientProvider>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => expect(container.firstElementChild).toHaveStyle({ backgroundColor: 'rgba(255, 0, 0, 1)' }));
+  });
+
+  it("keeps the container border for game-card in 'single' mode — only 'all' mode's grid of already-bordered cards skips it", () => {
+    const singleModeWidget = {
+      ...widget,
+      widget_type: 'game-card',
+      config: { mode: 'single', game_id: null, game_slug: null, show_icon: true, icon_asset_id: null, icon_url: null },
+    };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const apiClient = { get: async () => [] };
+
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <ApiClientProvider client={apiClient as any}>
+          <MemoryRouter>
+            <PageLayoutWidgetContainer widget={singleModeWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+          </MemoryRouter>
+        </ApiClientProvider>
+      </QueryClientProvider>
+    );
+
+    expect(container.firstElementChild).toHaveStyle({ border: '1px solid var(--border, #ddd)' });
+  });
+
   it('keeps overflow contained (hidden) for a chromeless-but-not-layered widget, unlike a layered one', () => {
     // Regression test: chromeless and layered used to share one
     // overflow:visible condition, which let game-card's 'all' mode grid

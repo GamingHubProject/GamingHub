@@ -102,12 +102,15 @@ registerPageLayoutWidget({
   defaultConfig: gameCardWidgetDefaultConfig,
   defaultWidth: 12,
   defaultHeight: 4,
-  // GameCard (both 'all' mode's grid of cards and a single card) already
-  // has its own border — the outer widget card chrome would double-box
-  // it, and 'all' mode is standing in for what used to be a completely
-  // unboxed grid (see PageLayoutController's seeded DEFAULT_WIDGETS), so
-  // an unchanged fresh-install look depends on this being chromeless.
-  chromeless: true,
+  // Only 'all' mode's grid of already-individually-bordered GameCards
+  // needs the outer container border skipped — 'all' mode is standing in
+  // for what used to be a completely unboxed grid (see
+  // PageLayoutController's seeded DEFAULT_WIDGETS), so an unchanged
+  // fresh-install look depends on that. 'single' mode's one card can
+  // still take a container border on top of GameCard's own — confirmed
+  // as the intended asymmetry, not an oversight. Background always
+  // applies regardless of mode (see registry.ts's chromeless docblock).
+  chromeless: (config) => config.mode !== 'single',
   // Uses widgets/shared/cardScale.ts's container-query text scaling —
   // see registry.ts's selfScaling docblock.
   selfScaling: true,
