@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from './ApiClientProvider';
 import type { PageLayoutSubjectType, ThemeTokens } from '../api/types';
+import type { WidgetStyleOverride } from '../widgets/shared/widgetStyle';
 
 interface ThemeScope {
   gameId?: number;
@@ -21,13 +22,17 @@ interface ThemeFont {
 interface ThemeResponse {
   tokens: ThemeTokens;
   font: ThemeFont | null;
+  // Purely global (see ThemeResolver::widgetStyleDefaults's docblock) —
+  // present in every response regardless of scope, unlike tokens/font.
+  widgetStyle: Partial<WidgetStyleOverride>;
 }
 
 interface ThemeContextValue {
   setScope: (scope: ThemeScope) => void;
+  widgetStyleDefaults: Partial<WidgetStyleOverride>;
 }
 
-const ThemeContext = createContext<ThemeContextValue>({ setScope: () => {} });
+const ThemeContext = createContext<ThemeContextValue>({ setScope: () => {}, widgetStyleDefaults: {} });
 
 /**
  * One theme is ever "live" at a time, applied as CSS custom properties on
@@ -92,7 +97,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       });
   }, [theme]);
 
-  return <ThemeContext.Provider value={{ setScope }}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={{ setScope, widgetStyleDefaults: theme?.widgetStyle ?? {} }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+/** The one app-wide layer beneath every widget's own style override — see
+ *  widgets/shared/widgetStyle.ts's resolveWidgetStyle. */
+export function useWidgetStyleDefaults(): Partial<WidgetStyleOverride> {
+  return useContext(ThemeContext).widgetStyleDefaults;
 }
 
 /**

@@ -1,5 +1,7 @@
 import { getPageLayoutWidgetDefinition } from '../widgets/pageLayout/registry';
 import type { PageLayoutWidgetContext } from '../widgets/pageLayout/registry';
+import { useWidgetStyleDefaults } from '../providers/ThemeProvider';
+import { hexWithOpacity, resolveWidgetStyle } from '../widgets/shared/widgetStyle';
 import type { PageLayoutWidget } from '../api/types';
 
 /**
@@ -8,9 +10,10 @@ import type { PageLayoutWidget } from '../api/types';
  * edit mode — a normal visitor to the page should see clean cards, not
  * admin-tool chrome. The grid itself also disables dragging/resizing
  * outright when not editable (see PageLayoutEditor's isDraggable/
- * isResizable), so this isn't just cosmetic. The settings gear only
- * appears for a widget type that actually has a configForm — most widget
- * types have nothing to configure.
+ * isResizable), so this isn't just cosmetic. The settings gear now always
+ * appears in edit mode — WidgetStyleSection (universal Border/Text/
+ * Background) is available for every widget type, even the ones with no
+ * configForm of their own.
  */
 export function PageLayoutWidgetContainer({
   widget,
@@ -60,6 +63,8 @@ export function PageLayoutWidgetContainer({
   const definition = getPageLayoutWidgetDefinition(widget.widget_type);
   const config = widget.config ?? definition?.defaultConfig ?? {};
   const chromeless = layered || (definition?.chromeless ?? false);
+  const globalStyleDefaults = useWidgetStyleDefaults();
+  const resolvedStyle = resolveWidgetStyle(widget.config, globalStyleDefaults);
 
   return (
     <div
@@ -67,7 +72,16 @@ export function PageLayoutWidgetContainer({
         chromeless
           ? { height: '100%', display: 'flex', flexDirection: 'column' }
           : {
-              border: '1px solid var(--border, #ddd)',
+              // A layered/chromeless widget never gets a border or
+              // background from here — it's meant to float transparently
+              // (on a Picture, or as a page's own unboxed content), and
+              // Border/Background overriding that would defeat the point.
+              // Only reachable in this branch to begin with, so no extra
+              // condition needed on top of resolvedStyle itself.
+              border: resolvedStyle.borderEnabled ? `${resolvedStyle.borderThickness}px solid var(--border, #ddd)` : 'none',
+              backgroundColor: resolvedStyle.backgroundColor
+                ? hexWithOpacity(resolvedStyle.backgroundColor, resolvedStyle.backgroundOpacity)
+                : undefined,
               borderRadius: 8,
               height: '100%',
               display: 'flex',
@@ -105,11 +119,9 @@ export function PageLayoutWidgetContainer({
               dashboard grid — without it these buttons start a drag
               instead of firing onClick. */}
           <div style={{ display: 'flex', gap: 4 }}>
-            {definition?.configForm && (
-              <button aria-label="Widget settings" className="widget-no-drag" onClick={onEdit}>
-                ⚙
-              </button>
-            )}
+            <button aria-label="Widget settings" className="widget-no-drag" onClick={onEdit}>
+              ⚙
+            </button>
             <button aria-label="Remove widget" className="widget-no-drag" onClick={onRemove}>
               ×
             </button>
@@ -134,7 +146,7 @@ export function PageLayoutWidgetContainer({
           `size` queries need. */}
       <div style={{ flex: 1, overflow: layered ? 'visible' : 'hidden', containerType: layered ? undefined : 'size' }}>
         {definition ? (
-          <definition.component context={context} config={config} layered={layered} />
+          <definition.component context={context} config={config} layered={layered} resolvedStyle={resolvedStyle} />
         ) : (
           <p style={{ padding: 12 }}>Unsupported widget type: {widget.widget_type}</p>
         )}

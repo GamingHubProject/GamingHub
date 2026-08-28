@@ -75,6 +75,39 @@ class SiteOptions extends Page implements HasForms
                         ->mapWithKeys(fn (Asset $asset) => [$asset->id => $asset->alt_text ?: basename($asset->disk_path)]))
                     ->searchable()
                     ->nullable(),
+                // Purely per-widget-instance from here down — unlike font,
+                // there's no page-level tier (confirmed: border/text/
+                // background are naturally per-widget, not a whole-page
+                // aesthetic choice the way a typeface is). Every field
+                // left blank here just means "no app-wide default", not
+                // "0"/"off" — a widget without its own override falls
+                // back further to the hardcoded chrome baseline (see the
+                // frontend's resolveWidgetStyle).
+                Forms\Components\Section::make('Default widget style')
+                    ->description('Applies to every widget on every page unless a specific widget instance overrides it in its own settings.')
+                    ->schema([
+                        Forms\Components\Toggle::make('widget_style_defaults.border_enabled')
+                            ->label('Show a border by default'),
+                        Forms\Components\TextInput::make('widget_style_defaults.border_thickness')
+                            ->label('Border thickness (px)')
+                            ->numeric()
+                            ->minValue(1),
+                        Forms\Components\ColorPicker::make('widget_style_defaults.text_color')
+                            ->label('Default text color'),
+                        Forms\Components\TextInput::make('widget_style_defaults.text_size')
+                            ->label('Default text size (px)')
+                            ->numeric()
+                            ->minValue(1),
+                        Forms\Components\ColorPicker::make('widget_style_defaults.background_color')
+                            ->label('Default background color'),
+                        Forms\Components\TextInput::make('widget_style_defaults.background_opacity')
+                            ->label('Default background opacity (0–1)')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(1)
+                            ->step(0.05),
+                    ])
+                    ->columns(2),
             ])
             ->statePath('data');
     }

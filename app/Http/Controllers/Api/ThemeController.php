@@ -45,6 +45,10 @@ class ThemeController extends Controller
                 'family' => "gh-font-{$font->id}",
                 'url' => $font->url,
             ] : null,
+            // Global widget style defaults — additive, not another
+            // breaking shape change like font's rollout. No params needed
+            // (see ThemeResolver::widgetStyleDefaults's docblock).
+            'widgetStyle' => $resolver->widgetStyleDefaults(),
         ]);
     }
 }

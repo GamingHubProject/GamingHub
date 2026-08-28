@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApiClientProvider } from '../../providers/ApiClientProvider';
 import { ServerNameWidget, serverNameWidgetDefaultConfig } from './ServerNameWidget';
+import { resolveWidgetStyle } from '../shared/widgetStyle';
 import type { PageLayoutWidgetContext } from './registry';
 import type { Server } from '../../api/types';
 
@@ -53,24 +54,25 @@ function renderWidget(props: Omit<Parameters<typeof ServerNameWidget>[0], 'conte
 }
 
 describe('ServerNameWidget', () => {
-  it('renders the server name at the configured font size', () => {
-    renderWidget({ config: serverNameWidgetDefaultConfig });
+  it('renders the server name at the resolved text size', () => {
+    const resolvedStyle = resolveWidgetStyle({ style: { text_size: 24 } }, {});
+    renderWidget({ config: serverNameWidgetDefaultConfig, resolvedStyle });
 
     expect(screen.getByText('ad')).toHaveStyle({ fontSize: '24' });
   });
 
-  it('does not apply the configured color or a text-shadow when not layered', () => {
-    const config = { ...serverNameWidgetDefaultConfig, text_color: '#ff0000' };
-    renderWidget({ config });
+  it('does not apply the resolved color or a text-shadow when not layered', () => {
+    const resolvedStyle = resolveWidgetStyle({ style: { text_color: '#ff0000' } }, {});
+    renderWidget({ config: serverNameWidgetDefaultConfig, resolvedStyle });
 
     const heading = screen.getByText('ad');
     expect(heading).not.toHaveStyle({ color: '#ff0000' });
     expect(heading.style.textShadow).toBe('');
   });
 
-  it('applies the configured color and a text-shadow when layered', () => {
-    const config = { ...serverNameWidgetDefaultConfig, text_color: '#ff0000' };
-    renderWidget({ config, layered: true });
+  it('applies the resolved color and a text-shadow when layered', () => {
+    const resolvedStyle = resolveWidgetStyle({ style: { text_color: '#ff0000' } }, {});
+    renderWidget({ config: serverNameWidgetDefaultConfig, resolvedStyle, layered: true });
 
     const heading = screen.getByText('ad');
     expect(heading).toHaveStyle({ color: '#ff0000', textShadow: '0 1px 3px rgba(0, 0, 0, 0.8)' });

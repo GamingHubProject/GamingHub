@@ -60,4 +60,19 @@ class ThemeResolver
 
         return $assetId ? Asset::find($assetId) : null;
     }
+
+    /**
+     * Purely global — no page/game/server cascade like resolve()'s color
+     * tokens, and no page-level tier like resolveFont() either (confirmed:
+     * border/text/background are naturally per-widget-instance, not a
+     * whole-page choice). A widget's own config carries its override, if
+     * any; this is just the one app-wide fallback layer beneath that,
+     * resolved client-side (see the frontend's resolveWidgetStyle) since
+     * there's nothing server-scoped left to compute once this one value is
+     * fetched.
+     */
+    public function widgetStyleDefaults(): array
+    {
+        return SiteOption::value('widget_style_defaults', []) ?? [];
+    }
 }

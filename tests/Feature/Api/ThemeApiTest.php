@@ -101,4 +101,47 @@ class ThemeApiTest extends TestCase
         $response->assertOk();
         $response->assertJsonPath('font.family', "gh-font-{$globalAsset->id}");
     }
+
+    // --- Widget style defaults ---
+
+    public function test_widget_style_defaults_to_an_empty_object_when_nothing_is_configured(): void
+    {
+        $response = $this->getJson('/api/v1/theme');
+
+        $response->assertOk();
+        $response->assertJsonPath('widgetStyle', []);
+    }
+
+    public function test_widget_style_returns_the_configured_global_defaults(): void
+    {
+        SiteOption::current()->update(['values' => [
+            'widget_style_defaults' => [
+                'border_enabled' => true,
+                'border_thickness' => 3,
+                'text_size' => 18,
+                'text_color' => '#ff0000',
+                'background_color' => '#000000',
+                'background_opacity' => 0.5,
+            ],
+        ]]);
+
+        $response = $this->getJson('/api/v1/theme');
+
+        $response->assertOk();
+        $response->assertJsonPath('widgetStyle.border_enabled', true);
+        $response->assertJsonPath('widgetStyle.border_thickness', 3);
+        $response->assertJsonPath('widgetStyle.text_color', '#ff0000');
+        $response->assertJsonPath('widgetStyle.background_opacity', 0.5);
+    }
+
+    public function test_widget_style_is_unaffected_by_game_or_page_scoping(): void
+    {
+        SiteOption::current()->update(['values' => ['widget_style_defaults' => ['border_enabled' => true]]]);
+        $game = Game::factory()->create();
+
+        $response = $this->getJson("/api/v1/theme?game_id={$game->id}&subject_type=game&subject_id={$game->id}");
+
+        $response->assertOk();
+        $response->assertJsonPath('widgetStyle.border_enabled', true);
+    }
 }

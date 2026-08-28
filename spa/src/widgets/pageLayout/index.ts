@@ -108,6 +108,9 @@ registerPageLayoutWidget({
   // unboxed grid (see PageLayoutController's seeded DEFAULT_WIDGETS), so
   // an unchanged fresh-install look depends on this being chromeless.
   chromeless: true,
+  // Uses widgets/shared/cardScale.ts's container-query text scaling —
+  // see registry.ts's selfScaling docblock.
+  selfScaling: true,
 });
 
 registerPageLayoutWidget({
@@ -120,6 +123,7 @@ registerPageLayoutWidget({
   defaultConfig: serverCardWidgetDefaultConfig,
   defaultWidth: 4,
   defaultHeight: 2,
+  selfScaling: true,
 });
 
 registerPageLayoutWidget({
@@ -132,6 +136,7 @@ registerPageLayoutWidget({
   defaultConfig: serverGroupCardWidgetDefaultConfig,
   defaultWidth: 4,
   defaultHeight: 2,
+  selfScaling: true,
 });
 
 export {

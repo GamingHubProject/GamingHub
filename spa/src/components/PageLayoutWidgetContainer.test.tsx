@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApiClientProvider } from '../providers/ApiClientProvider';
+import { ThemeProvider } from '../providers/ThemeProvider';
 // Registers the real widget types (side effect) — the same import
 // App.tsx does. Without it the registry is empty and every widget falls
 // back to "Unsupported widget type".
@@ -144,12 +145,12 @@ describe('PageLayoutWidgetContainer', () => {
     expect(screen.getByLabelText('Widget settings')).toHaveClass('widget-no-drag');
   });
 
-  it('hides the settings gear for a widget type with no configForm (server-allocations)', () => {
+  it('still shows the settings gear for a widget type with no configForm of its own (server-allocations) — WidgetStyleSection is universal', () => {
     const allocationsWidget = { ...widget, widget_type: 'server-allocations' };
 
     render(<PageLayoutWidgetContainer widget={allocationsWidget} context={context} editable={true} onRemove={() => {}} onEdit={() => {}} />);
 
-    expect(screen.queryByLabelText('Widget settings')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Widget settings')).toBeInTheDocument();
   });
 
   it('calls onEdit when the settings gear is clicked', () => {
@@ -265,5 +266,67 @@ describe('PageLayoutWidgetContainer', () => {
     );
 
     expect(screen.getByText('ad')).toHaveStyle({ textShadow: '0 1px 3px rgba(0, 0, 0, 0.8)' });
+  });
+
+  // --- Universal widget style (Border/Text/Background) ---
+
+  function renderWithTheme(ui: React.ReactElement, widgetStyle: Record<string, unknown> = {}) {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const apiClient = { get: async () => ({ tokens: {}, font: null, widgetStyle }) };
+
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <ApiClientProvider client={apiClient as any}>
+          <ThemeProvider>{ui}</ThemeProvider>
+        </ApiClientProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  it('defaults to a 1px border when nothing overrides it anywhere (the pre-existing look, unchanged)', () => {
+    const { container } = renderWithTheme(
+      <PageLayoutWidgetContainer widget={widget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+    );
+
+    expect(container.firstElementChild).toHaveStyle({ border: '1px solid var(--border, #ddd)' });
+  });
+
+  it('applies a global default border override fetched from /api/v1/theme', async () => {
+    const { container } = renderWithTheme(
+      <PageLayoutWidgetContainer widget={widget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />,
+      { border_enabled: false }
+    );
+
+    await waitFor(() => expect(container.firstElementChild).toHaveStyle({ border: 'none' }));
+  });
+
+  it("an instance's own style override wins over the global default", async () => {
+    const overriddenWidget = { ...widget, config: { style: { border_enabled: true, border_thickness: 4 } } };
+    const { container } = renderWithTheme(
+      <PageLayoutWidgetContainer widget={overriddenWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />,
+      { border_enabled: false }
+    );
+
+    await waitFor(() => expect(container.firstElementChild).toHaveStyle({ border: '4px solid var(--border, #ddd)' }));
+  });
+
+  it('applies a resolved background color with opacity', async () => {
+    const bgWidget = { ...widget, config: { style: { background_color: '#ff0000', background_opacity: 0.5 } } };
+    const { container } = renderWithTheme(
+      <PageLayoutWidgetContainer widget={bgWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+    );
+
+    await waitFor(() => expect(container.firstElementChild).toHaveStyle({ backgroundColor: 'rgba(255, 0, 0, 0.5)' }));
+  });
+
+  it('never applies a border/background to a chromeless widget (e.g. layered)', async () => {
+    const { container } = renderWithTheme(
+      <PageLayoutWidgetContainer widget={widget} context={context} editable={false} layered onRemove={() => {}} onEdit={() => {}} />,
+      { border_enabled: true, background_color: '#ff0000' }
+    );
+    await waitFor(() => expect(screen.getByText('Running')).toBeInTheDocument());
+
+    expect(container.firstElementChild).not.toHaveStyle({ border: '1px solid var(--border, #ddd)' });
+    expect(container.firstElementChild).not.toHaveStyle({ backgroundColor: 'rgba(255, 0, 0, 1)' });
   });
 });

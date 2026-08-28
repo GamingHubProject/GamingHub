@@ -68,4 +68,29 @@ class SiteOptionsTest extends TestCase
             ->call('save')
             ->assertHasFormErrors(['admin_email']);
     }
+
+    public function test_saving_persists_the_widget_style_defaults_as_a_nested_object(): void
+    {
+        Livewire::test(SiteOptions::class)
+            ->fillForm([
+                'site_name' => 'Hub',
+                'timezone' => 'UTC',
+                'widget_style_defaults' => [
+                    'border_enabled' => true,
+                    'border_thickness' => 2,
+                    'text_size' => 16,
+                    'text_color' => '#ff0000',
+                    'background_color' => '#000000',
+                    'background_opacity' => 0.5,
+                ],
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $values = SiteOption::current()->values;
+        $this->assertSame(true, $values['widget_style_defaults']['border_enabled']);
+        $this->assertSame(2, $values['widget_style_defaults']['border_thickness']);
+        $this->assertSame('#ff0000', $values['widget_style_defaults']['text_color']);
+        $this->assertSame(0.5, $values['widget_style_defaults']['background_opacity']);
+    }
 }

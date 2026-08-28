@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import type { Game, Server } from '../../api/types';
+import type { ResolvedWidgetStyle } from '../shared/widgetStyle';
 
 export interface PageLayoutWidgetConfigFormProps<TConfig> {
   config: TConfig;
@@ -50,7 +51,19 @@ export interface PageLayoutWidgetDefinition<TConfig = Record<string, unknown>> {
    * component that never expects to be layerable can safely ignore the
    * prop entirely.
    */
-  component: ComponentType<{ context: PageLayoutWidgetContext; config: TConfig; layered?: boolean }>;
+  /**
+   * `resolvedStyle` is the universal Border/Text/Background result (see
+   * widgets/shared/widgetStyle.ts) — Border/Background are already
+   * applied centrally by PageLayoutWidgetContainer's own chrome, nothing
+   * to do there. Text is passed through instead of also being forced via
+   * CSS inheritance: a widget with its own conditional text styling
+   * (server-name only applies a custom color while `layered`, for
+   * legibility against arbitrary background art) needs the raw resolved
+   * value to decide *whether* to apply it, not just inherit it
+   * unconditionally. A component that has no text-styling opinion of its
+   * own can ignore this prop entirely.
+   */
+  component: ComponentType<{ context: PageLayoutWidgetContext; config: TConfig; layered?: boolean; resolvedStyle?: ResolvedWidgetStyle }>;
   /** Sensible starting size when an admin adds this widget — types differ
    *  enough (a wide short banner vs. a small status badge) that one
    *  default for all of them would look wrong for most of them. */
@@ -85,6 +98,16 @@ export interface PageLayoutWidgetDefinition<TConfig = Record<string, unknown>> {
    * static property of the widget type itself.
    */
   chromeless?: boolean;
+  /**
+   * This widget already scales its own text proportionally via container
+   * queries (see widgets/shared/cardScale.ts) — a fixed Text size/color
+   * override from the universal style system would be silently
+   * ineffective (an explicit inline style always wins over an inherited
+   * one), so WidgetStyleSection disables the Text controls entirely for
+   * a widget flagged this way rather than accepting a setting that won't
+   * visibly apply.
+   */
+  selfScaling?: boolean;
 }
 
 const registry = new Map<string, PageLayoutWidgetDefinition<any>>();

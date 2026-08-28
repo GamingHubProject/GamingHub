@@ -2,22 +2,20 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '../../providers/ApiClientProvider';
 import type { Game, Server } from '../../api/types';
+import type { ResolvedWidgetStyle } from '../shared/widgetStyle';
 import type { PageLayoutWidgetConfigFormProps, PageLayoutWidgetContext } from './registry';
 
 export interface ServerNameWidgetConfig {
-  font_size: number;
-  text_color: string;
-  // Only consulted when context.server isn't already set (i.e. this
-  // widget isn't on its own Server Detail page) — see the component's
-  // docblock. Unused/ignored on a Server page, same as ServerCardWidget's
-  // config fields go unused once a server-scoped context already answers
-  // the question a picker would otherwise ask.
+  // font_size/text_color used to live here — folded into the universal
+  // `style` key every widget now has (see the migration that moved
+  // existing rows), so this config no longer carries its own bespoke
+  // text-styling fields. See the component below for why the *color*
+  // half of that (not the size half) still gets applied conditionally
+  // rather than just inheriting the resolved style outright.
   server_id: number | null;
 }
 
 export const serverNameWidgetDefaultConfig: ServerNameWidgetConfig = {
-  font_size: 24,
-  text_color: '#ffffff',
   server_id: null,
 };
 
@@ -25,13 +23,18 @@ export const serverNameWidgetDefaultConfig: ServerNameWidgetConfig = {
  * Split out of what used to be PictureWidget's built-in <h1> — the
  * picture is now purely a background layer (see its own docblock), and
  * the name is its own independent, layerable widget so an admin can place
- * it over a picture (or anywhere else) like any other widget. font_size/
- * text_color exist because a background picture is arbitrary admin-chosen
- * art — a fixed color has no chance of staying readable against all of
- * them, so this is configurable per-placement rather than a theme
- * constant. The text-shadow below isn't configurable and always applies
- * while layered — a legibility floor under whatever color is picked, not
- * a style choice.
+ * it over a picture (or anywhere else) like any other widget.
+ *
+ * The universal style system's text_color is applied only while
+ * `layered` — unchanged from before that system existed. A background
+ * picture is arbitrary admin-chosen art, so a fixed color only ever makes
+ * sense as a legibility choice *against* that art; off a picture, this
+ * still just wants its ambient/default heading color, not whatever the
+ * platform-wide text color default happens to be. text_size doesn't have
+ * that conditional — it's applied whenever set, layered or not, same as
+ * before. The text-shadow isn't configurable and always applies while
+ * layered — a legibility floor under whatever color is picked, not a
+ * style choice.
  *
  * validFor now covers every page type, not just 'server' — on a Server
  * page context.server is always set and wins outright (the widget still
@@ -46,10 +49,12 @@ export function ServerNameWidget({
   context,
   config,
   layered,
+  resolvedStyle,
 }: {
   context: PageLayoutWidgetContext;
   config: ServerNameWidgetConfig;
   layered?: boolean;
+  resolvedStyle?: ResolvedWidgetStyle;
 }) {
   const api = useApi();
 
@@ -74,8 +79,8 @@ export function ServerNameWidget({
       <h1
         style={{
           margin: 0,
-          fontSize: config.font_size,
-          color: layered ? config.text_color : undefined,
+          fontSize: resolvedStyle?.textSize,
+          color: layered ? resolvedStyle?.textColor : undefined,
           textShadow: layered ? '0 1px 3px rgba(0, 0, 0, 0.8)' : undefined,
         }}
       >
@@ -117,28 +122,6 @@ export function ServerNameWidgetConfigForm({ config, onChange }: PageLayoutWidge
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <label>
-        Text size ({config.font_size}px)
-        <div style={{ marginTop: 4 }}>
-          <input
-            type="range"
-            min={12}
-            max={64}
-            step={1}
-            value={config.font_size}
-            onChange={(event) => onChange({ ...config, font_size: Number(event.target.value) })}
-          />
-        </div>
-      </label>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        Text color
-        <input
-          type="color"
-          value={config.text_color}
-          onChange={(event) => onChange({ ...config, text_color: event.target.value })}
-        />
-      </label>
-
       <label>
         Server (only used when not already on that server's own page)
         <div style={{ marginTop: 4 }}>
