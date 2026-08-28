@@ -109,12 +109,22 @@ export type PageLayoutSubjectType = 'server' | 'game' | 'home' | 'games-list';
 export interface PageLayoutWidget {
   id: number;
   page_layout_id: number;
+  // Set only on a member of a 'group' widget — see PageLayoutWidgetModel's
+  // docblock. When set, position_x/position_y below are relative to the
+  // group's own inner grid, not the page's.
+  group_widget_id: number | null;
   widget_type: string;
   config: Record<string, unknown> | null;
   position_x: number;
   position_y: number;
   width: number;
   height: number;
+}
+
+export interface GroupWidgetTemplate {
+  id: number;
+  name: string;
+  created_at: string;
 }
 
 export interface PageLayout {

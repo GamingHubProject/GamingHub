@@ -19,6 +19,9 @@ export function PageLayoutWidgetContainer({
   layered = false,
   onRemove,
   onEdit,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
 }: {
   widget: PageLayoutWidget;
   context: PageLayoutWidgetContext;
@@ -30,6 +33,14 @@ export function PageLayoutWidgetContainer({
   layered?: boolean;
   onRemove: () => void;
   onEdit: () => void;
+  /** Only ever true for a top-level widget on the page's own grid — a
+   *  widget already inside a Group can't be selected into a *different*
+   *  grouping without first being ungrouped (confirmed scope boundary),
+   *  so PageLayoutEditor never passes this when rendering a group's
+   *  children. See PageLayoutEditor's "Group selected" flow. */
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const definition = getPageLayoutWidgetDefinition(widget.widget_type);
   const config = widget.config ?? definition?.defaultConfig ?? {};
@@ -63,7 +74,18 @@ export function PageLayoutWidgetContainer({
             background: 'var(--surface-muted, rgba(0,0,0,0.03))',
           }}
         >
-          <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>{definition?.label ?? widget.widget_type}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', opacity: 0.7 }}>
+            {selectable && (
+              <input
+                type="checkbox"
+                className="widget-no-drag"
+                aria-label="Select for grouping"
+                checked={selected}
+                onChange={onToggleSelect}
+              />
+            )}
+            {definition?.label ?? widget.widget_type}
+          </span>
           {/* widget-no-drag: same draggableCancel mechanism as the
               dashboard grid — without it these buttons start a drag
               instead of firing onClick. */}

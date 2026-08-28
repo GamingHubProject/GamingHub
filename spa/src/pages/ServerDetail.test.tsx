@@ -95,7 +95,7 @@ describe('ServerDetail', () => {
       subject_id: 2,
       font_asset_id: null,
       widgets: [
-        { id: 1, page_layout_id: 1, widget_type: 'server-name', config: null, position_x: 0, position_y: 0, width: 4, height: 1 },
+        { id: 1, page_layout_id: 1, group_widget_id: null, widget_type: 'server-name', config: null, position_x: 0, position_y: 0, width: 4, height: 1 },
       ],
     };
 

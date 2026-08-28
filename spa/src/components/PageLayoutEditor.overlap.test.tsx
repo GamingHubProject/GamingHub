@@ -15,7 +15,7 @@ function widget(
   h: number,
   config: Record<string, unknown> | null = null
 ): PageLayoutWidget {
-  return { id, page_layout_id: 1, widget_type, config, position_x: x, position_y: y, width: w, height: h };
+  return { id, page_layout_id: 1, group_widget_id: null, widget_type, config, position_x: x, position_y: y, width: w, height: h };
 }
 
 function layout(id: number, x: number, y: number, w: number, h: number): Layout {

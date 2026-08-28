@@ -3,11 +3,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import GridLayout, { WidthProvider, type Layout } from 'react-grid-layout';
 import { useApi } from '../providers/ApiClientProvider';
 import { PageLayoutWidgetContainer } from './PageLayoutWidgetContainer';
+import { GroupWidgetContainer } from './GroupWidgetContainer';
+import type { ChildLayoutChange } from './GroupWidgetContainer';
 import { AddPageLayoutWidgetModal } from './AddPageLayoutWidgetModal';
 import { PageLayoutWidgetConfigModal } from './PageLayoutWidgetConfigModal';
+import { SaveGroupTemplateModal } from './SaveGroupTemplateModal';
+import { GroupTemplatePickerModal } from './GroupTemplatePickerModal';
 import { getPageLayoutWidgetDefinition } from '../widgets/pageLayout/registry';
 import type { PageLayoutWidgetContext } from '../widgets/pageLayout/registry';
-import type { AssetFolder, AssetList, PageLayout, PageLayoutWidget } from '../api/types';
+import type { AssetFolder, AssetList, GroupWidgetTemplate, PageLayout, PageLayoutWidget } from '../api/types';
 
 const ResponsiveGridLayout = WidthProvider(GridLayout);
 const GRID_COLS = 12;
@@ -191,6 +195,13 @@ export function PageLayoutEditor({
   const [editMode, setEditMode] = useState(false);
   const [addingWidget, setAddingWidget] = useState(false);
   const [editingWidget, setEditingWidget] = useState<PageLayoutWidget | null>(null);
+  // Top-level widgets picked via each widget's own "select for grouping"
+  // checkbox (see PageLayoutWidgetContainer) — cleared on every successful
+  // grouping and whenever edit mode is left, so a stale selection never
+  // survives past the session that made it.
+  const [selectedWidgetIds, setSelectedWidgetIds] = useState<Set<number>>(new Set());
+  const [addingGroupFromTemplate, setAddingGroupFromTemplate] = useState(false);
+  const [savingTemplateForGroupId, setSavingTemplateForGroupId] = useState<number | null>(null);
   // Bumped to force-remount the grid when a drag is rejected (see
   // persistLayout) — react-grid-layout keeps its own internal layout state
   // once a drag ends, so simply leaving the `layout` prop unchanged
@@ -203,10 +214,18 @@ export function PageLayoutEditor({
     queryFn: () => api.get<PageLayout>(layoutUrl),
   });
 
+  // The page's own grid only ever shows/positions top-level widgets — a
+  // group's children live in a completely different coordinate space
+  // (relative to their group's inner grid, not the page's), so mixing
+  // them into the outer grid's math would be meaningless at best,
+  // actively wrong at worst (see layeredWidgetIds/isValidOverlapLayout
+  // call sites below, and nextWidgetPosition here).
+  const topLevelWidgets = (layout?.widgets ?? []).filter((w) => !w.group_widget_id);
+
   const addWidgetMutation = useMutation({
     mutationFn: (type: string) => {
       const definition = getPageLayoutWidgetDefinition(type);
-      const { x, y } = nextWidgetPosition(layout?.widgets ?? []);
+      const { x, y } = nextWidgetPosition(topLevelWidgets);
       return api.post<PageLayoutWidget>(`/api/v1/page-layouts/${layout!.id}/widgets`, {
         widget_type: type,
         position_x: x,
@@ -223,11 +242,29 @@ export function PageLayoutEditor({
 
   const removeWidgetMutation = useMutation({
     mutationFn: (widgetId: number) => api.delete(`/api/v1/page-layout-widgets/${widgetId}`),
+    // Mirrors two things the backend does server-side (see
+    // PageLayoutWidgetController::destroy) so the optimistic cache update
+    // doesn't leave stale rows behind until the next refetch: deleting a
+    // group cascades to its children, and deleting a group's last
+    // remaining child auto-deletes the now-empty group.
     onMutate: async (widgetId) => {
       const previous = queryClient.getQueryData<PageLayout>(queryKey);
-      queryClient.setQueryData<PageLayout>(queryKey, (prev) =>
-        prev ? { ...prev, widgets: prev.widgets.filter((w) => w.id !== widgetId) } : prev
-      );
+      const removed = previous?.widgets.find((w) => w.id === widgetId);
+
+      queryClient.setQueryData<PageLayout>(queryKey, (prev) => {
+        if (!prev) return prev;
+        let widgets = prev.widgets.filter((w) => w.id !== widgetId && w.group_widget_id !== widgetId);
+
+        if (removed?.group_widget_id) {
+          const groupStillHasChildren = widgets.some((w) => w.group_widget_id === removed.group_widget_id);
+          if (!groupStillHasChildren) {
+            widgets = widgets.filter((w) => w.id !== removed.group_widget_id);
+          }
+        }
+
+        return { ...prev, widgets };
+      });
+
       return { previous };
     },
     onError: (_error, _vars, mutationContext) => {
@@ -277,7 +314,7 @@ export function PageLayoutEditor({
   function persistLayout(rglLayout: Layout[]) {
     if (!layout) return;
 
-    if (!isValidOverlapLayout(rglLayout, layout.widgets)) {
+    if (!isValidOverlapLayout(rglLayout, topLevelWidgets)) {
       setGridResetKey((key) => key + 1);
       return;
     }
@@ -285,7 +322,7 @@ export function PageLayoutEditor({
     const changes: LayoutChange[] = [];
 
     for (const item of rglLayout) {
-      const widget = layout.widgets.find((w) => String(w.id) === item.i);
+      const widget = topLevelWidgets.find((w) => String(w.id) === item.i);
       if (!widget) continue;
 
       if (widget.position_x !== item.x || widget.position_y !== item.y || widget.width !== item.w || widget.height !== item.h) {
@@ -310,26 +347,190 @@ export function PageLayoutEditor({
     layoutMutation.mutate(changes);
   }
 
+  const childrenLayoutMutation = useMutation({
+    mutationFn: (changes: ChildLayoutChange[]) =>
+      Promise.all(
+        changes.map(({ id: widgetId, position_x, position_y, width, height }) =>
+          api.patch(`/api/v1/page-layout-widgets/${widgetId}`, { position_x, position_y, width, height })
+        )
+      ),
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
+  function persistGroupChildren(changes: ChildLayoutChange[]) {
+    queryClient.setQueryData<PageLayout>(queryKey, (prev) =>
+      prev
+        ? {
+            ...prev,
+            widgets: prev.widgets.map((w) => {
+              const change = changes.find((c) => c.id === w.id);
+              return change ? { ...w, position_x: change.position_x, position_y: change.position_y, width: change.width, height: change.height } : w;
+            }),
+          }
+        : prev
+    );
+
+    childrenLayoutMutation.mutate(changes);
+  }
+
+  /**
+   * Bounding-box grouping: the new Group's own page-grid box is the
+   * smallest rectangle covering every selected widget's *current*
+   * position, and each selected widget's position becomes relative to
+   * that box's origin (width/height unchanged — the inner grid reuses the
+   * same column count as the page's, so no unit conversion is needed
+   * moving a widget in or out of a group). Two dependent server calls
+   * (create the group, then reparent each selected widget now that the
+   * group has a real id) rather than a bespoke bulk endpoint — this is a
+   * deliberate, infrequent admin action, not a hot path.
+   */
+  const groupMutation = useMutation({
+    mutationFn: async (selectedIds: number[]) => {
+      const selected = (layout?.widgets ?? []).filter((w) => selectedIds.includes(w.id));
+      const minX = Math.min(...selected.map((w) => w.position_x));
+      const minY = Math.min(...selected.map((w) => w.position_y));
+      const maxX = Math.max(...selected.map((w) => w.position_x + w.width));
+      const maxY = Math.max(...selected.map((w) => w.position_y + w.height));
+
+      const group = await api.post<PageLayoutWidget>(`/api/v1/page-layouts/${layout!.id}/widgets`, {
+        widget_type: 'group',
+        position_x: minX,
+        position_y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+      });
+
+      const children = await Promise.all(
+        selected.map((widget) =>
+          api.patch<PageLayoutWidget>(`/api/v1/page-layout-widgets/${widget.id}`, {
+            group_widget_id: group.id,
+            position_x: widget.position_x - minX,
+            position_y: widget.position_y - minY,
+          })
+        )
+      );
+
+      return { group, children };
+    },
+    onSuccess: ({ group, children }) => {
+      queryClient.setQueryData<PageLayout>(queryKey, (prev) => {
+        if (!prev) return prev;
+        const childIds = new Set(children.map((c) => c.id));
+        return {
+          ...prev,
+          widgets: [...prev.widgets.filter((w) => !childIds.has(w.id)), group, ...children],
+        };
+      });
+      setSelectedWidgetIds(new Set());
+    },
+  });
+
+  /**
+   * The reverse of groupMutation: each child's position translates back
+   * to page-space (group's origin + its own relative position), then the
+   * now-empty group is deleted. Positions are preserved exactly — a
+   * widget reappears at the same absolute spot on the page, just no
+   * longer grouped.
+   */
+  const ungroupMutation = useMutation({
+    mutationFn: async (group: PageLayoutWidget) => {
+      const children = (layout?.widgets ?? []).filter((w) => w.group_widget_id === group.id);
+
+      const updated = await Promise.all(
+        children.map((child) =>
+          api.patch<PageLayoutWidget>(`/api/v1/page-layout-widgets/${child.id}`, {
+            group_widget_id: null,
+            position_x: group.position_x + child.position_x,
+            position_y: group.position_y + child.position_y,
+          })
+        )
+      );
+
+      await api.delete(`/api/v1/page-layout-widgets/${group.id}`);
+
+      return { groupId: group.id, updated };
+    },
+    onSuccess: ({ groupId, updated }) => {
+      queryClient.setQueryData<PageLayout>(queryKey, (prev) => {
+        if (!prev) return prev;
+        const updatedById = new Map(updated.map((w) => [w.id, w]));
+        return {
+          ...prev,
+          widgets: prev.widgets.filter((w) => w.id !== groupId).map((w) => updatedById.get(w.id) ?? w),
+        };
+      });
+    },
+  });
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: ({ groupWidgetId, name }: { groupWidgetId: number; name: string }) =>
+      api.post('/api/v1/group-widget-templates', { name, group_widget_id: groupWidgetId }),
+    onSuccess: () => {
+      setSavingTemplateForGroupId(null);
+    },
+  });
+
+  const placeTemplateMutation = useMutation({
+    mutationFn: (template: GroupWidgetTemplate) =>
+      api.post<PageLayoutWidget[]>(`/api/v1/page-layouts/${layout!.id}/group-widgets/from-template/${template.id}`),
+    onSuccess: (created) => {
+      queryClient.setQueryData<PageLayout>(queryKey, (prev) => (prev ? { ...prev, widgets: [...prev.widgets, ...created] } : prev));
+      setAddingGroupFromTemplate(false);
+    },
+  });
+
   if (isLoading || !layout) return null;
+
+  const childrenByGroupId = new Map<number, PageLayoutWidget[]>();
+  for (const widget of layout.widgets) {
+    if (widget.group_widget_id === null) continue;
+    const list = childrenByGroupId.get(widget.group_widget_id) ?? [];
+    list.push(widget);
+    childrenByGroupId.set(widget.group_widget_id, list);
+  }
+
+  function toggleSelected(id: number) {
+    setSelectedWidgetIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   return (
     <div>
       {isAdmin && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <PageFontControl layout={layout} queryKey={queryKey} />
+          {editMode && selectedWidgetIds.size >= 2 && (
+            <button onClick={() => groupMutation.mutate(Array.from(selectedWidgetIds))}>
+              Group selected ({selectedWidgetIds.size})
+            </button>
+          )}
+          {editMode && <button onClick={() => setAddingGroupFromTemplate(true)}>+ Add group from template</button>}
           {editMode && <button onClick={() => setAddingWidget(true)}>+ Add widget</button>}
-          <button onClick={() => setEditMode((value) => !value)}>{editMode ? 'Done editing' : 'Edit layout'}</button>
+          <button
+            onClick={() => {
+              setEditMode((value) => !value);
+              setSelectedWidgetIds(new Set());
+            }}
+          >
+            {editMode ? 'Done editing' : 'Edit layout'}
+          </button>
         </div>
       )}
 
       {/* An empty, non-editing layout renders nothing extra — a fresh
           Home/Game page looks exactly as it did before this existed,
           until an admin actually adds a widget. */}
-      {(layout.widgets.length > 0 || editMode) && (
+      {(topLevelWidgets.length > 0 || editMode) && (
         <ResponsiveGridLayout
           key={gridResetKey}
           className="layout"
-          layout={layoutFor(layout.widgets)}
+          layout={layoutFor(topLevelWidgets)}
           cols={GRID_COLS}
           rowHeight={ROW_HEIGHT}
           isDraggable={editMode}
@@ -346,8 +547,26 @@ export function PageLayoutEditor({
           onResizeStop={persistLayout}
         >
           {(() => {
-            const layeredIds = layeredWidgetIds(layout.widgets);
-            return layout.widgets.map((widget) => {
+            const layeredIds = layeredWidgetIds(topLevelWidgets);
+            return topLevelWidgets.map((widget) => {
+              if (widget.widget_type === 'group') {
+                return (
+                  <div key={widget.id}>
+                    <GroupWidgetContainer
+                      children={childrenByGroupId.get(widget.id) ?? []}
+                      context={context}
+                      editable={editMode}
+                      onRemoveGroup={() => removeWidgetMutation.mutate(widget.id)}
+                      onRemoveChild={(childId) => removeWidgetMutation.mutate(childId)}
+                      onEditChild={(child) => setEditingWidget(child)}
+                      onPersistChildren={persistGroupChildren}
+                      onUngroup={() => ungroupMutation.mutate(widget)}
+                      onSaveTemplate={() => setSavingTemplateForGroupId(widget.id)}
+                    />
+                  </div>
+                );
+              }
+
               const definition = getPageLayoutWidgetDefinition(widget.widget_type);
               return (
                 // A layerTarget always paints behind everything else,
@@ -361,6 +580,9 @@ export function PageLayoutEditor({
                     layered={layeredIds.has(widget.id)}
                     onRemove={() => removeWidgetMutation.mutate(widget.id)}
                     onEdit={() => setEditingWidget(widget)}
+                    selectable={editMode}
+                    selected={selectedWidgetIds.has(widget.id)}
+                    onToggleSelect={() => toggleSelected(widget.id)}
                   />
                 </div>
               );
@@ -382,6 +604,20 @@ export function PageLayoutEditor({
           widget={editingWidget}
           onClose={() => setEditingWidget(null)}
           onSave={(config) => updateWidgetConfigMutation.mutate({ id: editingWidget.id, config })}
+        />
+      )}
+
+      {addingGroupFromTemplate && (
+        <GroupTemplatePickerModal
+          onClose={() => setAddingGroupFromTemplate(false)}
+          onPlace={(template) => placeTemplateMutation.mutate(template)}
+        />
+      )}
+
+      {savingTemplateForGroupId !== null && (
+        <SaveGroupTemplateModal
+          onClose={() => setSavingTemplateForGroupId(null)}
+          onSave={(name) => saveTemplateMutation.mutate({ groupWidgetId: savingTemplateForGroupId, name })}
         />
       )}
     </div>

@@ -8,6 +8,9 @@ use App\Models\PageLayout;
 use App\Models\PageLayoutWidget;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -32,7 +35,10 @@ class PageLayoutWidgetController extends Controller
             'position_y' => ['sometimes', 'integer', 'min:0'],
             'width' => ['sometimes', 'integer', 'min:1', 'max:12'],
             'height' => ['sometimes', 'integer', 'min:1'],
+            'group_widget_id' => ['sometimes', 'nullable', 'integer', $this->groupWidgetIdRule($layout->id)],
         ]);
+
+        $this->assertGroupNeverNested($data['widget_type'], $data['group_widget_id'] ?? null);
 
         $data['page_layout_id'] = $layout->id;
 
@@ -55,7 +61,15 @@ class PageLayoutWidgetController extends Controller
             'position_y' => ['sometimes', 'integer', 'min:0'],
             'width' => ['sometimes', 'integer', 'min:1', 'max:12'],
             'height' => ['sometimes', 'integer', 'min:1'],
+            'group_widget_id' => ['sometimes', 'nullable', 'integer', $this->groupWidgetIdRule($widget->page_layout_id, exceptId: $widget->id)],
         ]);
+
+        // A partial update might touch only one of the two fields — always
+        // resolve against what the row will actually end up as, not just
+        // what this one request happened to send.
+        $resolvedType = $data['widget_type'] ?? $widget->widget_type;
+        $resolvedGroupId = array_key_exists('group_widget_id', $data) ? $data['group_widget_id'] : $widget->group_widget_id;
+        $this->assertGroupNeverNested($resolvedType, $resolvedGroupId);
 
         $widget->update($data);
 
@@ -66,8 +80,52 @@ class PageLayoutWidgetController extends Controller
     {
         abort_unless($request->user()->hasRole('Admin'), 403);
 
+        $groupId = $widget->group_widget_id;
+
         $widget->delete();
 
+        // Empty groups auto-delete — an admin removing a group's members
+        // one at a time (rather than via the dedicated Ungroup action,
+        // which already deletes the group itself) shouldn't leave a
+        // dangling, contentless group widget behind.
+        if ($groupId && PageLayoutWidget::where('group_widget_id', $groupId)->doesntExist()) {
+            PageLayoutWidget::find($groupId)?->delete();
+        }
+
         return response()->noContent();
+    }
+
+    /**
+     * A group_widget_id must point at a 'group' widget on the *same*
+     * layout, which is itself not nested inside another group — the one
+     * DB-level guarantee behind "groups can't contain groups". $exceptId
+     * stops a widget from somehow being validated as pointing at itself.
+     */
+    private function groupWidgetIdRule(int $layoutId, ?int $exceptId = null): Exists
+    {
+        return Rule::exists('page_layout_widgets', 'id')->where(function ($query) use ($layoutId, $exceptId) {
+            $query->where('page_layout_id', $layoutId)
+                ->where('widget_type', 'group')
+                ->whereNull('group_widget_id');
+
+            if ($exceptId) {
+                $query->where('id', '!=', $exceptId);
+            }
+        });
+    }
+
+    /**
+     * The other half of "groups can't contain groups": a 'group' widget
+     * itself can never carry a group_widget_id, regardless of which of
+     * the two fields the current request actually touched — see update()'s
+     * resolved-value handling above.
+     */
+    private function assertGroupNeverNested(string $widgetType, ?int $groupWidgetId): void
+    {
+        if ($widgetType === 'group' && $groupWidgetId !== null) {
+            throw ValidationException::withMessages([
+                'group_widget_id' => 'A group widget cannot itself be placed inside another group.',
+            ]);
+        }
     }
 }

@@ -352,4 +352,150 @@ class PageLayoutApiTest extends TestCase
         $response->assertJsonPath('data.font_asset_id', null);
         $this->assertNull($layout->fresh()->font_asset_id);
     }
+
+    // --- Group widgets ---
+
+    public function test_store_accepts_a_group_widget_id_pointing_at_a_real_group_on_the_same_layout(): void
+    {
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
+        $group = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'group']);
+
+        $response = $this->actingAs($this->admin())->postJson("/api/v1/page-layouts/{$layout->id}/widgets", [
+            'widget_type' => 'server-status',
+            'group_widget_id' => $group->id,
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.group_widget_id', $group->id);
+    }
+
+    public function test_store_rejects_a_group_widget_id_pointing_at_a_non_group_widget(): void
+    {
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
+        $notAGroup = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'picture']);
+
+        $response = $this->actingAs($this->admin())->postJson("/api/v1/page-layouts/{$layout->id}/widgets", [
+            'widget_type' => 'server-status',
+            'group_widget_id' => $notAGroup->id,
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_store_rejects_a_group_widget_id_from_a_different_layout(): void
+    {
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
+        $otherLayout = PageLayout::create(['subject_type' => 'games-list', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
+        $groupOnOtherLayout = PageLayoutWidget::create(['page_layout_id' => $otherLayout->id, 'widget_type' => 'group']);
+
+        $response = $this->actingAs($this->admin())->postJson("/api/v1/page-layouts/{$layout->id}/widgets", [
+            'widget_type' => 'server-status',
+            'group_widget_id' => $groupOnOtherLayout->id,
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_store_rejects_a_group_widget_itself_being_given_a_group_widget_id(): void
+    {
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
+        $outerGroup = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'group']);
+
+        $response = $this->actingAs($this->admin())->postJson("/api/v1/page-layouts/{$layout->id}/widgets", [
+            'widget_type' => 'group',
+            'group_widget_id' => $outerGroup->id,
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_store_rejects_a_group_widget_id_pointing_at_an_already_nested_group(): void
+    {
+        // Bypasses the API to force the illegal state directly via the
+        // model — the API itself should never let this exist, but the
+        // guard on the *reading* side (this test) has to hold regardless
+        // of how such a row came to exist.
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
+        $outerGroup = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'group']);
+        $nestedGroup = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'group', 'group_widget_id' => $outerGroup->id]);
+
+        $response = $this->actingAs($this->admin())->postJson("/api/v1/page-layouts/{$layout->id}/widgets", [
+            'widget_type' => 'server-status',
+            'group_widget_id' => $nestedGroup->id,
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_update_can_reparent_a_widget_into_a_group_and_reposition_it(): void
+    {
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
+        $group = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'group', 'position_x' => 2, 'position_y' => 3, 'width' => 6, 'height' => 4]);
+        $widget = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'server-status', 'position_x' => 2, 'position_y' => 3]);
+
+        $response = $this->actingAs($this->admin())->patchJson("/api/v1/page-layout-widgets/{$widget->id}", [
+            'group_widget_id' => $group->id,
+            'position_x' => 0,
+            'position_y' => 0,
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseHas('page_layout_widgets', ['id' => $widget->id, 'group_widget_id' => $group->id, 'position_x' => 0, 'position_y' => 0]);
+    }
+
+    public function test_update_rejects_setting_a_group_widget_id_on_a_group_widget_when_widget_type_is_not_present_in_the_request(): void
+    {
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
+        $outerGroup = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'group']);
+        $innerGroup = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'group']);
+
+        // widget_type isn't in this request at all — the resolved-type
+        // check has to fall back to the row's *existing* widget_type
+        // ('group'), not silently pass because the field was omitted.
+        $response = $this->actingAs($this->admin())->patchJson("/api/v1/page-layout-widgets/{$innerGroup->id}", [
+            'group_widget_id' => $outerGroup->id,
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_destroy_cascades_to_the_groups_children(): void
+    {
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
+        $group = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'group']);
+        $child = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'server-status', 'group_widget_id' => $group->id]);
+
+        $response = $this->actingAs($this->admin())->deleteJson("/api/v1/page-layout-widgets/{$group->id}");
+
+        $response->assertNoContent();
+        $this->assertDatabaseMissing('page_layout_widgets', ['id' => $group->id]);
+        $this->assertDatabaseMissing('page_layout_widgets', ['id' => $child->id]);
+    }
+
+    public function test_destroy_auto_deletes_a_group_left_with_no_remaining_children(): void
+    {
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
+        $group = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'group']);
+        $onlyChild = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'server-status', 'group_widget_id' => $group->id]);
+
+        $response = $this->actingAs($this->admin())->deleteJson("/api/v1/page-layout-widgets/{$onlyChild->id}");
+
+        $response->assertNoContent();
+        $this->assertDatabaseMissing('page_layout_widgets', ['id' => $onlyChild->id]);
+        $this->assertDatabaseMissing('page_layout_widgets', ['id' => $group->id]);
+    }
+
+    public function test_destroy_does_not_delete_a_group_that_still_has_other_children(): void
+    {
+        $layout = PageLayout::create(['subject_type' => 'home', 'subject_id' => PageLayout::SINGLETON_SUBJECT_ID]);
+        $group = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'group']);
+        $childA = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'server-status', 'group_widget_id' => $group->id]);
+        $childB = PageLayoutWidget::create(['page_layout_id' => $layout->id, 'widget_type' => 'server-name', 'group_widget_id' => $group->id]);
+
+        $response = $this->actingAs($this->admin())->deleteJson("/api/v1/page-layout-widgets/{$childA->id}");
+
+        $response->assertNoContent();
+        $this->assertDatabaseHas('page_layout_widgets', ['id' => $group->id]);
+        $this->assertDatabaseHas('page_layout_widgets', ['id' => $childB->id]);
+    }
 }

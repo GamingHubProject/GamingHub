@@ -44,6 +44,7 @@ const context: PageLayoutWidgetContext = { subjectType: 'server', server };
 const widget: PageLayoutWidget = {
   id: 1,
   page_layout_id: 1,
+  group_widget_id: null,
   widget_type: 'server-status',
   config: null,
   position_x: 0,
@@ -73,6 +74,34 @@ describe('PageLayoutWidgetContainer', () => {
     screen.getByLabelText('Remove widget').click();
 
     expect(removed).toBe(true);
+  });
+
+  it('does not show a selection checkbox unless selectable is passed', () => {
+    render(<PageLayoutWidgetContainer widget={widget} context={context} editable={true} onRemove={() => {}} onEdit={() => {}} />);
+
+    expect(screen.queryByLabelText('Select for grouping')).not.toBeInTheDocument();
+  });
+
+  it('shows a selection checkbox reflecting `selected` and calls onToggleSelect when clicked', () => {
+    let toggled = false;
+
+    render(
+      <PageLayoutWidgetContainer
+        widget={widget}
+        context={context}
+        editable={true}
+        onRemove={() => {}}
+        onEdit={() => {}}
+        selectable
+        selected
+        onToggleSelect={() => (toggled = true)}
+      />
+    );
+
+    const checkbox = screen.getByLabelText('Select for grouping') as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+    checkbox.click();
+    expect(toggled).toBe(true);
   });
 
   it('renders a graceful fallback for an unregistered widget type', () => {

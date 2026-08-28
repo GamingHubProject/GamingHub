@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AssetTagController;
 use App\Http\Controllers\Api\DashboardPageController;
 use App\Http\Controllers\Api\DashboardWidgetController;
 use App\Http\Controllers\Api\GameController;
+use App\Http\Controllers\Api\GroupWidgetTemplateController;
 use App\Http\Controllers\Api\PageController;
 use App\Http\Controllers\Api\PageLayoutController;
 use App\Http\Controllers\Api\PageLayoutWidgetController;
@@ -89,6 +90,14 @@ Route::prefix('v1')->group(function () {
         Route::patch('/page-layouts/{layout}', [PageLayoutController::class, 'update']);
         Route::patch('/page-layout-widgets/{widget}', [PageLayoutWidgetController::class, 'update']);
         Route::delete('/page-layout-widgets/{widget}', [PageLayoutWidgetController::class, 'destroy']);
+
+        // Admin-only, editor-only — see GroupWidgetTemplateController's
+        // docblock. No public browse endpoint; a template is never
+        // rendered to a visitor, only used while editing a layout.
+        Route::get('/group-widget-templates', [GroupWidgetTemplateController::class, 'index']);
+        Route::post('/group-widget-templates', [GroupWidgetTemplateController::class, 'store']);
+        Route::delete('/group-widget-templates/{template}', [GroupWidgetTemplateController::class, 'destroy']);
+        Route::post('/page-layouts/{layout}/group-widgets/from-template/{template}', [GroupWidgetTemplateController::class, 'place']);
 
         Route::post('/assets', [AssetController::class, 'store']);
         Route::patch('/assets/{asset}', [AssetController::class, 'update']);

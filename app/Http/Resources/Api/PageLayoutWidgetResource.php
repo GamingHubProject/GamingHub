@@ -13,6 +13,7 @@ class PageLayoutWidgetResource extends JsonResource
         return [
             'id' => $this->id,
             'page_layout_id' => $this->page_layout_id,
+            'group_widget_id' => $this->group_widget_id,
             'widget_type' => $this->widget_type,
             'config' => $this->config,
             'position_x' => $this->position_x,
