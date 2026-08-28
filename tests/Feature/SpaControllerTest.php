@@ -64,4 +64,43 @@ class SpaControllerTest extends TestCase
         $response->assertOk();
         $this->assertSame('binary-ish content', file_get_contents($path));
     }
+
+    public function test_a_hashed_asset_is_cached_forever_as_immutable(): void
+    {
+        // Every Vite build output filename bakes its content hash into the
+        // name — a URL's content can never change without the URL itself
+        // changing, so a browser (or anything between it and this server)
+        // can hold onto it indefinitely without ever going stale. Checked
+        // by directive presence, not an exact string — Symfony's
+        // HeaderBag normalizes/reorders Cache-Control directives, so the
+        // wire value isn't guaranteed to match what the controller set
+        // verbatim, only to still mean the same thing.
+        $this->writeAsset('assets/spa-controller-test.js', 'console.log(1);');
+
+        $response = $this->get('/assets/spa-controller-test.js');
+
+        $response->assertOk();
+        $cacheControl = $response->headers->get('Cache-Control');
+        $this->assertStringContainsString('public', $cacheControl);
+        $this->assertStringContainsString('max-age=31536000', $cacheControl);
+        $this->assertStringContainsString('immutable', $cacheControl);
+    }
+
+    public function test_the_spa_shell_is_never_cached(): void
+    {
+        // index.html references whichever hashed asset filenames the
+        // *current* build produced — a cached copy would point a returning
+        // visitor at assets that may no longer exist after the next
+        // deploy, so this has to be revalidated on every single load.
+        // Session middleware adds its own directives (e.g. "private") on
+        // top of what the controller sets explicitly — this only checks
+        // that the no-cache guarantee itself survives that, not the exact
+        // composed value.
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $cacheControl = $response->headers->get('Cache-Control');
+        $this->assertStringContainsString('no-cache', $cacheControl);
+        $this->assertStringContainsString('must-revalidate', $cacheControl);
+    }
 }

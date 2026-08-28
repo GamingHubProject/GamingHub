@@ -51,6 +51,17 @@ class SpaController extends Controller
             if ($file !== false && str_starts_with($file, $root) && is_file($file)) {
                 $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
                 $headers = isset(self::MIME_TYPES[$extension]) ? ['Content-Type' => self::MIME_TYPES[$extension]] : [];
+                // Every asset under /assets/ is Vite's content-hashed output
+                // (e.g. index-Bu05bJdl.js) — the hash changes if and only if
+                // the content does, so a URL never changes meaning and can
+                // safely be cached forever. Explicit, not left to
+                // response()->file()'s own default ('public' with no
+                // max-age, i.e. heuristic freshness only) — a browser or
+                // intermediary holding onto a stale JS chunk past whatever
+                // it guessed was reasonable is exactly the kind of "the
+                // deploy looks right but the browser didn't notice" gap
+                // this is meant to close off entirely.
+                $headers['Cache-Control'] = 'public, max-age=31536000, immutable';
 
                 return response()->file($file, $headers);
             }
@@ -63,6 +74,12 @@ class SpaController extends Controller
         $html = file_get_contents($root.'/index.html');
         $html = preg_replace('/<title>.*?<\/title>/s', '<title>'.e(config('app.name')).'</title>', $html, 1);
 
-        return response($html)->header('Content-Type', 'text/html');
+        // The opposite of the asset branch above: this response's meaning
+        // changes on every deploy (it references whichever hashed asset
+        // filenames are current), so it must always be revalidated, never
+        // served stale. Set explicitly rather than assumed from session
+        // middleware's own no-cache side effect, which only fires once a
+        // session has actually started.
+        return response($html)->header('Content-Type', 'text/html')->header('Cache-Control', 'no-cache, must-revalidate');
     }
 }
