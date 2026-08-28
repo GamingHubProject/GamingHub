@@ -28,17 +28,33 @@ function rectsOverlap(a: Layout, b: Layout): boolean {
 }
 
 /**
+ * A widget type being `layerTarget: true` (registry.ts) says the type is
+ * *capable* of having other widgets dragged onto it; whether one
+ * particular placement actually allows it is a per-instance setting on
+ * that widget's own config (e.g. PictureWidgetConfig's allow_layering) —
+ * so this checks both. Defaults true when the config doesn't have the key
+ * at all (every widget type predating this toggle, or a fresh instance
+ * before its config form has been touched), which preserves existing
+ * layouts' behavior unchanged.
+ */
+function isLayerTargetWidget(widget: PageLayoutWidget): boolean {
+  if (!getPageLayoutWidgetDefinition(widget.widget_type)?.layerTarget) return false;
+  const config = widget.config as { allow_layering?: boolean } | null;
+  return config?.allow_layering !== false;
+}
+
+/**
  * The grid runs with allowOverlap (see below) so a layerable widget can be
- * dragged onto a layerTarget (e.g. Name/Status onto a Server page's
- * Banner) — but that flag is grid-wide, not per-widget, so without this
- * check any two widgets could be dragged on top of each other. A dropped
- * layout is only accepted when every overlapping pair is exactly one
- * layerable widget over a layerTarget; any other overlapping pair (two
- * layerables, a layerable over a non-target, two non-layerables, ...)
- * rejects the whole drop.
+ * dragged onto a layerTarget (e.g. Name/Status onto a Picture) — but that
+ * flag is grid-wide, not per-widget, so without this check any two
+ * widgets could be dragged on top of each other. A dropped layout is only
+ * accepted when every overlapping pair is exactly one layerable widget
+ * over a layerTarget; any other overlapping pair (two layerables, a
+ * layerable over a non-target, two non-layerables, ...) rejects the whole
+ * drop.
  */
 export function isValidOverlapLayout(rglLayout: Layout[], widgets: PageLayoutWidget[]): boolean {
-  const typeById = new Map(widgets.map((w) => [String(w.id), w.widget_type]));
+  const widgetById = new Map(widgets.map((w) => [String(w.id), w]));
 
   for (let i = 0; i < rglLayout.length; i++) {
     for (let j = i + 1; j < rglLayout.length; j++) {
@@ -46,12 +62,14 @@ export function isValidOverlapLayout(rglLayout: Layout[], widgets: PageLayoutWid
       const b = rglLayout[j];
       if (!rectsOverlap(a, b)) continue;
 
-      const defA = getPageLayoutWidgetDefinition(typeById.get(a.i) ?? '');
-      const defB = getPageLayoutWidgetDefinition(typeById.get(b.i) ?? '');
-      const aOverBanner = defA?.layerable && defB?.layerTarget;
-      const bOverBanner = defB?.layerable && defA?.layerTarget;
+      const widgetA = widgetById.get(a.i);
+      const widgetB = widgetById.get(b.i);
+      const defA = getPageLayoutWidgetDefinition(widgetA?.widget_type ?? '');
+      const defB = getPageLayoutWidgetDefinition(widgetB?.widget_type ?? '');
+      const aOverTarget = defA?.layerable && widgetB && isLayerTargetWidget(widgetB);
+      const bOverTarget = defB?.layerable && widgetA && isLayerTargetWidget(widgetA);
 
-      if (!aOverBanner && !bOverBanner) {
+      if (!aOverTarget && !bOverTarget) {
         return false;
       }
     }
@@ -71,7 +89,7 @@ export function isValidOverlapLayout(rglLayout: Layout[], widgets: PageLayoutWid
  */
 export function layeredWidgetIds(widgets: PageLayoutWidget[]): Set<number> {
   const rects = widgets.map((w) => ({ widget: w, rect: layoutFor([w])[0] }));
-  const targets = rects.filter(({ widget }) => getPageLayoutWidgetDefinition(widget.widget_type)?.layerTarget);
+  const targets = rects.filter(({ widget }) => isLayerTargetWidget(widget));
   const ids = new Set<number>();
 
   for (const { widget, rect } of rects) {

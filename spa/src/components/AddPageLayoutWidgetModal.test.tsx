@@ -9,20 +9,28 @@ describe('AddPageLayoutWidgetModal', () => {
     render(<AddPageLayoutWidgetModal subjectType="server" onClose={() => {}} onAdd={() => {}} />);
 
     expect(screen.getByText('Server')).toBeInTheDocument();
-    expect(screen.getByText('Banner')).toBeInTheDocument();
+    expect(screen.getByText('Picture')).toBeInTheDocument();
     expect(screen.getByText('Status')).toBeInTheDocument();
     expect(screen.getByText('Server Name')).toBeInTheDocument();
     // Cross-linking widgets, validFor includes 'server' too.
     expect(screen.getByText('Game Card')).toBeInTheDocument();
   });
 
-  it('offers only the three cross-linking widgets on a Home page — no Server-only widget type is validFor home', () => {
+  it('offers every widget except the genuinely Server-only ones on a Home page', () => {
     render(<AddPageLayoutWidgetModal subjectType="home" onClose={() => {}} onAdd={() => {}} />);
 
     expect(screen.getByText('Game Card')).toBeInTheDocument();
     expect(screen.getByText('Server Card')).toBeInTheDocument();
     expect(screen.getByText('Server Group Card')).toBeInTheDocument();
-    expect(screen.queryByText('Banner')).not.toBeInTheDocument();
+    // Picture and Server Name are now valid everywhere, not just 'server'.
+    expect(screen.getByText('Picture')).toBeInTheDocument();
+    expect(screen.getByText('Server Name')).toBeInTheDocument();
+    // Status/Metrics/Player Count/Allocations read live data off
+    // context.server, which only a Server page's context ever has.
+    expect(screen.queryByText('Status')).not.toBeInTheDocument();
+    expect(screen.queryByText('Metrics')).not.toBeInTheDocument();
+    expect(screen.queryByText('Player Count')).not.toBeInTheDocument();
+    expect(screen.queryByText('Allocations')).not.toBeInTheDocument();
     expect(screen.queryByText('No widget types are available on this page yet.')).not.toBeInTheDocument();
   });
 
@@ -38,15 +46,15 @@ describe('AddPageLayoutWidgetModal', () => {
     fireEvent.change(screen.getByPlaceholderText('Search widgets…'), { target: { value: 'status' } });
 
     expect(screen.getByText('Status')).toBeInTheDocument();
-    expect(screen.queryByText('Banner')).not.toBeInTheDocument();
+    expect(screen.queryByText('Picture')).not.toBeInTheDocument();
   });
 
   it('calls onAdd with the widget type when a card is clicked', () => {
     let added: string | null = null;
 
     render(<AddPageLayoutWidgetModal subjectType="server" onClose={() => {}} onAdd={(type) => (added = type)} />);
-    screen.getByText('Banner').click();
+    screen.getByText('Picture').click();
 
-    expect(added).toBe('server-banner');
+    expect(added).toBe('picture');
   });
 });

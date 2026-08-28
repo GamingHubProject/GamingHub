@@ -125,8 +125,15 @@ describe('PageLayoutWidgetContainer', () => {
 
   it('renders the server name for the server-name widget type', () => {
     const nameWidget = { ...widget, widget_type: 'server-name', config: null };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-    render(<PageLayoutWidgetContainer widget={nameWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />);
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ApiClientProvider client={{ get: async () => { throw new Error('should not fetch'); } } as any}>
+          <PageLayoutWidgetContainer widget={nameWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+        </ApiClientProvider>
+      </QueryClientProvider>
+    );
 
     expect(screen.getByText('ad')).toBeInTheDocument();
   });
@@ -192,9 +199,14 @@ describe('PageLayoutWidgetContainer', () => {
 
   it('passes layered through to the widget component', () => {
     const nameWidget = { ...widget, widget_type: 'server-name', config: null };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
     render(
-      <PageLayoutWidgetContainer widget={nameWidget} context={context} editable={false} layered onRemove={() => {}} onEdit={() => {}} />
+      <QueryClientProvider client={queryClient}>
+        <ApiClientProvider client={{ get: async () => { throw new Error('should not fetch'); } } as any}>
+          <PageLayoutWidgetContainer widget={nameWidget} context={context} editable={false} layered onRemove={() => {}} onEdit={() => {}} />
+        </ApiClientProvider>
+      </QueryClientProvider>
     );
 
     expect(screen.getByText('ad')).toHaveStyle({ textShadow: '0 1px 3px rgba(0, 0, 0, 0.8)' });

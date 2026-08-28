@@ -9,7 +9,7 @@ import type { PageLayoutWidgetConfigFormProps } from './registry';
 export interface GameCardWidgetConfig {
   mode: 'single' | 'all';
   // Both kept, deliberately redundant, same reasoning as
-  // ServerBannerWidgetConfig's background_asset_id/background_url: game_id
+  // PictureWidgetConfig's background_asset_id/background_url: game_id
   // is the real reference, game_slug lets 'single' mode render straight
   // from the existing slug-based /games/{slug} endpoint without a second
   // "resolve id to slug" lookup. Both null/unused in 'all' mode.

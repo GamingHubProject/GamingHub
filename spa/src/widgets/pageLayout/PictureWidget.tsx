@@ -3,11 +3,11 @@ import type { AssetPreview } from '../../components/AssetPicker';
 import type { Asset } from '../../api/types';
 import type { PageLayoutWidgetConfigFormProps, PageLayoutWidgetContext } from './registry';
 
-export type BannerFit = 'cover' | 'contain' | 'fill';
+export type PictureFit = 'cover' | 'contain' | 'fill';
 
-export interface ServerBannerWidgetConfig {
+export interface PictureWidgetConfig {
   // Both kept, deliberately redundant: id for a future "is this asset in
-  // use" check (not built yet), url so the banner renders directly without
+  // use" check (not built yet), url so the picture renders directly without
   // an extra fetch per view. Neither is the source of truth for the asset
   // itself — that's the Asset row; this is just a snapshot reference.
   background_asset_id: number | null;
@@ -15,34 +15,42 @@ export interface ServerBannerWidgetConfig {
   // Maps directly to CSS background-size (cover/contain/fill's stretch
   // behavior — 'fill' isn't a real background-size keyword, so it's
   // translated to '100% 100%' at render time).
-  fit: BannerFit;
+  fit: PictureFit;
   // 0 = no overlay, 1 = fully opaque black. A flat number rather than a
   // color picker — this exists purely to keep foreground widgets (Name,
   // Status) readable when layered on top, not as a design/branding knob.
   overlay_opacity: number;
+  // Per-instance opt-out of being a layerTarget (registry.ts's type-level
+  // flag says this widget TYPE is *capable* of having other widgets
+  // dragged onto it; this says whether *this particular* placement
+  // actually allows it). Defaults true so an upgraded install's existing
+  // Server Detail layouts (Name/Status already layered on their banner)
+  // keep working unchanged — see PageLayoutEditor's isValidOverlapLayout/
+  // layeredWidgetIds, which both read this off the widget's own config
+  // rather than the registry now.
+  allow_layering: boolean;
 }
 
-export const serverBannerWidgetDefaultConfig: ServerBannerWidgetConfig = {
+export const pictureWidgetDefaultConfig: PictureWidgetConfig = {
   background_asset_id: null,
   background_url: null,
   fit: 'cover',
   overlay_opacity: 0,
+  allow_layering: true,
 };
 
-const BACKGROUND_SIZE: Record<BannerFit, string> = {
+const BACKGROUND_SIZE: Record<PictureFit, string> = {
   cover: 'cover',
   contain: 'contain',
   fill: '100% 100%',
 };
 
-// Purely a background layer now — no name/status of its own (those moved
-// out to ServerNameWidget/ServerStatusWidget, both `layerable: true` in
-// the registry so an admin can drag them visually on top of this widget;
-// see registry.ts's layerable/layerTarget docblock and ServerDetail's
-// isValidOverlapLayout for how that's enforced). Isolating it this way
+// A generic background-image widget, usable on any page — no longer
+// Server-specific (see ServerNameWidget/ServerStatusWidget for the
+// widgets that still assume a Server subject). Isolating it this way
 // means future work on the background (new fit modes, video backgrounds,
 // ...) only ever touches this file.
-export function ServerBannerWidget({ config }: { context: PageLayoutWidgetContext; config: ServerBannerWidgetConfig }) {
+export function PictureWidget({ config }: { context: PageLayoutWidgetContext; config: PictureWidgetConfig }) {
   return (
     <div
       style={{
@@ -67,7 +75,7 @@ export function ServerBannerWidget({ config }: { context: PageLayoutWidgetContex
   );
 }
 
-export function ServerBannerWidgetConfigForm({ config, onChange }: PageLayoutWidgetConfigFormProps<ServerBannerWidgetConfig>) {
+export function PictureWidgetConfigForm({ config, onChange }: PageLayoutWidgetConfigFormProps<PictureWidgetConfig>) {
   function handleAssetChange(asset: Asset | null) {
     onChange({ ...config, background_asset_id: asset?.id ?? null, background_url: asset?.url ?? null });
   }
@@ -87,7 +95,7 @@ export function ServerBannerWidgetConfigForm({ config, onChange }: PageLayoutWid
       <label>
         Fit
         <div style={{ marginTop: 4 }}>
-          <select value={config.fit} onChange={(event) => onChange({ ...config, fit: event.target.value as BannerFit })}>
+          <select value={config.fit} onChange={(event) => onChange({ ...config, fit: event.target.value as PictureFit })}>
             <option value="cover">Cover (crop to fill)</option>
             <option value="contain">Contain (fit whole image)</option>
             <option value="fill">Fill (stretch)</option>
@@ -106,6 +114,14 @@ export function ServerBannerWidgetConfigForm({ config, onChange }: PageLayoutWid
             onChange={(event) => onChange({ ...config, overlay_opacity: Number(event.target.value) })}
           />
         </div>
+      </label>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input
+          type="checkbox"
+          checked={config.allow_layering}
+          onChange={(event) => onChange({ ...config, allow_layering: event.target.checked })}
+        />
+        Allow layering (other widgets like Name/Status can be dragged onto this picture)
       </label>
     </div>
   );

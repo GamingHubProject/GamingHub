@@ -1,5 +1,5 @@
 import { registerPageLayoutWidget } from './registry';
-import { ServerBannerWidget, ServerBannerWidgetConfigForm, serverBannerWidgetDefaultConfig } from './ServerBannerWidget';
+import { PictureWidget, PictureWidgetConfigForm, pictureWidgetDefaultConfig } from './PictureWidget';
 import { ServerStatusWidget, ServerStatusWidgetConfigForm, serverStatusWidgetDefaultConfig } from './ServerStatusWidget';
 import { ServerNameWidget, ServerNameWidgetConfigForm, serverNameWidgetDefaultConfig } from './ServerNameWidget';
 import { ServerMetricsWidget } from './ServerMetricsWidget';
@@ -9,18 +9,25 @@ import { GameCardWidget, GameCardWidgetConfigForm, gameCardWidgetDefaultConfig }
 import { ServerCardWidget, ServerCardWidgetConfigForm, serverCardWidgetDefaultConfig } from './ServerCardWidget';
 import { ServerGroupCardWidget, ServerGroupCardWidgetConfigForm, serverGroupCardWidgetDefaultConfig } from './ServerGroupCardWidget';
 
+const ALL_PAGES = ['home', 'games-list', 'game', 'server'] as const;
+
 registerPageLayoutWidget({
-  type: 'server-banner',
-  label: 'Banner',
-  category: 'Server',
-  validFor: ['server'],
-  component: ServerBannerWidget,
-  configForm: ServerBannerWidgetConfigForm,
-  defaultConfig: serverBannerWidgetDefaultConfig,
+  type: 'picture',
+  label: 'Picture',
+  // No longer Server-specific — a generic background-image widget usable
+  // on any page, so 'General' rather than 'Server' (was 'server-banner').
+  category: 'General',
+  validFor: [...ALL_PAGES],
+  component: PictureWidget,
+  configForm: PictureWidgetConfigForm,
+  defaultConfig: pictureWidgetDefaultConfig,
   defaultWidth: 12,
   defaultHeight: 2,
   // The one widget type other widgets can be layered onto — see
-  // registry.ts's layerable/layerTarget docblock.
+  // registry.ts's layerable/layerTarget docblock. Per-*instance* opt-out
+  // lives on the widget's own config (allow_layering) — see
+  // PictureWidgetConfig and PageLayoutEditor's isValidOverlapLayout/
+  // layeredWidgetIds, which both check the config on top of this flag.
   layerTarget: true,
 });
 
@@ -28,6 +35,8 @@ registerPageLayoutWidget({
   type: 'server-status',
   label: 'Status',
   category: 'Server',
+  // Genuinely Server-specific — reads live status/metrics off
+  // context.server, which only a Server page's context ever populates.
   validFor: ['server'],
   component: ServerStatusWidget,
   configForm: ServerStatusWidgetConfigForm,
@@ -41,7 +50,7 @@ registerPageLayoutWidget({
   type: 'server-name',
   label: 'Server Name',
   category: 'Server',
-  validFor: ['server'],
+  validFor: [...ALL_PAGES],
   component: ServerNameWidget,
   configForm: ServerNameWidgetConfigForm,
   defaultConfig: serverNameWidgetDefaultConfig,
@@ -87,7 +96,7 @@ registerPageLayoutWidget({
   type: 'game-card',
   label: 'Game Card',
   category: 'Game',
-  validFor: ['home', 'games-list', 'server'],
+  validFor: [...ALL_PAGES],
   component: GameCardWidget,
   configForm: GameCardWidgetConfigForm,
   defaultConfig: gameCardWidgetDefaultConfig,
@@ -105,7 +114,7 @@ registerPageLayoutWidget({
   type: 'server-card',
   label: 'Server Card',
   category: 'Server',
-  validFor: ['home', 'games-list', 'game'],
+  validFor: [...ALL_PAGES],
   component: ServerCardWidget,
   configForm: ServerCardWidgetConfigForm,
   defaultConfig: serverCardWidgetDefaultConfig,
@@ -117,7 +126,7 @@ registerPageLayoutWidget({
   type: 'server-group-card',
   label: 'Server Group Card',
   category: 'Server',
-  validFor: ['home', 'games-list', 'game'],
+  validFor: [...ALL_PAGES],
   component: ServerGroupCardWidget,
   configForm: ServerGroupCardWidgetConfigForm,
   defaultConfig: serverGroupCardWidgetDefaultConfig,

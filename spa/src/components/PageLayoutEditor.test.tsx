@@ -109,7 +109,7 @@ describe('PageLayoutEditor', () => {
       subject_type: 'home',
       subject_id: 0,
       font_asset_id: null,
-      widgets: [{ id: 1, page_layout_id: 1, widget_type: 'server-banner', config: null, position_x: 0, position_y: 0, width: 12, height: 2 }],
+      widgets: [{ id: 1, page_layout_id: 1, widget_type: 'picture', config: null, position_x: 0, position_y: 0, width: 12, height: 2 }],
     };
     let deletedPath: string | null = null;
 

@@ -209,7 +209,7 @@ class PageLayoutApiTest extends TestCase
         $layout = PageLayout::where('subject_type', 'game')->where('subject_id', $game->id)->first();
 
         $response = $this->actingAs($this->admin())->postJson("/api/v1/page-layouts/{$layout->id}/widgets", [
-            'widget_type' => 'server-banner',
+            'widget_type' => 'picture',
             'position_x' => 0,
             'position_y' => 0,
             'width' => 12,
@@ -217,8 +217,8 @@ class PageLayoutApiTest extends TestCase
         ]);
 
         $response->assertCreated();
-        $response->assertJsonPath('data.widget_type', 'server-banner');
-        $this->assertDatabaseHas('page_layout_widgets', ['page_layout_id' => $layout->id, 'widget_type' => 'server-banner']);
+        $response->assertJsonPath('data.widget_type', 'picture');
+        $this->assertDatabaseHas('page_layout_widgets', ['page_layout_id' => $layout->id, 'widget_type' => 'picture']);
     }
 
     public function test_store_falls_back_to_default_position_and_size_when_omitted(): void

@@ -7,7 +7,7 @@ import type { Asset, AssetFolder, AssetList, AssetTag } from '../api/types';
 const DEFAULT_ACCEPT = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
 
 /**
- * A caller that only kept a snapshot (id + url, e.g. ServerBannerWidget's
+ * A caller that only kept a snapshot (id + url, e.g. PictureWidget's
  * config) doesn't have a full Asset — no mime_type/size/uploaded_by. This
  * is the minimum AssetPicker itself actually needs to render a preview.
  */
