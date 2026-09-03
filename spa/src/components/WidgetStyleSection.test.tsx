@@ -105,6 +105,81 @@ describe('WidgetStyleSection', () => {
     expect((latest.style as any).background_opacity).toBe(1);
   });
 
+  it('defaults a newly-overridden background to solid color, showing no pattern or image controls', () => {
+    let latest: Record<string, unknown> = {};
+    const { rerender } = render(<WidgetStyleSection widgetType="picture" config={{}} onChange={(next) => (latest = next)} />);
+
+    screen.getByLabelText(/Override background/).click();
+    rerender(<WidgetStyleSection widgetType="picture" config={latest} onChange={(next) => (latest = next)} />);
+
+    expect((latest.style as any).background_type).toBe('color');
+    expect(screen.queryByLabelText(/Pattern$/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/^Color/)).toBeInTheDocument();
+  });
+
+  it('seeds a pattern and ink color when the type is switched to Pattern, so the dropdown never shows an unsaved value', () => {
+    let latest: Record<string, unknown> = { style: { background_type: 'color', background_color: '#ffffff', background_opacity: 1 } };
+    const { rerender } = render(<WidgetStyleSection widgetType="picture" config={latest} onChange={(next) => (latest = next)} />);
+
+    fireEvent.change(screen.getByLabelText(/Type/), { target: { value: 'pattern' } });
+    rerender(<WidgetStyleSection widgetType="picture" config={latest} onChange={(next) => (latest = next)} />);
+
+    const style = latest.style as any;
+    expect(style.background_type).toBe('pattern');
+    expect(style.background_pattern).toBe('dots');
+    expect(style.background_pattern_color).toBe('#000000');
+    expect(screen.getByLabelText(/Pattern color/)).toBeInTheDocument();
+  });
+
+  it('hides the opacity slider in image mode, where it would have no effect', () => {
+    const config = { style: { background_type: 'image', background_color: '#ffffff', background_image_fit: 'cover' } };
+    render(<WidgetStyleSection widgetType="picture" config={config} onChange={() => {}} />);
+
+    expect(screen.queryByLabelText(/Opacity/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Fit/)).toBeInTheDocument();
+  });
+
+  it('keeps the opacity slider in pattern mode, where it tints both the base and the ink', () => {
+    const config = {
+      style: { background_type: 'pattern', background_color: '#ffffff', background_pattern: 'dots', background_pattern_color: '#000000', background_opacity: 1 },
+    };
+    render(<WidgetStyleSection widgetType="picture" config={config} onChange={() => {}} />);
+
+    expect(screen.getByLabelText(/Opacity/)).toBeInTheDocument();
+  });
+
+  it('clears every background field, across all three modes, when the group is toggled off', () => {
+    let latest: Record<string, unknown> = {
+      style: {
+        background_type: 'pattern',
+        background_color: '#ffffff',
+        background_opacity: 0.5,
+        background_pattern: 'grid',
+        background_pattern_color: '#123456',
+        background_image_asset_id: 7,
+        background_image_url: 'https://example.test/x.png',
+        background_image_fit: 'tile',
+      },
+    };
+    render(<WidgetStyleSection widgetType="picture" config={latest} onChange={(next) => (latest = next)} />);
+
+    screen.getByLabelText(/Override background/).click();
+
+    const style = latest.style as any;
+    for (const key of [
+      'background_type',
+      'background_color',
+      'background_opacity',
+      'background_pattern',
+      'background_pattern_color',
+      'background_image_asset_id',
+      'background_image_url',
+      'background_image_fit',
+    ]) {
+      expect(style[key]).toBeNull();
+    }
+  });
+
   it('shows a low-contrast warning when the resolved text and background colors are hard to tell apart', () => {
     const config = { style: { text_color: '#111111', background_color: '#000000', background_opacity: 1 } };
     render(<WidgetStyleSection widgetType="picture" config={config} onChange={() => {}} />);

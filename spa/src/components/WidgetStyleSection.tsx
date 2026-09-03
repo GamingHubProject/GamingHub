@@ -1,7 +1,35 @@
 import { getPageLayoutWidgetDefinition } from '../widgets/pageLayout/registry';
 import { useWidgetStyleDefaults } from '../providers/ThemeProvider';
+import { AssetPicker } from './AssetPicker';
+import type { AssetPreview } from './AssetPicker';
+import { BACKGROUND_PATTERNS } from '../widgets/shared/backgroundPattern';
 import { contrastRatio, resolveWidgetStyle, MIN_READABLE_CONTRAST, EMPTY_WIDGET_STYLE } from '../widgets/shared/widgetStyle';
-import type { WidgetStyleOverride } from '../widgets/shared/widgetStyle';
+import type { BackgroundImageFit, BackgroundType, WidgetStyleOverride } from '../widgets/shared/widgetStyle';
+import type { Asset } from '../api/types';
+
+/**
+ * Switching background type seeds whatever that mode needs in order to
+ * actually render, so the controls never show a value that isn't stored —
+ * picking "Pattern" with a null background_pattern would display the first
+ * pattern in the dropdown while saving nothing, and the widget would come
+ * back blank. Existing values are kept, so toggling color -> pattern ->
+ * color doesn't lose the pattern the admin already picked.
+ */
+function backgroundTypePatch(type: BackgroundType, style: Partial<WidgetStyleOverride>): Partial<WidgetStyleOverride> {
+  if (type === 'pattern') {
+    return {
+      background_type: type,
+      background_pattern: style.background_pattern ?? BACKGROUND_PATTERNS[0].id,
+      background_pattern_color: style.background_pattern_color ?? '#000000',
+    };
+  }
+
+  if (type === 'image') {
+    return { background_type: type, background_image_fit: style.background_image_fit ?? 'cover' };
+  }
+
+  return { background_type: type };
+}
 
 /**
  * Rendered once, universally, by PageLayoutWidgetConfigModal — every
@@ -44,6 +72,11 @@ export function WidgetStyleSection({
   const textColorOverridden = style.text_color !== null && style.text_color !== undefined;
   const textOverridden = textSizeOverridden || textColorOverridden;
   const backgroundOverridden = style.background_color !== null && style.background_color !== undefined;
+  // Which sub-fields the Background group shows. Not read from `resolved`
+  // — while the group is overridden this is a property of what the admin
+  // is editing right here, and falling through to the global default's
+  // type would silently show the wrong controls for the value being saved.
+  const backgroundType: BackgroundType = style.background_type ?? 'color';
 
   // Advisory only — checked against what will *actually* render (this
   // instance's override, falling through to the global default exactly
@@ -199,34 +232,131 @@ export function WidgetStyleSection({
             onChange={(event) =>
               updateStyle(
                 event.target.checked
-                  ? { background_color: style.background_color ?? '#ffffff', background_opacity: style.background_opacity ?? 1 }
-                  : { background_color: null, background_opacity: null }
+                  ? {
+                      background_type: style.background_type ?? 'color',
+                      background_color: style.background_color ?? '#ffffff',
+                      background_opacity: style.background_opacity ?? 1,
+                    }
+                  : {
+                      background_type: null,
+                      background_color: null,
+                      background_opacity: null,
+                      background_pattern: null,
+                      background_pattern_color: null,
+                      background_image_asset_id: null,
+                      background_image_url: null,
+                      background_image_fit: null,
+                    }
               )
             }
           />
           Override background (otherwise syncs to the global default)
         </label>
         {backgroundOverridden && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingLeft: 24 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingLeft: 24 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              Color
-              <input
-                type="color"
-                value={style.background_color ?? '#ffffff'}
-                onChange={(event) => updateStyle({ background_color: event.target.value })}
-              />
+              Type
+              <select
+                value={backgroundType}
+                onChange={(event) => updateStyle(backgroundTypePatch(event.target.value as BackgroundType, style))}
+              >
+                <option value="color">Solid color</option>
+                <option value="pattern">Pattern</option>
+                <option value="image">Image</option>
+              </select>
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              Opacity ({Math.round((style.background_opacity ?? 1) * 100)}%)
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={style.background_opacity ?? 1}
-                onChange={(event) => updateStyle({ background_opacity: Number(event.target.value) })}
-              />
-            </label>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16 }}>
+              {/* The base fill in every mode, so it stays visible for all
+                  three rather than only for 'color' — a pattern's ink and
+                  a non-covering image both sit on top of it. */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {backgroundType === 'color' ? 'Color' : 'Base color'}
+                <input
+                  type="color"
+                  value={style.background_color ?? '#ffffff'}
+                  onChange={(event) => updateStyle({ background_color: event.target.value })}
+                />
+              </label>
+
+              {backgroundType === 'pattern' && (
+                <>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    Pattern
+                    <select
+                      value={style.background_pattern ?? BACKGROUND_PATTERNS[0].id}
+                      onChange={(event) => updateStyle({ background_pattern: event.target.value })}
+                    >
+                      {BACKGROUND_PATTERNS.map((pattern) => (
+                        <option key={pattern.id} value={pattern.id}>
+                          {pattern.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    Pattern color
+                    <input
+                      type="color"
+                      value={style.background_pattern_color ?? '#000000'}
+                      onChange={(event) => updateStyle({ background_pattern_color: event.target.value })}
+                    />
+                  </label>
+                </>
+              )}
+
+              {backgroundType === 'image' && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  Fit
+                  <select
+                    value={style.background_image_fit ?? 'cover'}
+                    onChange={(event) => updateStyle({ background_image_fit: event.target.value as BackgroundImageFit })}
+                  >
+                    <option value="cover">Cover (crop to fill)</option>
+                    <option value="contain">Contain (fit whole image)</option>
+                    <option value="tile">Tile (repeat)</option>
+                  </select>
+                </label>
+              )}
+
+              {/* Opacity tints flat fills (the base color, and a pattern's
+                  ink) — an image carries its own, so showing a slider that
+                  wouldn't affect it would just be a lie. */}
+              {backgroundType !== 'image' && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  Opacity ({Math.round((style.background_opacity ?? 1) * 100)}%)
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={style.background_opacity ?? 1}
+                    onChange={(event) => updateStyle({ background_opacity: Number(event.target.value) })}
+                  />
+                </label>
+              )}
+            </div>
+
+            {backgroundType === 'image' && (
+              <label>
+                Image
+                <div style={{ marginTop: 4 }}>
+                  <AssetPicker
+                    value={
+                      style.background_image_url
+                        ? ({ thumbnail_url: style.background_image_url, alt_text: null } as AssetPreview)
+                        : null
+                    }
+                    onChange={(asset: Asset | null) =>
+                      updateStyle({
+                        background_image_asset_id: asset?.id ?? null,
+                        background_image_url: asset?.url ?? null,
+                      })
+                    }
+                  />
+                </div>
+              </label>
+            )}
           </div>
         )}
       </div>

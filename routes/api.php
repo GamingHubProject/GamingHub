@@ -109,6 +109,7 @@ Route::prefix('v1')->group(function () {
         // technically idempotent-after-first-call (see the controller
         // method's docblock).
         Route::get('/asset-folders/fonts', [AssetFolderController::class, 'fonts']);
+        Route::get('/asset-folders/icons', [AssetFolderController::class, 'icons']);
         Route::post('/asset-folders', [AssetFolderController::class, 'store']);
         Route::patch('/asset-folders/{folder}', [AssetFolderController::class, 'update']);
         Route::delete('/asset-folders/{folder}', [AssetFolderController::class, 'destroy']);

@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import { getPageLayoutWidgetDefinition } from '../widgets/pageLayout/registry';
 import type { PageLayoutWidgetContext } from '../widgets/pageLayout/registry';
 import { useWidgetStyleDefaults } from '../providers/ThemeProvider';
-import { hexWithOpacity, resolveWidgetStyle } from '../widgets/shared/widgetStyle';
+import { backgroundStyle, resolveWidgetStyle } from '../widgets/shared/widgetStyle';
 import type { PageLayoutWidget } from '../api/types';
 
 /**
@@ -97,11 +97,10 @@ export function PageLayoutWidgetContainer({
         // Background always applies regardless of `chromeless` — unlike
         // Border, no widget type draws its own background, so there's
         // nothing to double up. Only `layered` skips it, same floating-
-        // on-the-banner reasoning as Border above.
-        backgroundColor:
-          !layered && resolvedStyle.backgroundColor
-            ? hexWithOpacity(resolvedStyle.backgroundColor, resolvedStyle.backgroundOpacity)
-            : undefined,
+        // on-the-banner reasoning as Border above. All three background
+        // modes (color/pattern/image) resolve to plain CSS in
+        // backgroundStyle(); nothing mode-specific belongs here.
+        ...(layered ? {} : backgroundStyle(resolvedStyle)),
         borderRadius: resolvedStyle.borderRadius,
         height: '100%',
         display: 'flex',

@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Asset;
+use App\Models\SiteOption;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -102,5 +104,34 @@ class SpaControllerTest extends TestCase
         $cacheControl = $response->headers->get('Cache-Control');
         $this->assertStringContainsString('no-cache', $cacheControl);
         $this->assertStringContainsString('must-revalidate', $cacheControl);
+    }
+
+    // --- Favicon injection ---
+
+    public function test_the_shell_has_no_icon_link_when_no_favicon_is_configured(): void
+    {
+        // Absence, not an empty tag — leaving the head untouched keeps the
+        // browser's own /favicon.ico probe working exactly as before.
+        $this->get('/')->assertOk()->assertDontSee('rel="icon"', false);
+    }
+
+    public function test_the_configured_favicon_is_injected_into_the_shell_head(): void
+    {
+        // Has to be in the served HTML: the browser requests a favicon
+        // while parsing <head>, before any of the SPA's JS runs.
+        $asset = Asset::factory()->create(['url' => 'https://cdn.example/icon.png', 'mime_type' => 'image/png']);
+        SiteOption::current()->update(['values' => ['favicon_asset_id' => $asset->id]]);
+
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertSee('<link rel="icon" href="https://cdn.example/icon.png" type="image/png">', false);
+    }
+
+    public function test_the_shell_still_renders_when_the_favicon_asset_was_deleted(): void
+    {
+        SiteOption::current()->update(['values' => ['favicon_asset_id' => 999999]]);
+
+        $this->get('/')->assertOk()->assertDontSee('rel="icon"', false);
     }
 }

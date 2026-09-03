@@ -75,4 +75,28 @@ class ThemeResolver
     {
         return SiteOption::value('widget_style_defaults', []) ?? [];
     }
+
+    /**
+     * Site chrome — settings that belong to the shell around the pages
+     * rather than to any widget on them. Purely global, like
+     * widgetStyleDefaults(): there's no per-game header or per-page
+     * favicon, and inventing a cascade for something a site has exactly
+     * one of would be scaffolding with nothing to hold up.
+     *
+     * favicon_url is resolved to a URL here rather than passed as a bare
+     * asset id, so the client never has to make a second request to find
+     * out what to render. Note SpaController injects the favicon into the
+     * shell's <head> independently of this — the browser asks for a
+     * favicon long before any JS runs — so this copy exists for the SPA to
+     * swap it live (a theme being applied, in Phase B) without a reload.
+     */
+    public function siteChrome(): array
+    {
+        $faviconId = SiteOption::value('favicon_asset_id');
+
+        return [
+            'header_transparent' => (bool) SiteOption::value('header_transparent', false),
+            'favicon_url' => $faviconId ? Asset::find($faviconId)?->url : null,
+        ];
+    }
 }

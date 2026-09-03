@@ -213,4 +213,46 @@ class AssetFolderApiTest extends TestCase
         $second->assertJsonPath('data.slug', 'fonts');
         $this->assertNotSame($firstId, $second->json('data.id'));
     }
+
+    // --- Icons folder (favicon) — same reserved-folder mechanism as fonts ---
+
+    public function test_icons_requires_the_admin_role(): void
+    {
+        $user = \App\Models\User::factory()->create();
+
+        $this->actingAs($user)->getJson('/api/v1/asset-folders/icons')->assertForbidden();
+    }
+
+    public function test_icons_lazily_creates_its_own_admin_only_folder(): void
+    {
+        $this->assertDatabaseMissing('asset_folders', ['slug' => 'icons']);
+
+        $response = $this->actingAs($this->admin())->getJson('/api/v1/asset-folders/icons');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.slug', 'icons');
+        $response->assertJsonPath('data.name', 'Icons');
+        $response->assertJsonPath('data.visibility', 'admin_only');
+    }
+
+    public function test_icons_and_fonts_are_separate_folders(): void
+    {
+        $admin = $this->admin();
+
+        $fonts = $this->actingAs($admin)->getJson('/api/v1/asset-folders/fonts');
+        $icons = $this->actingAs($admin)->getJson('/api/v1/asset-folders/icons');
+
+        $this->assertNotSame($fonts->json('data.id'), $icons->json('data.id'));
+    }
+
+    public function test_icons_is_idempotent_across_repeat_calls(): void
+    {
+        $admin = $this->admin();
+
+        $first = $this->actingAs($admin)->getJson('/api/v1/asset-folders/icons');
+        $second = $this->actingAs($admin)->getJson('/api/v1/asset-folders/icons');
+
+        $this->assertSame($first->json('data.id'), $second->json('data.id'));
+        $this->assertSame(1, AssetFolder::query()->where('slug', 'icons')->count());
+    }
 }

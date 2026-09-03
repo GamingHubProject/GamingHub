@@ -19,20 +19,35 @@ interface ThemeFont {
   url: string;
 }
 
+/** Settings for the shell around the pages, not for anything on them —
+ *  see ThemeResolver::siteChrome. Global, like widgetStyle. */
+export interface SiteChrome {
+  header_transparent: boolean;
+  favicon_url: string | null;
+}
+
+const EMPTY_SITE_CHROME: SiteChrome = { header_transparent: false, favicon_url: null };
+
 interface ThemeResponse {
   tokens: ThemeTokens;
   font: ThemeFont | null;
   // Purely global (see ThemeResolver::widgetStyleDefaults's docblock) —
   // present in every response regardless of scope, unlike tokens/font.
   widgetStyle: Partial<WidgetStyleOverride>;
+  site: SiteChrome;
 }
 
 interface ThemeContextValue {
   setScope: (scope: ThemeScope) => void;
   widgetStyleDefaults: Partial<WidgetStyleOverride>;
+  siteChrome: SiteChrome;
 }
 
-const ThemeContext = createContext<ThemeContextValue>({ setScope: () => {}, widgetStyleDefaults: {} });
+const ThemeContext = createContext<ThemeContextValue>({
+  setScope: () => {},
+  widgetStyleDefaults: {},
+  siteChrome: EMPTY_SITE_CHROME,
+});
 
 /**
  * One theme is ever "live" at a time, applied as CSS custom properties on
@@ -97,8 +112,33 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       });
   }, [theme]);
 
+  // SpaController already injects the configured favicon into the served
+  // shell (the browser asks for one before any of this runs), so on a
+  // normal page load this effect finds the same URL already in place and
+  // changes nothing. It exists for the case the shell can't cover:
+  // swapping the icon live when the setting changes while the SPA is
+  // mounted, without a reload.
+  useEffect(() => {
+    const url = theme?.site?.favicon_url;
+    if (!url) return;
+
+    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    if (link.href !== url) link.href = url;
+  }, [theme]);
+
   return (
-    <ThemeContext.Provider value={{ setScope, widgetStyleDefaults: theme?.widgetStyle ?? {} }}>
+    <ThemeContext.Provider
+      value={{
+        setScope,
+        widgetStyleDefaults: theme?.widgetStyle ?? {},
+        siteChrome: theme?.site ?? EMPTY_SITE_CHROME,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );
@@ -108,6 +148,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
  *  widgets/shared/widgetStyle.ts's resolveWidgetStyle. */
 export function useWidgetStyleDefaults(): Partial<WidgetStyleOverride> {
   return useContext(ThemeContext).widgetStyleDefaults;
+}
+
+/** Header/favicon settings for the shell around the pages — see
+ *  ThemeResolver::siteChrome. */
+export function useSiteChrome(): SiteChrome {
+  return useContext(ThemeContext).siteChrome;
 }
 
 /**

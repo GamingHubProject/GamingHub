@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Asset;
+use App\Models\SiteOption;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -73,6 +75,7 @@ class SpaController extends Controller
         // (see SiteOptionApplicationTest and AppServiceProvider::boot()).
         $html = file_get_contents($root.'/index.html');
         $html = preg_replace('/<title>.*?<\/title>/s', '<title>'.e(config('app.name')).'</title>', $html, 1);
+        $html = $this->injectFavicon($html);
 
         // The opposite of the asset branch above: this response's meaning
         // changes on every deploy (it references whichever hashed asset
@@ -81,5 +84,39 @@ class SpaController extends Controller
         // middleware's own no-cache side effect, which only fires once a
         // session has actually started.
         return response($html)->header('Content-Type', 'text/html')->header('Cache-Control', 'no-cache, must-revalidate');
+    }
+
+    /**
+     * The admin-chosen favicon has to be in the served HTML, not applied
+     * by the SPA once it boots: a browser requests /favicon.ico (or
+     * whatever <link rel="icon"> says) while parsing <head>, long before
+     * any JS runs, so a React-side effect would at best cause a visible
+     * swap and at worst be ignored entirely. Same reasoning as the <title>
+     * rewrite directly above — this shell is already re-rendered per
+     * request and served no-cache, so reading a DB value here costs one
+     * query on a response that was never cacheable anyway.
+     *
+     * Injected before </head> rather than replacing an existing tag: the
+     * built index.html ships no icon link at all, and adding a placeholder
+     * to it just to have something to substitute would put a second source
+     * of truth in the SPA's own template. No favicon configured means no
+     * tag, which leaves the browser's default /favicon.ico probe intact
+     * exactly as today.
+     */
+    private function injectFavicon(string $html): string
+    {
+        $assetId = SiteOption::value('favicon_asset_id');
+        if (! $assetId) {
+            return $html;
+        }
+
+        $asset = Asset::find($assetId);
+        if (! $asset) {
+            return $html;
+        }
+
+        $tag = '<link rel="icon" href="'.e($asset->url).'" type="'.e($asset->mime_type).'">';
+
+        return str_replace('</head>', $tag.'</head>', $html);
     }
 }

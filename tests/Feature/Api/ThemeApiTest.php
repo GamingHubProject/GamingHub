@@ -144,4 +144,66 @@ class ThemeApiTest extends TestCase
         $response->assertOk();
         $response->assertJsonPath('widgetStyle.border_enabled', true);
     }
+
+    public function test_widget_style_carries_the_extended_background_defaults(): void
+    {
+        SiteOption::current()->update(['values' => [
+            'widget_style_defaults' => [
+                'background_type' => 'pattern',
+                'background_pattern' => 'dots',
+                'background_pattern_color' => '#112233',
+                'background_image_fit' => 'tile',
+            ],
+        ]]);
+
+        $response = $this->getJson('/api/v1/theme');
+
+        $response->assertJsonPath('widgetStyle.background_type', 'pattern');
+        $response->assertJsonPath('widgetStyle.background_pattern', 'dots');
+        $response->assertJsonPath('widgetStyle.background_pattern_color', '#112233');
+        $response->assertJsonPath('widgetStyle.background_image_fit', 'tile');
+    }
+
+    // --- Site chrome (header transparency + favicon) ---
+
+    public function test_site_chrome_defaults_to_an_opaque_header_and_no_favicon(): void
+    {
+        $response = $this->getJson('/api/v1/theme');
+
+        $response->assertOk();
+        $response->assertJsonPath('site.header_transparent', false);
+        $response->assertJsonPath('site.favicon_url', null);
+    }
+
+    public function test_site_chrome_reflects_the_configured_header_transparency(): void
+    {
+        SiteOption::current()->update(['values' => ['header_transparent' => true]]);
+
+        $this->getJson('/api/v1/theme')->assertJsonPath('site.header_transparent', true);
+    }
+
+    public function test_site_chrome_resolves_the_favicon_asset_to_a_url(): void
+    {
+        $asset = Asset::factory()->create(['url' => 'https://cdn.example/favicon.png']);
+        SiteOption::current()->update(['values' => ['favicon_asset_id' => $asset->id]]);
+
+        $this->getJson('/api/v1/theme')->assertJsonPath('site.favicon_url', 'https://cdn.example/favicon.png');
+    }
+
+    public function test_site_chrome_survives_a_favicon_asset_that_was_deleted(): void
+    {
+        // A dangling id shouldn't 500 the whole theme endpoint — every
+        // page's styling depends on this response.
+        SiteOption::current()->update(['values' => ['favicon_asset_id' => 999999]]);
+
+        $this->getJson('/api/v1/theme')->assertOk()->assertJsonPath('site.favicon_url', null);
+    }
+
+    public function test_site_chrome_is_unaffected_by_game_or_page_scoping(): void
+    {
+        SiteOption::current()->update(['values' => ['header_transparent' => true]]);
+        $game = Game::factory()->create();
+
+        $this->getJson("/api/v1/theme?game_id={$game->id}")->assertJsonPath('site.header_transparent', true);
+    }
 }

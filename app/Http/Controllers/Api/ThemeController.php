@@ -49,6 +49,11 @@ class ThemeController extends Controller
             // breaking shape change like font's rollout. No params needed
             // (see ThemeResolver::widgetStyleDefaults's docblock).
             'widgetStyle' => $resolver->widgetStyleDefaults(),
+            // Site chrome (header/favicon) — deliberately its own key
+            // rather than folded into widgetStyle, which is specifically
+            // the per-widget defaults layer. Also global, so like
+            // widgetStyle it ignores every param above.
+            'site' => $resolver->siteChrome(),
         ]);
     }
 }

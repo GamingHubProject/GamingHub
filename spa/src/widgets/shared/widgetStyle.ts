@@ -1,3 +1,6 @@
+import type { CSSProperties } from 'react';
+import { patternBackground } from './backgroundPattern';
+
 /**
  * Universal per-widget style overrides — Border/Text/Background, the same
  * null-means-sync-to-global convention as the font system's
@@ -28,9 +31,44 @@ export interface WidgetStyleOverride {
   // nudge the whole card. 1 (or null/unset) = unchanged. Unused/ignored
   // by any non-self-scaling widget.
   text_scale: number | null;
+  /**
+   * Which of the three background fields below actually renders. Null (or
+   * an unset/unknown value) resolves to 'color', which is exactly what
+   * every widget did before pattern/image existed — so no migration and no
+   * appearance change for a config written by an older build.
+   */
+  background_type: BackgroundType | null;
+  /** The base fill, in every mode — a pattern's ink and an image both draw
+   *  on top of it, so it doubles as the backdrop there. Unchanged meaning
+   *  from before background_type existed. */
   background_color: string | null;
+  /** Applies to the base fill above, and to a pattern's ink. NOT to an
+   *  image — a half-transparent background image is a job for the image
+   *  itself (or the Picture widget's dark-overlay control), not for a
+   *  control whose whole purpose here is tinting flat fills. */
   background_opacity: number | null;
+  /** One of backgroundPattern.ts's built-in ids. */
+  background_pattern: string | null;
+  /** The pattern's ink, drawn over background_color. Separate from it on
+   *  purpose: one shared color would make "dark card, light dots"
+   *  impossible without stacking two widgets. */
+  background_pattern_color: string | null;
+  // id + url kept as a redundant pair, exactly like PictureWidget's
+  // background_asset_id/background_url: the id is the real reference (for
+  // a future "is this asset still in use" check), the url is a snapshot so
+  // the widget renders without a second fetch per view.
+  background_image_asset_id: number | null;
+  background_image_url: string | null;
+  background_image_fit: BackgroundImageFit | null;
 }
+
+export type BackgroundType = 'color' | 'pattern' | 'image';
+
+/** cover/contain carry PictureWidget's existing meaning. `tile` replaces
+ *  that widget's `fill` (stretch): stretching a chrome background distorts
+ *  it at every widget aspect ratio, whereas repeating it is what a
+ *  background texture actually wants. */
+export type BackgroundImageFit = 'cover' | 'contain' | 'tile';
 
 export const EMPTY_WIDGET_STYLE: WidgetStyleOverride = {
   border_enabled: null,
@@ -40,8 +78,14 @@ export const EMPTY_WIDGET_STYLE: WidgetStyleOverride = {
   text_size: null,
   text_color: null,
   text_scale: null,
+  background_type: null,
   background_color: null,
   background_opacity: null,
+  background_pattern: null,
+  background_pattern_color: null,
+  background_image_asset_id: null,
+  background_image_url: null,
+  background_image_fit: null,
 };
 
 export interface ResolvedWidgetStyle {
@@ -52,8 +96,13 @@ export interface ResolvedWidgetStyle {
   textSize: number | undefined;
   textColor: string | undefined;
   textScale: number;
+  backgroundType: BackgroundType;
   backgroundColor: string | undefined;
   backgroundOpacity: number;
+  backgroundPattern: string | undefined;
+  backgroundPatternColor: string | undefined;
+  backgroundImageUrl: string | undefined;
+  backgroundImageFit: BackgroundImageFit;
 }
 
 /**
@@ -72,8 +121,13 @@ const FALLBACK: ResolvedWidgetStyle = {
   textSize: undefined,
   textColor: undefined,
   textScale: 1,
+  backgroundType: 'color',
   backgroundColor: undefined,
   backgroundOpacity: 1,
+  backgroundPattern: undefined,
+  backgroundPatternColor: undefined,
+  backgroundImageUrl: undefined,
+  backgroundImageFit: 'cover',
 };
 
 function readStyle(config: Record<string, unknown> | null | undefined): Partial<WidgetStyleOverride> {
@@ -102,9 +156,56 @@ export function resolveWidgetStyle(
     textSize: instance.text_size ?? global.text_size ?? FALLBACK.textSize,
     textColor: instance.text_color ?? global.text_color ?? FALLBACK.textColor,
     textScale: instance.text_scale ?? global.text_scale ?? FALLBACK.textScale,
+    backgroundType: instance.background_type ?? global.background_type ?? FALLBACK.backgroundType,
     backgroundColor: instance.background_color ?? global.background_color ?? FALLBACK.backgroundColor,
     backgroundOpacity: instance.background_opacity ?? global.background_opacity ?? FALLBACK.backgroundOpacity,
+    backgroundPattern: instance.background_pattern ?? global.background_pattern ?? FALLBACK.backgroundPattern,
+    backgroundPatternColor:
+      instance.background_pattern_color ?? global.background_pattern_color ?? FALLBACK.backgroundPatternColor,
+    backgroundImageUrl: instance.background_image_url ?? global.background_image_url ?? FALLBACK.backgroundImageUrl,
+    backgroundImageFit: instance.background_image_fit ?? global.background_image_fit ?? FALLBACK.backgroundImageFit,
   };
+}
+
+/**
+ * The CSS for a resolved style's background, as one object to spread — the
+ * single place that knows how the three background_type modes actually
+ * render, so PageLayoutWidgetContainer stays a thin caller and a future
+ * fourth mode lands here rather than in the container's JSX.
+ *
+ * Returns an empty object when nothing is configured, which is the normal
+ * case (a widget nobody has set a background on) — spreading `{}` leaves
+ * the container's inline style untouched, exactly as before this existed.
+ */
+export function backgroundStyle(style: ResolvedWidgetStyle): CSSProperties {
+  const base = style.backgroundColor ? hexWithOpacity(style.backgroundColor, style.backgroundOpacity) : undefined;
+
+  if (style.backgroundType === 'pattern') {
+    // The ink carries the same opacity as the base fill — one "how solid
+    // is this background" control for the whole thing, rather than a
+    // second slider that only applies to half of it.
+    const ink = style.backgroundPatternColor
+      ? hexWithOpacity(style.backgroundPatternColor, style.backgroundOpacity)
+      : undefined;
+    const pattern = ink ? patternBackground(style.backgroundPattern, ink) : null;
+    if (!pattern) return base ? { backgroundColor: base } : {};
+
+    return { backgroundColor: base, backgroundImage: pattern.backgroundImage, backgroundSize: pattern.backgroundSize };
+  }
+
+  if (style.backgroundType === 'image') {
+    if (!style.backgroundImageUrl) return base ? { backgroundColor: base } : {};
+
+    return {
+      backgroundColor: base,
+      backgroundImage: `url(${style.backgroundImageUrl})`,
+      backgroundSize: style.backgroundImageFit === 'tile' ? 'auto' : style.backgroundImageFit,
+      backgroundRepeat: style.backgroundImageFit === 'tile' ? 'repeat' : 'no-repeat',
+      backgroundPosition: 'center',
+    };
+  }
+
+  return base ? { backgroundColor: base } : {};
 }
 
 /** #rrggbb (what a <input type="color"> / Filament ColorPicker produce) + a 0–1 opacity -> rgba(). */

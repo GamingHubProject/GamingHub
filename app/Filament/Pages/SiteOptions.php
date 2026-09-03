@@ -75,6 +75,18 @@ class SiteOptions extends Page implements HasForms
                         ->mapWithKeys(fn (Asset $asset) => [$asset->id => $asset->alt_text ?: basename($asset->disk_path)]))
                     ->searchable()
                     ->nullable(),
+                Forms\Components\Select::make('favicon_asset_id')
+                    ->label('Favicon')
+                    ->helperText('Upload a .png/.ico/.svg into the Icons folder from the Asset Library first (Admin > Assets), then pick it here.')
+                    ->options(fn () => Asset::query()
+                        ->whereHas('folder', fn ($q) => $q->where('slug', 'icons'))
+                        ->get()
+                        ->mapWithKeys(fn (Asset $asset) => [$asset->id => $asset->alt_text ?: basename($asset->disk_path)]))
+                    ->searchable()
+                    ->nullable(),
+                Forms\Components\Toggle::make('header_transparent')
+                    ->label('Transparent site header')
+                    ->helperText('Drops the header\'s own background and bottom border so a page-wide background image shows through behind the nav.'),
                 // Purely per-widget-instance from here down — unlike font,
                 // there's no page-level tier (confirmed: border/text/
                 // background are naturally per-widget, not a whole-page
@@ -112,14 +124,46 @@ class SiteOptions extends Page implements HasForms
                             ->minValue(0.5)
                             ->maxValue(2)
                             ->step(0.05),
+                        Forms\Components\Select::make('widget_style_defaults.background_type')
+                            ->label('Default background type')
+                            ->helperText('Leave blank for a solid color, which is what every widget used before patterns/images existed.')
+                            ->options(['color' => 'Solid color', 'pattern' => 'Pattern', 'image' => 'Image'])
+                            ->nullable(),
                         Forms\Components\ColorPicker::make('widget_style_defaults.background_color')
-                            ->label('Default background color'),
+                            ->label('Default background color')
+                            ->helperText('The base fill in every background type — a pattern\'s ink and an image both draw on top of it.'),
                         Forms\Components\TextInput::make('widget_style_defaults.background_opacity')
                             ->label('Default background opacity (0–1)')
+                            ->helperText('Applies to the base color and a pattern\'s ink. Not to an image.')
                             ->numeric()
                             ->minValue(0)
                             ->maxValue(1)
                             ->step(0.05),
+                        Forms\Components\Select::make('widget_style_defaults.background_pattern')
+                            ->label('Default pattern')
+                            ->options([
+                                'dots' => 'Dots',
+                                'grid' => 'Grid',
+                                'diagonal-stripes' => 'Diagonal stripes',
+                                'crosshatch' => 'Crosshatch',
+                                'checkerboard' => 'Checkerboard',
+                            ])
+                            ->nullable(),
+                        Forms\Components\ColorPicker::make('widget_style_defaults.background_pattern_color')
+                            ->label('Default pattern color'),
+                        // No global default background *image* picker here
+                        // on purpose: one image repeated behind every
+                        // widget on the site is not a thing an admin
+                        // realistically wants, and the Asset Library's
+                        // picker lives in the SPA, not Filament. The
+                        // resolver still honors background_image_url if
+                        // it's present in these defaults, so a Theme
+                        // bundle can carry one — this is just not a knob
+                        // worth hand-setting.
+                        Forms\Components\Select::make('widget_style_defaults.background_image_fit')
+                            ->label('Default background image fit')
+                            ->options(['cover' => 'Cover (crop to fill)', 'contain' => 'Contain (fit whole image)', 'tile' => 'Tile (repeat)'])
+                            ->nullable(),
                     ])
                     ->columns(2),
             ])

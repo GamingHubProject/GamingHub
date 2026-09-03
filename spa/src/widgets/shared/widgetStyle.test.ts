@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contrastRatio, hexWithOpacity, resolveWidgetStyle } from './widgetStyle';
+import { backgroundStyle, contrastRatio, hexWithOpacity, resolveWidgetStyle } from './widgetStyle';
 
 describe('resolveWidgetStyle', () => {
   it('falls back to the hardcoded baseline (border on, 1px, no color/radius override, no text/background, 1x card scale) when nothing is set anywhere', () => {
@@ -13,8 +13,13 @@ describe('resolveWidgetStyle', () => {
       textSize: undefined,
       textColor: undefined,
       textScale: 1,
+      backgroundType: 'color',
       backgroundColor: undefined,
       backgroundOpacity: 1,
+      backgroundPattern: undefined,
+      backgroundPatternColor: undefined,
+      backgroundImageUrl: undefined,
+      backgroundImageFit: 'cover',
     });
   });
 
@@ -67,6 +72,84 @@ describe('resolveWidgetStyle', () => {
     const resolved = resolveWidgetStyle({ style: 'not-an-object' } as any, null);
 
     expect(resolved.borderEnabled).toBe(true);
+  });
+});
+
+describe('backgroundStyle', () => {
+  function resolved(style: Record<string, unknown>) {
+    return backgroundStyle(resolveWidgetStyle({ style }, null));
+  }
+
+  it('renders a solid color exactly as before background_type existed, for a config that predates it', () => {
+    // No background_type at all — an existing widget's saved config.
+    expect(resolved({ background_color: '#ff0000', background_opacity: 0.5 })).toEqual({
+      backgroundColor: 'rgba(255, 0, 0, 0.5)',
+    });
+  });
+
+  it('returns nothing at all when no background is configured, leaving the container style untouched', () => {
+    expect(backgroundStyle(resolveWidgetStyle(null, null))).toEqual({});
+  });
+
+  it('draws a pattern as a background-image over the base color, with opacity applied to both', () => {
+    const result = resolved({
+      background_type: 'pattern',
+      background_color: '#ffffff',
+      background_pattern: 'dots',
+      background_pattern_color: '#000000',
+      background_opacity: 0.5,
+    });
+
+    expect(result.backgroundColor).toBe('rgba(255, 255, 255, 0.5)');
+    expect(result.backgroundImage).toContain('radial-gradient');
+    expect(result.backgroundImage).toContain('rgba(0, 0, 0, 0.5)');
+    expect(result.backgroundSize).toBe('12px 12px');
+  });
+
+  it('degrades an unknown pattern id to just the base color rather than throwing', () => {
+    const result = resolved({
+      background_type: 'pattern',
+      background_color: '#ffffff',
+      background_pattern: 'not-a-real-pattern',
+      background_pattern_color: '#000000',
+    });
+
+    expect(result).toEqual({ backgroundColor: 'rgba(255, 255, 255, 1)' });
+  });
+
+  it('renders an image with cover fit and no repeat', () => {
+    const result = resolved({
+      background_type: 'image',
+      background_image_url: 'https://example.test/bg.png',
+      background_image_fit: 'cover',
+    });
+
+    expect(result.backgroundImage).toBe('url(https://example.test/bg.png)');
+    expect(result.backgroundSize).toBe('cover');
+    expect(result.backgroundRepeat).toBe('no-repeat');
+  });
+
+  it('renders a tiled image as a repeating background at its natural size', () => {
+    const result = resolved({
+      background_type: 'image',
+      background_image_url: 'https://example.test/tile.png',
+      background_image_fit: 'tile',
+    });
+
+    expect(result.backgroundSize).toBe('auto');
+    expect(result.backgroundRepeat).toBe('repeat');
+  });
+
+  it('falls back to the base color when image mode has no image selected yet', () => {
+    expect(resolved({ background_type: 'image', background_color: '#0000ff' })).toEqual({
+      backgroundColor: 'rgba(0, 0, 255, 1)',
+    });
+  });
+
+  it('resolves background_type through instance -> global -> fallback like every other property', () => {
+    expect(resolveWidgetStyle(null, { background_type: 'pattern' }).backgroundType).toBe('pattern');
+    expect(resolveWidgetStyle({ style: { background_type: 'image' } }, { background_type: 'pattern' }).backgroundType).toBe('image');
+    expect(resolveWidgetStyle(null, null).backgroundType).toBe('color');
   });
 });
 

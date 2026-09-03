@@ -39,11 +39,31 @@ class AssetFolderController extends Controller
      */
     public function fonts(Request $request): JsonResponse
     {
+        return $this->reservedFolder($request, 'fonts', 'Fonts');
+    }
+
+    /**
+     * The favicon's dedicated folder, exactly the same lazily-created
+     * admin-only arrangement as fonts() above — see reservedFolder().
+     */
+    public function icons(Request $request): JsonResponse
+    {
+        return $this->reservedFolder($request, 'icons', 'Icons');
+    }
+
+    /**
+     * A root-level, admin-only folder the Theme system reserves for one
+     * kind of asset. Shared by fonts()/icons() so "reserved folder" has a
+     * single definition — the visibility, the parent, and the recreate-on-
+     * demand behavior are the parts that must not drift between them.
+     */
+    private function reservedFolder(Request $request, string $slug, string $name): JsonResponse
+    {
         abort_unless($request->user()?->hasRole('Admin'), 403);
 
         $folder = AssetFolder::firstOrCreate(
-            ['parent_id' => null, 'slug' => 'fonts'],
-            ['name' => 'Fonts', 'visibility' => 'admin_only', 'path' => AssetFolder::buildPath(null, 'fonts'), 'created_by' => $request->user()->id]
+            ['parent_id' => null, 'slug' => $slug],
+            ['name' => $name, 'visibility' => 'admin_only', 'path' => AssetFolder::buildPath(null, $slug), 'created_by' => $request->user()->id]
         );
 
         return (new AssetFolderResource($folder))->response()->setStatusCode(200);

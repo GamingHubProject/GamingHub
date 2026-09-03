@@ -395,6 +395,65 @@ describe('PageLayoutWidgetContainer', () => {
     await waitFor(() => expect(container.firstElementChild).toHaveStyle({ borderRadius: '20px' }));
   });
 
+  it('applies a pattern background as a gradient image over the base color', async () => {
+    const patternWidget = {
+      ...widget,
+      config: {
+        style: {
+          background_type: 'pattern',
+          background_color: '#ffffff',
+          background_pattern: 'dots',
+          background_pattern_color: '#ff0000',
+          background_opacity: 1,
+        },
+      },
+    };
+    const { container } = renderWithTheme(
+      <PageLayoutWidgetContainer widget={patternWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+    );
+
+    await waitFor(() =>
+      expect((container.firstElementChild as HTMLElement).style.backgroundImage).toContain('radial-gradient')
+    );
+    expect(container.firstElementChild).toHaveStyle({ backgroundColor: 'rgba(255, 255, 255, 1)' });
+  });
+
+  it('applies an image background with the resolved fit', async () => {
+    const imageWidget = {
+      ...widget,
+      config: {
+        style: {
+          background_type: 'image',
+          background_image_url: 'https://example.test/bg.png',
+          background_image_fit: 'tile',
+        },
+      },
+    };
+    const { container } = renderWithTheme(
+      <PageLayoutWidgetContainer widget={imageWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+    );
+
+    await waitFor(() => expect(container.firstElementChild).toHaveStyle({ backgroundRepeat: 'repeat' }));
+    // The DOM normalizes url() by quoting the argument — assert on the
+    // URL being there rather than on the browser's serialization of it.
+    expect((container.firstElementChild as HTMLElement).style.backgroundImage).toContain('https://example.test/bg.png');
+  });
+
+  it('never paints a pattern background on a layered widget, same as a solid one', async () => {
+    const patternWidget = {
+      ...widget,
+      config: {
+        style: { background_type: 'pattern', background_color: '#ffffff', background_pattern: 'dots', background_pattern_color: '#ff0000' },
+      },
+    };
+    const { container } = renderWithTheme(
+      <PageLayoutWidgetContainer widget={patternWidget} context={context} editable={false} layered onRemove={() => {}} onEdit={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText('Running')).toBeInTheDocument());
+
+    expect((container.firstElementChild as HTMLElement).style.backgroundImage).toBe('');
+  });
+
   it('sets --card-text-scale from the resolved textScale, for self-scaling widgets to consume via CSS', async () => {
     const scaledWidget = { ...widget, config: { style: { text_scale: 1.5 } } };
     const { container } = renderWithTheme(

@@ -2,12 +2,30 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApi } from '../providers/ApiClientProvider';
 import { useAuth } from '../providers/AuthProvider';
+import { useSiteChrome } from '../providers/ThemeProvider';
 
 export function Header() {
   const { user, isLoading } = useAuth();
+  const { header_transparent: transparent } = useSiteChrome();
 
   return (
-    <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', borderBottom: '1px solid var(--border, #ddd)' }}>
+    <header
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '12px 24px',
+        // Opaque by default via --surface, which is unset on a fresh
+        // install and so resolves to `transparent` — i.e. byte-identical
+        // to the header's pre-existing look — and becomes a real solid bar
+        // as soon as a theme defines that token. Turning the setting on
+        // forces transparency regardless of the token, and drops the
+        // bottom border too: a divider line floating over a background
+        // image is the exact seam this is meant to remove.
+        background: transparent ? 'transparent' : 'var(--surface, transparent)',
+        borderBottom: transparent ? 'none' : '1px solid var(--border, #ddd)',
+      }}
+    >
       <nav style={{ display: 'flex', gap: 16 }}>
         <Link to="/">Home</Link>
         <Link to="/games">Games</Link>
