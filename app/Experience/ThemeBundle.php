@@ -30,14 +30,15 @@ class ThemeBundle
     public const SCHEMA = 'gaming-hub/theme@1';
 
     /**
-     * The token contract. Key => admin-facing label. These are the CSS
-     * custom properties the SPA sets on :root (as --surface, --border and
-     * so on), so adding one here is the only thing needed to make it
-     * themeable — ThemeProvider already applies whatever it's given.
+     * The colour half of the token contract. Key => admin-facing label.
+     * These are the CSS custom properties the SPA sets on :root (as
+     * --surface, --border and so on), so adding one here is the only thing
+     * needed to make it themeable — ThemeProvider applies whatever it's
+     * given.
      *
      * @var array<string, string>
      */
-    public const TOKENS = [
+    public const COLOR_TOKENS = [
         'background' => 'Page background',
         'surface' => 'Surface (cards, header)',
         'surface-muted' => 'Muted surface',
@@ -47,6 +48,33 @@ class ThemeBundle
         'accent' => 'Accent',
         'accent-contrast' => 'Text on accent',
     ];
+
+    /**
+     * The non-colour half: shape and rhythm. Same mechanism (they're CSS
+     * variables on :root like any other token) but they carry a unit, so
+     * the admin form renders them as numbers rather than swatches.
+     *
+     * These exist because "rounded corners throughout" and consistent
+     * spacing are theme-level decisions, not per-widget ones — a widget's
+     * own border_radius override still wins, but with nothing set every
+     * card, modal, dropdown and input should round by the same amount, and
+     * before this each of those hardcoded its own number.
+     *
+     * @var array<string, array{label: string, unit: string, default: int}>
+     */
+    public const SCALE_TOKENS = [
+        'radius' => ['label' => 'Corner radius', 'unit' => 'px', 'default' => 8],
+        'spacing' => ['label' => 'Base spacing', 'unit' => 'px', 'default' => 12],
+    ];
+
+    /** Every token the contract knows about, colour and scale together. */
+    public static function contractTokens(): array
+    {
+        return array_merge(
+            self::COLOR_TOKENS,
+            array_map(fn (array $t) => $t['label'], self::SCALE_TOKENS)
+        );
+    }
 
     public function __construct(
         public string $id,
@@ -80,8 +108,8 @@ class ThemeBundle
             id: (string) ($data['id'] ?? 'theme'),
             name: (string) ($data['name'] ?? 'Untitled theme'),
             version: (string) ($data['version'] ?? '1.0.0'),
-            tokens: array_intersect_key($tokens, self::TOKENS),
-            extraTokens: array_diff_key($tokens, self::TOKENS),
+            tokens: array_intersect_key($tokens, self::contractTokens()),
+            extraTokens: array_diff_key($tokens, self::contractTokens()),
             fontFile: $data['font']['file'] ?? null,
             fontFamily: $data['font']['family'] ?? null,
             faviconFile: $data['favicon']['file'] ?? null,
@@ -112,9 +140,28 @@ class ThemeBundle
         ];
     }
 
-    /** Every token, contract and extra, as the SPA consumes them. */
+    /**
+     * Every token, contract and extra, as the SPA consumes them — which
+     * means CSS-ready.
+     *
+     * theme.json stores a scale token as a bare number (`"radius": 8`),
+     * because that's the honest value for a published contract: a registry
+     * package or an importing site can reason about 8, not about the
+     * string "8px". But `border-radius: var(--radius)` needs a unit, so it
+     * is appended here, at the boundary where a token stops being data and
+     * becomes CSS. A value that already carries a unit is passed through,
+     * so a hand-edited "0.5rem" still works.
+     */
     public function allTokens(): array
     {
-        return array_merge($this->tokens, $this->extraTokens);
+        $tokens = array_merge($this->tokens, $this->extraTokens);
+
+        foreach (self::SCALE_TOKENS as $key => $spec) {
+            if (isset($tokens[$key]) && is_numeric($tokens[$key])) {
+                $tokens[$key] = $tokens[$key].$spec['unit'];
+            }
+        }
+
+        return $tokens;
     }
 }

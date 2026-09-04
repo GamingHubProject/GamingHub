@@ -104,7 +104,7 @@ export function Listbox<T extends string>({
           color: 'inherit',
           background: 'var(--surface, #fff)',
           border: '1px solid var(--border, #ddd)',
-          borderRadius: 4,
+          borderRadius: 'calc(var(--radius, 8px) / 2)',
           padding: '4px 26px 4px 8px',
           cursor: disabled ? 'not-allowed' : 'pointer',
           opacity: disabled ? 0.6 : 1,
@@ -141,7 +141,7 @@ export function Listbox<T extends string>({
             background: 'var(--surface, #fff)',
             color: 'var(--text, inherit)',
             border: '1px solid var(--border, #ddd)',
-            borderRadius: 4,
+            borderRadius: 'calc(var(--radius, 8px) / 2)',
             boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
             outline: 'none',
           }}

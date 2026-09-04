@@ -30,5 +30,9 @@ class DatabaseSeeder extends Seeder
         // Gate).
         $this->call(RoleSeeder::class);
         $this->call(CapabilitySeeder::class);
+        // The built-in themes, so a fresh install opens the theme picker
+        // on real options rather than an empty list. Idempotent by slug —
+        // see BuiltInThemes::seed.
+        $this->call(ThemeSeeder::class);
     }
 }

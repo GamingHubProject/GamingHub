@@ -8,6 +8,7 @@ use App\Filament\Resources\ThemeResource\Pages\EditTheme;
 use App\Filament\Resources\ThemeResource\Pages\ListThemes;
 use App\Models\AssetFolder;
 use App\Models\Theme;
+use App\Models\ThemeAssignment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -157,5 +158,125 @@ class ThemeResourceTest extends TestCase
         Storage::disk(config('assets.disk'))->assertMissing("themes/{$theme->slug}/theme.json");
         $this->assertDatabaseMissing('themes', ['id' => $theme->id]);
         $this->assertNull(AssetFolder::find($folderId));
+    }
+
+    // --- Picker actions ---
+
+    public function test_apply_points_the_platform_at_this_theme(): void
+    {
+        $theme = $this->makeTheme('Midnight');
+
+        Livewire::test(ListThemes::class)
+            ->callTableAction('apply', $theme, ['level' => ThemeAssignment::LEVEL_PLATFORM])
+            ->assertHasNoTableActionErrors();
+
+        $this->assertSame($theme->id, ThemeAssignment::where('level', 'platform')->first()?->theme_id);
+    }
+
+    public function test_apply_can_target_a_single_game_instead_of_the_whole_site(): void
+    {
+        $game = \GamingHub\Core\Models\Game::factory()->create();
+        $theme = $this->makeTheme('Ark Look');
+
+        Livewire::test(ListThemes::class)
+            ->callTableAction('apply', $theme, ['level' => ThemeAssignment::LEVEL_GAME, 'game_id' => $game->id]);
+
+        $this->assertDatabaseHas('theme_assignments', [
+            'theme_id' => $theme->id, 'level' => 'game', 'game_id' => $game->id,
+        ]);
+    }
+
+    public function test_applying_a_second_theme_replaces_the_first_at_that_scope(): void
+    {
+        $first = $this->makeTheme('First', [], ThemeAssignment::LEVEL_PLATFORM);
+        $second = $this->makeTheme('Second');
+
+        Livewire::test(ListThemes::class)
+            ->callTableAction('apply', $second, ['level' => ThemeAssignment::LEVEL_PLATFORM]);
+
+        $this->assertSame(1, ThemeAssignment::where('level', 'platform')->count());
+        $this->assertSame($second->id, ThemeAssignment::where('level', 'platform')->first()?->theme_id);
+    }
+
+    public function test_duplicate_copies_the_folder_contents_not_just_the_row(): void
+    {
+        // Two themes sharing one set of files would mean editing either
+        // silently changed the other.
+        $source = $this->makeTheme('Midnight', ['tokens' => ['accent' => '#4f46e5']]);
+        $this->putThemeFile($source, 'font/Inter.woff2', 'FONTBYTES');
+
+        Livewire::test(ListThemes::class)
+            ->callTableAction('duplicate', $source, ['name' => 'Midnight copy']);
+
+        $copy = Theme::where('name', 'Midnight copy')->firstOrFail();
+        $this->assertNotSame($source->slug, $copy->slug);
+        Storage::disk(config('assets.disk'))->assertExists("themes/{$copy->slug}/font/Inter.woff2");
+        $this->assertSame('#4f46e5', $copy->bundle()->tokens['accent']);
+    }
+
+    public function test_a_duplicate_can_be_edited_without_touching_its_source(): void
+    {
+        $source = $this->makeTheme('Midnight', ['tokens' => ['accent' => '#4f46e5']]);
+        Livewire::test(ListThemes::class)->callTableAction('duplicate', $source, ['name' => 'Fork']);
+        $copy = Theme::where('name', 'Fork')->firstOrFail();
+
+        $bundle = $copy->bundle();
+        $bundle->tokens['accent'] = '#ff0000';
+        app(ThemeStorage::class)->writeBundle($copy, $bundle);
+
+        $this->assertSame('#4f46e5', $source->refresh()->bundle()->tokens['accent']);
+    }
+
+    public function test_a_duplicate_carries_its_own_id_so_it_is_independently_exportable(): void
+    {
+        $source = $this->makeTheme('Midnight');
+        Livewire::test(ListThemes::class)->callTableAction('duplicate', $source, ['name' => 'Fork']);
+        $copy = Theme::where('name', 'Fork')->firstOrFail();
+
+        $this->assertSame($copy->slug, $copy->bundle()->id);
+    }
+
+    public function test_rename_changes_the_name_in_theme_json_but_leaves_the_folder_alone(): void
+    {
+        // Moving the folder would break every relative path an exported
+        // copy of this theme is holding.
+        $theme = $this->makeTheme('Midnight');
+        $slug = $theme->slug;
+
+        Livewire::test(ListThemes::class)->callTableAction('rename', $theme, ['name' => 'Twilight']);
+
+        $theme->refresh();
+        $this->assertSame('Twilight', $theme->name);
+        $this->assertSame('Twilight', $theme->bundle()->name);
+        $this->assertSame($slug, $theme->slug);
+    }
+
+    public function test_a_theme_in_use_cannot_be_deleted(): void
+    {
+        // Deleting it would take the site\'s styling with it.
+        $inUse = $this->makeTheme('Live', [], ThemeAssignment::LEVEL_PLATFORM);
+
+        Livewire::test(ListThemes::class)->assertTableActionDisabled('delete', $inUse);
+    }
+
+    public function test_an_unused_theme_can_be_deleted(): void
+    {
+        $spare = $this->makeTheme('Spare');
+
+        Livewire::test(ListThemes::class)->assertTableActionEnabled('delete', $spare);
+    }
+
+    public function test_duplicating_the_live_theme_leaves_the_live_one_applied(): void
+    {
+        $live = $this->makeTheme('Live', ['tokens' => ['accent' => '#4f46e5']], ThemeAssignment::LEVEL_PLATFORM);
+
+        Livewire::test(ListThemes::class)
+            ->callAction('forkActive', ['name' => 'Experiment'])
+            ->assertHasNoActionErrors();
+
+        $copy = Theme::where('name', 'Experiment')->firstOrFail();
+        $this->assertSame('#4f46e5', $copy->bundle()->tokens['accent']);
+        // The point of the escape hatch: nothing changes until you Apply.
+        $this->assertSame($live->id, ThemeAssignment::where('level', 'platform')->first()?->theme_id);
     }
 }

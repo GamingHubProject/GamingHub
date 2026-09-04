@@ -7,7 +7,7 @@ export function Layout() {
     <div>
       <Header />
       <Breadcrumbs />
-      <main style={{ padding: 24 }}>
+      <main style={{ padding: 'calc(var(--spacing, 12px) * 2)' }}>
         <Outlet />
       </main>
     </div>

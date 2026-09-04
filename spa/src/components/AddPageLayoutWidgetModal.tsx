@@ -76,7 +76,7 @@ export function AddPageLayoutWidgetModal({
                         textAlign: 'left',
                         padding: '10px 12px',
                         border: '1px solid var(--border, #ddd)',
-                        borderRadius: 6,
+                        borderRadius: 'var(--radius, 6px)',
                         cursor: 'pointer',
                         background: 'none',
                         font: 'inherit',

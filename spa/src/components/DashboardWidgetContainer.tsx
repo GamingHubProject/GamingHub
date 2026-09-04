@@ -14,7 +14,7 @@ export function DashboardWidgetContainer({
     <div
       style={{
         border: '1px solid var(--border, #ddd)',
-        borderRadius: 8,
+        borderRadius: 'var(--radius, 8px)',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',

@@ -84,6 +84,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     for (const [key, value] of Object.entries(theme.tokens)) {
       root.style.setProperty(`--${key}`, value);
     }
+
+    // Tokens on :root do nothing on their own — something has to actually
+    // paint with them, and the page ground is the one surface no component
+    // owns. Without this a dark theme sets --background and the page stays
+    // white, with dark-theme text on it.
+    //
+    // Applied only when the theme defines them, so an install with no
+    // tokens set keeps the browser's own default rather than being forced
+    // to black or white by a half-configured theme.
+    if (theme.tokens.background) document.body.style.background = 'var(--background)';
+    if (theme.tokens.text) document.body.style.color = 'var(--text)';
   }, [theme]);
 
   useEffect(() => {

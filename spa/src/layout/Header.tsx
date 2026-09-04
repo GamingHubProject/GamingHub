@@ -14,7 +14,7 @@ export function Header() {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '12px 24px',
+        padding: 'var(--spacing, 12px) calc(var(--spacing, 12px) * 2)',
         // Opaque by default via --surface, which is unset on a fresh
         // install and so resolves to `transparent` — i.e. byte-identical
         // to the header's pre-existing look — and becomes a real solid bar
@@ -90,7 +90,7 @@ function UserMenu({ name, isAdmin }: { name: string; isAdmin: boolean }) {
             marginTop: 4,
             background: 'var(--background, #fff)',
             border: '1px solid var(--border, #ddd)',
-            borderRadius: 4,
+            borderRadius: 'calc(var(--radius, 8px) / 2)',
             minWidth: 140,
             zIndex: 10,
           }}

@@ -5,7 +5,7 @@ import { useAuth } from '../providers/AuthProvider';
 import type { Asset, AssetFolder, AssetFolderVisibility, AssetList, AssetTag } from '../api/types';
 import { Listbox } from '../components/Listbox';
 
-const box: React.CSSProperties = { border: '1px solid var(--border, #ddd)', borderRadius: 8, padding: 12 };
+const box: React.CSSProperties = { border: '1px solid var(--border, #ddd)', borderRadius: 'var(--radius, 8px)', padding: 12 };
 
 /**
  * The admin-only Asset Library management view — browse/organize every

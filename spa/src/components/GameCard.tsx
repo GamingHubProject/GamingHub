@@ -15,7 +15,7 @@ export function GameCard({ game, showIcon = true }: { game: Game; showIcon?: boo
       style={{
         display: 'block',
         border: '1px solid var(--border, #ddd)',
-        borderRadius: 8,
+        borderRadius: 'var(--radius, 8px)',
         textDecoration: 'none',
         color: 'inherit',
         ...cardContainerStyle,

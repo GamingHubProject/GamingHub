@@ -219,6 +219,34 @@ class ThemeStorage
         return $relative;
     }
 
+    /**
+     * A full, independent copy: new folder, every file copied across, and
+     * theme.json rewritten under the new identity.
+     *
+     * The files have to be copied rather than shared. Two themes pointing
+     * at one set of files would mean editing either one silently changed
+     * the other, and neither could be exported on its own — which is the
+     * property the whole folder model exists to guarantee.
+     */
+    public function duplicateTheme(Theme $source, string $name): Theme
+    {
+        $copy = $this->createTheme($name);
+
+        foreach ($this->disk()->allFiles($this->themePath($source->slug)) as $path) {
+            $relative = ltrim(substr($path, strlen($this->themePath($source->slug))), '/');
+            if ($relative === 'theme.json') {
+                continue; // rewritten below, under the copy's own id
+            }
+            $this->disk()->put($this->themePath($copy->slug, $relative), (string) $this->disk()->get($path));
+        }
+
+        $bundle = $source->bundle();
+        $bundle->id = $copy->slug;
+        $bundle->name = $name;
+
+        return $this->writeBundle($copy, $bundle);
+    }
+
     /** Files already sitting in one of a theme's subfolders, for the admin picker. */
     public function filesIn(Theme $theme, string $subfolder): array
     {
@@ -284,8 +312,8 @@ class ThemeStorage
         $bundle = new ThemeBundle(
             id: $slug,
             name: $theme->name,
-            tokens: array_intersect_key($tokens, ThemeBundle::TOKENS),
-            extraTokens: array_diff_key($tokens, ThemeBundle::TOKENS),
+            tokens: array_intersect_key($tokens, ThemeBundle::contractTokens()),
+            extraTokens: array_diff_key($tokens, ThemeBundle::contractTokens()),
             widgetStyle: $values['widget_style_defaults'] ?? [],
             headerTransparent: (bool) ($values['header_transparent'] ?? false),
         );
@@ -319,8 +347,8 @@ class ThemeStorage
             $this->writeBundle($scoped, new ThemeBundle(
                 id: $scopedSlug,
                 name: $row->name,
-                tokens: array_intersect_key($scopedTokens, ThemeBundle::TOKENS),
-                extraTokens: array_diff_key($scopedTokens, ThemeBundle::TOKENS),
+                tokens: array_intersect_key($scopedTokens, ThemeBundle::contractTokens()),
+                extraTokens: array_diff_key($scopedTokens, ThemeBundle::contractTokens()),
             ));
 
             ThemeAssignment::updateOrCreate(

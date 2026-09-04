@@ -1,0 +1,94 @@
+/*
+ * The base layer the theme tokens actually land on.
+ *
+ * Tokens on :root do nothing by themselves — something has to paint with
+ * them. Components handle their own surfaces, but the elements no
+ * component owns (links, buttons, inputs, the text selection) were still
+ * falling through to browser defaults: default-blue links on a near-black
+ * page, which is both the "unstyled" look a shipped theme exists to avoid
+ * and a real contrast failure.
+ *
+ * Every rule here is token-driven with a fallback that reproduces the
+ * pre-theme appearance, so an install with no tokens set looks exactly as
+ * it did before this file existed.
+ */
+
+a {
+  color: var(--accent, #0645ad);
+}
+
+a:hover {
+  /* Accent is already the loudest colour on the page; hover shifts
+     opacity rather than introducing a second hue. */
+  opacity: 0.8;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--text, inherit);
+  background: var(--surface-muted, transparent);
+  border: 1px solid var(--border, #ddd);
+  border-radius: calc(var(--radius, 8px) / 2);
+  padding: 4px 10px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent, #0645ad);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* A range slider styled as a box reads as broken; it wants its native
+   look, just tinted. */
+input[type='range'] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--accent, #0645ad);
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--accent, #0645ad);
+}
+
+input[type='color'] {
+  padding: 2px;
+  min-width: 40px;
+  min-height: 28px;
+}
+
+/* Keyboard focus must stay visible on every theme, which a single
+   hardcoded outline colour can't guarantee across a light and a dark
+   palette. */
+:focus-visible {
+  outline: 2px solid var(--accent, #0645ad);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent, #0645ad);
+  color: var(--accent-contrast, #fff);
+}
+
+/* The page ground. ThemeProvider also sets these inline once a theme
+   defines them — this is the resting state before the theme request
+   resolves, so a dark install doesn't flash white on every load. */
+body {
+  margin: 0;
+  background: var(--background, #fff);
+  color: var(--text, #111);
+}

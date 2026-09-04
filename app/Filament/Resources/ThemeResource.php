@@ -6,11 +6,16 @@ use App\Experience\ThemeBundle;
 use App\Experience\ThemeStorage;
 use App\Filament\Resources\ThemeResource\Pages;
 use App\Models\Theme;
+use App\Models\ThemeAssignment;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use GamingHub\Core\Models\Game;
+use GamingHub\Core\Models\Server;
 
 /**
  * The one place a site's appearance is edited. Everything Phase A put in
@@ -53,6 +58,11 @@ class ThemeResource extends Resource
             Forms\Components\Section::make('Colours')
                 ->description('The design tokens every page and widget reads. Anything left blank falls back to the theme beneath this one, or to the built-in look.')
                 ->schema(static::tokenFields())
+                ->columns(2),
+
+            Forms\Components\Section::make('Shape & spacing')
+                ->description('Applies site-wide — cards, dropdowns, dialogs and inputs all round by the same amount unless a widget overrides it.')
+                ->schema(static::scaleFields())
                 ->columns(2),
 
             Forms\Components\Section::make('Font')
@@ -131,10 +141,30 @@ class ThemeResource extends Resource
      */
     private static function tokenFields(): array
     {
-        return collect(ThemeBundle::TOKENS)
+        return collect(ThemeBundle::COLOR_TOKENS)
             ->map(fn (string $label, string $key) => Forms\Components\ColorPicker::make("tokens.{$key}")
                 ->label($label)
                 ->hex())
+            ->values()
+            ->all();
+    }
+
+    /**
+     * The scale tokens carry a unit, so they're numbers with a suffix
+     * rather than swatches — but they're the same `tokens` map underneath
+     * and reach :root the same way.
+     *
+     * @return list<Forms\Components\Component>
+     */
+    private static function scaleFields(): array
+    {
+        return collect(ThemeBundle::SCALE_TOKENS)
+            ->map(fn (array $spec, string $key) => Forms\Components\TextInput::make("tokens.{$key}")
+                ->label($spec['label'])
+                ->numeric()
+                ->minValue(0)
+                ->suffix($spec['unit'])
+                ->placeholder((string) $spec['default']))
             ->values()
             ->all();
     }
@@ -197,15 +227,129 @@ class ThemeResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
+                static::applyAction(),
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make()
-                    // Deleting the row without its folder would leave an
-                    // orphaned /themes/{slug}/ that the next sync would
-                    // resurrect as an untracked directory.
-                    ->using(fn (Theme $record) => app(ThemeStorage::class)->deleteTheme($record)),
+                Tables\Actions\ActionGroup::make([
+                    static::duplicateAction(),
+                    static::renameAction(),
+                    Tables\Actions\DeleteAction::make()
+                        // Deleting the row without its folder would leave
+                        // an orphaned /themes/{slug}/ that the next sync
+                        // would resurrect as an untracked directory.
+                        ->using(fn (Theme $record) => app(ThemeStorage::class)->deleteTheme($record))
+                        // A theme still in use would take the site's
+                        // styling with it; make them switch first rather
+                        // than silently leaving pages unstyled.
+                        ->disabled(fn (Theme $record) => $record->assignments()->exists())
+                        ->tooltip(fn (Theme $record) => $record->assignments()->exists()
+                            ? 'In use — apply another theme first'
+                            : null),
+                ]),
             ])
             ->emptyStateHeading('No themes yet')
             ->emptyStateDescription('A theme is a folder in the Asset Library holding its colours, font, favicon and widget styling.');
+    }
+
+    /**
+     * Apply = point a scope at this theme. Scoped rather than a bare
+     * "make this the site theme" because the cascade has always had three
+     * levels, and a game or server theme has to be assignable from the
+     * same list as a platform one — otherwise there's no UI for it at all.
+     * Platform is preselected since it's overwhelmingly the common case.
+     */
+    private static function applyAction(): Tables\Actions\Action
+    {
+        return Tables\Actions\Action::make('apply')
+            ->label('Apply')
+            ->icon('heroicon-o-check-circle')
+            ->color('primary')
+            ->form([
+                Forms\Components\Select::make('level')
+                    ->label('Apply to')
+                    ->native(false)
+                    ->options([
+                        ThemeAssignment::LEVEL_PLATFORM => 'The whole site',
+                        ThemeAssignment::LEVEL_GAME => 'One game',
+                        ThemeAssignment::LEVEL_SERVER => 'One server',
+                    ])
+                    ->default(ThemeAssignment::LEVEL_PLATFORM)
+                    ->required()
+                    ->live(),
+                Forms\Components\Select::make('game_id')
+                    ->label('Game')
+                    ->native(false)
+                    ->options(fn () => Game::query()->orderBy('name')->pluck('name', 'id'))
+                    ->searchable()
+                    ->required()
+                    ->visible(fn (Get $get) => $get('level') === ThemeAssignment::LEVEL_GAME),
+                Forms\Components\Select::make('server_id')
+                    ->label('Server')
+                    ->native(false)
+                    ->options(fn () => Server::query()->orderBy('name')->pluck('name', 'id'))
+                    ->searchable()
+                    ->required()
+                    ->visible(fn (Get $get) => $get('level') === ThemeAssignment::LEVEL_SERVER),
+            ])
+            ->action(function (Theme $record, array $data) {
+                ThemeAssignment::assign(
+                    $data['level'],
+                    $record->id,
+                    $data['game_id'] ?? null,
+                    $data['server_id'] ?? null,
+                );
+
+                Notification::make()
+                    ->title("{$record->name} applied")
+                    ->body('Reload the site to see it.')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * Copies the folder, not just the row — a duplicate that shared its
+     * original's files would mean editing one silently changed the other,
+     * and neither could be exported independently.
+     */
+    private static function duplicateAction(): Tables\Actions\Action
+    {
+        return Tables\Actions\Action::make('duplicate')
+            ->label('Duplicate')
+            ->icon('heroicon-o-document-duplicate')
+            ->form([
+                Forms\Components\TextInput::make('name')
+                    ->label('Name for the copy')
+                    ->required()
+                    ->default(fn (Theme $record) => "{$record->name} copy"),
+            ])
+            ->action(function (Theme $record, array $data) {
+                $copy = app(ThemeStorage::class)->duplicateTheme($record, $data['name']);
+
+                Notification::make()->title("Created {$copy->name}")->success()->send();
+            });
+    }
+
+    private static function renameAction(): Tables\Actions\Action
+    {
+        return Tables\Actions\Action::make('rename')
+            ->label('Rename')
+            ->icon('heroicon-o-pencil-square')
+            ->form([
+                Forms\Components\TextInput::make('name')
+                    ->required()
+                    ->default(fn (Theme $record) => $record->name),
+            ])
+            ->action(function (Theme $record, array $data) {
+                // Through the bundle, so theme.json stays the source of
+                // truth. The folder slug deliberately doesn't follow a
+                // rename — moving it would break every relative path an
+                // exported copy of this theme is holding.
+                $bundle = $record->bundle();
+                $bundle->name = $data['name'];
+                app(ThemeStorage::class)->writeBundle($record, $bundle);
+
+                Notification::make()->title('Renamed')->success()->send();
+            });
     }
 
     private static function assignmentSummary(Theme $record): string

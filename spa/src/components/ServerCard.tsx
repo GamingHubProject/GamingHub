@@ -8,7 +8,7 @@ export function ServerCard({ server, gameSlug }: { server: Server; gameSlug: str
       style={{
         display: 'block',
         border: '1px solid var(--border, #ddd)',
-        borderRadius: 8,
+        borderRadius: 'var(--radius, 8px)',
         padding: 16,
         textDecoration: 'none',
         color: 'inherit',

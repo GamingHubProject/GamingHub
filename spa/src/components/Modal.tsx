@@ -42,7 +42,7 @@ export function Modal({
         style={{
           background: 'var(--surface, #fff)',
           color: 'var(--text, #111)',
-          borderRadius: 8,
+          borderRadius: 'var(--radius, 8px)',
           padding: 24,
           minWidth: 320,
           maxWidth: '90vw',
