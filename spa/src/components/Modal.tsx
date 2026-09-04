@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 
 export function Modal({
   title,
@@ -9,11 +9,21 @@ export function Modal({
   onClose: () => void;
   children: ReactNode;
 }) {
+  // A bare onClick on the backdrop also fires for a press that *started*
+  // inside the modal and merely finished outside it — dragging a slider
+  // past the edge, or releasing over the backdrop after picking from a
+  // dropdown. Requiring the press to both start and end on the backdrop
+  // makes "click outside to close" mean what it says.
+  const pressedBackdrop = useRef(false);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label={title}
+      onPointerDown={(event) => {
+        pressedBackdrop.current = event.target === event.currentTarget;
+      }}
       style={{
         position: 'fixed',
         inset: 0,
@@ -23,10 +33,12 @@ export function Modal({
         justifyContent: 'center',
         zIndex: 1000,
       }}
-      onClick={onClose}
+      onClick={(event) => {
+        if (event.target === event.currentTarget && pressedBackdrop.current) onClose();
+        pressedBackdrop.current = false;
+      }}
     >
       <div
-        onClick={(event) => event.stopPropagation()}
         style={{
           background: 'var(--surface, #fff)',
           color: 'var(--text, #111)',

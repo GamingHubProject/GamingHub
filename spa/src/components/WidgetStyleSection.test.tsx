@@ -121,7 +121,10 @@ describe('WidgetStyleSection', () => {
     let latest: Record<string, unknown> = { style: { background_type: 'color', background_color: '#ffffff', background_opacity: 1 } };
     const { rerender } = render(<WidgetStyleSection widgetType="picture" config={latest} onChange={(next) => (latest = next)} />);
 
-    fireEvent.change(screen.getByLabelText(/Type/), { target: { value: 'pattern' } });
+    // Click to open, click to select — the interaction the native <select>
+    // couldn't reliably do (see components/Listbox).
+    fireEvent.click(screen.getByRole('button', { name: 'Type' }));
+    fireEvent.pointerDown(screen.getByRole('option', { name: 'Pattern' }));
     rerender(<WidgetStyleSection widgetType="picture" config={latest} onChange={(next) => (latest = next)} />);
 
     const style = latest.style as any;

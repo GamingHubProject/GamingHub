@@ -42,14 +42,21 @@ class AssetFolderApiTest extends TestCase
 
     public function test_admin_sees_every_folder_including_user_private(): void
     {
-        AssetFolder::factory()->create(['visibility' => 'public']);
-        AssetFolder::factory()->adminOnly()->create();
-        AssetFolder::factory()->userPrivate(User::factory()->create()->id)->create();
+        $public = AssetFolder::factory()->create(['visibility' => 'public']);
+        $adminOnly = AssetFolder::factory()->adminOnly()->create();
+        $private = AssetFolder::factory()->userPrivate(User::factory()->create()->id)->create();
 
         $response = $this->actingAs($this->admin())->getJson('/api/v1/asset-folders');
 
         $response->assertOk();
-        $response->assertJsonCount(3, 'data');
+        // Asserted by presence, not by an exact count: the install also
+        // ships theme folders (/themes and each theme's subfolders), and
+        // what this test is actually about is that no *visibility* is
+        // hidden from an admin.
+        $ids = collect($response->json('data'))->pluck('id');
+        foreach ([$public, $adminOnly, $private] as $folder) {
+            $this->assertContains($folder->id, $ids);
+        }
     }
 
     public function test_a_user_sees_their_own_private_folder_but_not_someone_elses(): void

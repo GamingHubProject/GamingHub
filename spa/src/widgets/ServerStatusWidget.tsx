@@ -4,6 +4,7 @@ import { StatusBadge } from './shared/StatusBadge';
 import { ProgressBar } from './shared/ProgressBar';
 import type { Game, Server } from '../api/types';
 import type { WidgetConfigFormProps } from './registry';
+import { Listbox } from '../components/Listbox';
 
 export interface ServerStatusWidgetConfig {
   server_id: number | null;
@@ -73,17 +74,15 @@ export function ServerStatusWidgetConfigForm({ config, onChange }: WidgetConfigF
   return (
     <label>
       Server
-      <select
-        value={config.server_id ?? ''}
-        onChange={(event) => onChange({ server_id: event.target.value ? Number(event.target.value) : null })}
-      >
-        <option value="">Select a server…</option>
-        {allServers?.map((server) => (
-          <option key={server.id} value={server.id}>
-            {server.name}
-          </option>
-        ))}
-      </select>
+      <Listbox
+        label="Server"
+        value={config.server_id ? String(config.server_id) : ''}
+        options={[
+          { value: '', label: 'Select a server…' },
+          ...(allServers ?? []).map((server) => ({ value: String(server.id), label: server.name })),
+        ]}
+        onChange={(next) => onChange({ server_id: next ? Number(next) : null })}
+      />
     </label>
   );
 }

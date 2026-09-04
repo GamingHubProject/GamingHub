@@ -2,6 +2,7 @@ import { AssetPicker } from '../../components/AssetPicker';
 import type { AssetPreview } from '../../components/AssetPicker';
 import type { Asset } from '../../api/types';
 import type { PageLayoutWidgetConfigFormProps, PageLayoutWidgetContext } from './registry';
+import { Listbox } from '../../components/Listbox';
 
 export type PictureFit = 'cover' | 'contain' | 'fill';
 
@@ -95,11 +96,16 @@ export function PictureWidgetConfigForm({ config, onChange }: PageLayoutWidgetCo
       <label>
         Fit
         <div style={{ marginTop: 4 }}>
-          <select value={config.fit} onChange={(event) => onChange({ ...config, fit: event.target.value as PictureFit })}>
-            <option value="cover">Cover (crop to fill)</option>
-            <option value="contain">Contain (fit whole image)</option>
-            <option value="fill">Fill (stretch)</option>
-          </select>
+          <Listbox<PictureFit>
+            label="Fit"
+            value={config.fit}
+            options={[
+              { value: 'cover', label: 'Cover (crop to fill)' },
+              { value: 'contain', label: 'Contain (fit whole image)' },
+              { value: 'fill', label: 'Fill (stretch)' },
+            ]}
+            onChange={(next) => onChange({ ...config, fit: next })}
+          />
         </div>
       </label>
       <label>

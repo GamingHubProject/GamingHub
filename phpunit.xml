@@ -35,6 +35,9 @@
         -->
         <env name="APP_ENV" value="testing" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file" force="true"/>
+        <!-- Themes are folders on the assets disk, and the migration creates one:
+             without this the suite writes into storage/app/public on every run. -->
+        <env name="ASSETS_DISK" value="testing-assets" force="true"/>
         <env name="BCRYPT_ROUNDS" value="4" force="true"/>
         <env name="CACHE_STORE" value="array" force="true"/>
         <env name="DB_CONNECTION" value="pgsql" force="true"/>

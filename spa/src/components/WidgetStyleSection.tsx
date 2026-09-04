@@ -2,6 +2,7 @@ import { getPageLayoutWidgetDefinition } from '../widgets/pageLayout/registry';
 import { useWidgetStyleDefaults } from '../providers/ThemeProvider';
 import { AssetPicker } from './AssetPicker';
 import type { AssetPreview } from './AssetPicker';
+import { Listbox } from './Listbox';
 import { BACKGROUND_PATTERNS } from '../widgets/shared/backgroundPattern';
 import { contrastRatio, resolveWidgetStyle, MIN_READABLE_CONTRAST, EMPTY_WIDGET_STYLE } from '../widgets/shared/widgetStyle';
 import type { BackgroundImageFit, BackgroundType, WidgetStyleOverride } from '../widgets/shared/widgetStyle';
@@ -254,17 +255,19 @@ export function WidgetStyleSection({
         </label>
         {backgroundOverridden && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingLeft: 24 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              Type
-              <select
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>Type</span>
+              <Listbox<BackgroundType>
+                label="Type"
                 value={backgroundType}
-                onChange={(event) => updateStyle(backgroundTypePatch(event.target.value as BackgroundType, style))}
-              >
-                <option value="color">Solid color</option>
-                <option value="pattern">Pattern</option>
-                <option value="image">Image</option>
-              </select>
-            </label>
+                options={[
+                  { value: 'color', label: 'Solid color' },
+                  { value: 'pattern', label: 'Pattern' },
+                  { value: 'image', label: 'Image' },
+                ]}
+                onChange={(next) => updateStyle(backgroundTypePatch(next, style))}
+              />
+            </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16 }}>
               {/* The base fill in every mode, so it stays visible for all
@@ -281,19 +284,15 @@ export function WidgetStyleSection({
 
               {backgroundType === 'pattern' && (
                 <>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    Pattern
-                    <select
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span>Pattern</span>
+                    <Listbox
+                      label="Pattern"
                       value={style.background_pattern ?? BACKGROUND_PATTERNS[0].id}
-                      onChange={(event) => updateStyle({ background_pattern: event.target.value })}
-                    >
-                      {BACKGROUND_PATTERNS.map((pattern) => (
-                        <option key={pattern.id} value={pattern.id}>
-                          {pattern.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                      options={BACKGROUND_PATTERNS.map((p) => ({ value: p.id, label: p.label }))}
+                      onChange={(next) => updateStyle({ background_pattern: next })}
+                    />
+                  </div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     Pattern color
                     <input
@@ -306,17 +305,19 @@ export function WidgetStyleSection({
               )}
 
               {backgroundType === 'image' && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  Fit
-                  <select
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>Fit</span>
+                  <Listbox<BackgroundImageFit>
+                    label="Fit"
                     value={style.background_image_fit ?? 'cover'}
-                    onChange={(event) => updateStyle({ background_image_fit: event.target.value as BackgroundImageFit })}
-                  >
-                    <option value="cover">Cover (crop to fill)</option>
-                    <option value="contain">Contain (fit whole image)</option>
-                    <option value="tile">Tile (repeat)</option>
-                  </select>
-                </label>
+                    options={[
+                      { value: 'cover', label: 'Cover (crop to fill)' },
+                      { value: 'contain', label: 'Contain (fit whole image)' },
+                      { value: 'tile', label: 'Tile (repeat)' },
+                    ]}
+                    onChange={(next) => updateStyle({ background_image_fit: next })}
+                  />
+                </div>
               )}
 
               {/* Opacity tints flat fills (the base color, and a pattern's

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '../providers/ApiClientProvider';
 import { useAuth } from '../providers/AuthProvider';
 import type { Asset, AssetFolder, AssetFolderVisibility, AssetList, AssetTag } from '../api/types';
+import { Listbox } from '../components/Listbox';
 
 const box: React.CSSProperties = { border: '1px solid var(--border, #ddd)', borderRadius: 8, padding: 12 };
 
@@ -231,14 +232,15 @@ function AssetCard({
         placeholder="Display name / alt text"
         style={{ fontSize: '0.8rem' }}
       />
-      <select value={asset.folder_id ?? ''} onChange={(e) => onMove(e.target.value ? Number(e.target.value) : null)} style={{ fontSize: '0.8rem' }}>
-        <option value="">(unfiled)</option>
-        {folders.map((folder) => (
-          <option key={folder.id} value={folder.id}>
-            {folder.path}
-          </option>
-        ))}
-      </select>
+      <Listbox
+        label="Folder"
+        value={asset.folder_id ? String(asset.folder_id) : ''}
+        options={[
+          { value: '', label: '(unfiled)' },
+          ...folders.map((folder) => ({ value: String(folder.id), label: folder.path })),
+        ]}
+        onChange={(next) => onMove(next ? Number(next) : null)}
+      />
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {tags.map((tag) => {
           const active = asset.tags.some((t) => t.id === tag.id);
@@ -283,10 +285,15 @@ function NewFolderForm({
       style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8, marginBottom: 12 }}
     >
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Folder name" autoFocus />
-      <select value={visibility} onChange={(e) => setVisibility(e.target.value as AssetFolderVisibility)}>
-        <option value="public">Public</option>
-        <option value="admin_only">Admin only</option>
-      </select>
+      <Listbox<AssetFolderVisibility>
+        label="Visibility"
+        value={visibility}
+        options={[
+          { value: 'public', label: 'Public' },
+          { value: 'admin_only', label: 'Admin only' },
+        ]}
+        onChange={setVisibility}
+      />
       {error && <span style={{ color: 'crimson', fontSize: '0.75rem' }}>{error}</span>}
       <div style={{ display: 'flex', gap: 4 }}>
         <button type="submit" disabled={pending || !name.trim()}>

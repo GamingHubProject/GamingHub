@@ -47,6 +47,22 @@ return [
             'report' => false,
         ],
 
+        /*
+         * The assets disk under test (see phpunit.xml's ASSETS_DISK).
+         * Themes are folders on the assets disk and the restructure
+         * migration creates one, so without this the test suite writes
+         * real directories into storage/app/public on every run — and
+         * leftovers there change the slugs later runs pick.
+         */
+        'testing-assets' => [
+            'driver' => 'local',
+            'root' => storage_path('framework/testing/assets'),
+            'url' => env('APP_URL').'/storage',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

@@ -5,6 +5,7 @@ import { AssetPicker } from '../../components/AssetPicker';
 import type { AssetPreview } from '../../components/AssetPicker';
 import type { Asset, Game } from '../../api/types';
 import type { PageLayoutWidgetConfigFormProps } from './registry';
+import { Listbox } from '../../components/Listbox';
 
 export interface GameCardWidgetConfig {
   mode: 'single' | 'all';
@@ -145,20 +146,18 @@ export function GameCardWidgetConfigForm({ config, onChange }: PageLayoutWidgetC
 
       {config.mode === 'single' && (
         <>
-          <select
+          <Listbox
+            label="Game"
             value={config.game_slug ?? ''}
-            onChange={(event) => {
-              const game = games?.find((g) => g.slug === event.target.value);
+            options={[
+              { value: '', label: 'Choose a game…' },
+              ...(games ?? []).map((game) => ({ value: game.slug, label: game.name })),
+            ]}
+            onChange={(next) => {
+              const game = games?.find((g) => g.slug === next);
               onChange({ ...config, game_id: game?.id ?? null, game_slug: game?.slug ?? null });
             }}
-          >
-            <option value="">Choose a game…</option>
-            {games?.map((game) => (
-              <option key={game.id} value={game.slug}>
-                {game.name}
-              </option>
-            ))}
-          </select>
+          />
 
           <label>
             Icon override (optional)

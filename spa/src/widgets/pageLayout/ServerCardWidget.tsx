@@ -10,6 +10,7 @@ import { CardIcon } from '../shared/CardIcon';
 import { cardBodyStyle, cardContainerStyle, cardHeaderRowStyle, cardMetaStyle, cardPaddingStyle, cardTitleStyle } from '../shared/cardScale';
 import type { Asset, Game, Server } from '../../api/types';
 import type { PageLayoutWidgetConfigFormProps } from './registry';
+import { Listbox } from '../../components/Listbox';
 
 export interface ServerCardWidgetConfig {
   server_id: number | null;
@@ -126,39 +127,35 @@ export function ServerCardWidgetConfigForm({ config, onChange }: PageLayoutWidge
       <label>
         Game
         <div style={{ marginTop: 4 }}>
-          <select
+          <Listbox
+            label="Game"
             value={gameSlug ?? ''}
-            onChange={(event) => {
-              setGameSlug(event.target.value || null);
+            options={[
+              { value: '', label: 'Choose a game…' },
+              ...(games ?? []).map((game) => ({ value: game.slug, label: game.name })),
+            ]}
+            onChange={(next) => {
+              setGameSlug(next || null);
               // The old server_id belongs to a different game's list.
               onChange({ ...config, server_id: null });
             }}
-          >
-            <option value="">Choose a game…</option>
-            {games?.map((game) => (
-              <option key={game.id} value={game.slug}>
-                {game.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </label>
 
       <label>
         Server
         <div style={{ marginTop: 4 }}>
-          <select
-            value={config.server_id ?? ''}
+          <Listbox
+            label="Server"
+            value={config.server_id ? String(config.server_id) : ''}
             disabled={!gameSlug}
-            onChange={(event) => onChange({ ...config, server_id: event.target.value ? Number(event.target.value) : null })}
-          >
-            <option value="">Choose a server…</option>
-            {servers?.map((server) => (
-              <option key={server.id} value={server.id}>
-                {server.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: 'Choose a server…' },
+              ...(servers ?? []).map((server) => ({ value: String(server.id), label: server.name })),
+            ]}
+            onChange={(next) => onChange({ ...config, server_id: next ? Number(next) : null })}
+          />
         </div>
       </label>
 

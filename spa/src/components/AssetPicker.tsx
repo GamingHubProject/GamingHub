@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Modal } from './Modal';
 import { useApi } from '../providers/ApiClientProvider';
 import type { Asset, AssetFolder, AssetList, AssetTag } from '../api/types';
+import { Listbox } from './Listbox';
 
 const DEFAULT_ACCEPT = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
 
@@ -168,14 +169,15 @@ function AssetPickerModal({
           style={{ display: 'none' }}
         />
         {tags && tags.length > 0 && (
-          <select value={tagId ?? ''} onChange={(e) => setTagId(e.target.value ? Number(e.target.value) : null)}>
-            <option value="">All tags</option>
-            {tags.map((tag) => (
-              <option key={tag.id} value={tag.id}>
-                {tag.name}
-              </option>
-            ))}
-          </select>
+          <Listbox
+            label="Filter by tag"
+            value={tagId ? String(tagId) : ''}
+            options={[
+              { value: '', label: 'All tags' },
+              ...tags.map((tag) => ({ value: String(tag.id), label: tag.name })),
+            ]}
+            onChange={(next) => setTagId(next ? Number(next) : null)}
+          />
         )}
         {error && <span style={{ color: 'crimson', fontSize: '0.85rem' }}>{error}</span>}
       </div>

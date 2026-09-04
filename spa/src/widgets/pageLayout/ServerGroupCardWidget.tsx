@@ -8,6 +8,7 @@ import { CardIcon } from '../shared/CardIcon';
 import { cardBodyStyle, cardContainerStyle, cardHeaderRowStyle, cardPaddingStyle, cardTitleStyle } from '../shared/cardScale';
 import type { Asset, Game, ServerGroup } from '../../api/types';
 import type { PageLayoutWidgetConfigFormProps } from './registry';
+import { Listbox } from '../../components/Listbox';
 
 export interface ServerGroupCardWidgetConfig {
   server_group_id: number | null;
@@ -102,41 +103,35 @@ export function ServerGroupCardWidgetConfigForm({
       <label>
         Game
         <div style={{ marginTop: 4 }}>
-          <select
+          <Listbox
+            label="Game"
             value={gameSlug ?? ''}
-            onChange={(event) => {
-              setGameSlug(event.target.value || null);
+            options={[
+              { value: '', label: 'Choose a game…' },
+              ...(games ?? []).map((game) => ({ value: game.slug, label: game.name })),
+            ]}
+            onChange={(next) => {
+              setGameSlug(next || null);
               // The old server_group_id belongs to a different game's list.
               onChange({ ...config, server_group_id: null });
             }}
-          >
-            <option value="">Choose a game…</option>
-            {games?.map((game) => (
-              <option key={game.id} value={game.slug}>
-                {game.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </label>
 
       <label>
         Server group
         <div style={{ marginTop: 4 }}>
-          <select
-            value={config.server_group_id ?? ''}
+          <Listbox
+            label="Server group"
+            value={config.server_group_id ? String(config.server_group_id) : ''}
             disabled={!gameSlug}
-            onChange={(event) =>
-              onChange({ ...config, server_group_id: event.target.value ? Number(event.target.value) : null })
-            }
-          >
-            <option value="">Choose a server group…</option>
-            {groups?.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: 'Choose a server group…' },
+              ...(groups ?? []).map((group) => ({ value: String(group.id), label: group.name })),
+            ]}
+            onChange={(next) => onChange({ ...config, server_group_id: next ? Number(next) : null })}
+          />
         </div>
       </label>
 

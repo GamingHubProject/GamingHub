@@ -19,7 +19,9 @@ class AssetApiTest extends TestCase
     {
         parent::setUp();
 
-        Storage::fake('public');
+        // The app always writes to config('assets.disk'), never a hardcoded
+        // disk name — faking anything else silently tests nothing.
+        Storage::fake(config('assets.disk'));
         Role::firstOrCreate(['name' => 'Admin', 'guard_name' => 'web']);
     }
 
@@ -176,8 +178,8 @@ class AssetApiTest extends TestCase
         $asset = Asset::first();
         $this->assertNotNull($asset);
         $this->assertNotSame($asset->url, $response->json('data.thumbnail_url'));
-        Storage::disk('public')->assertExists($asset->disk_path);
-        Storage::disk('public')->assertExists($asset->thumbnailPath());
+        Storage::disk(config('assets.disk'))->assertExists($asset->disk_path);
+        Storage::disk(config('assets.disk'))->assertExists($asset->thumbnailPath());
     }
 
     public function test_store_creates_an_asset_with_a_thumbnail_for_a_jpeg(): void
@@ -195,7 +197,7 @@ class AssetApiTest extends TestCase
         $response->assertCreated();
         $response->assertJsonPath('data.mime_type', 'image/jpeg');
         $asset = Asset::first();
-        Storage::disk('public')->assertExists($asset->thumbnailPath());
+        Storage::disk(config('assets.disk'))->assertExists($asset->thumbnailPath());
     }
 
     public function test_store_creates_an_asset_with_a_thumbnail_for_a_webp(): void
@@ -207,7 +209,7 @@ class AssetApiTest extends TestCase
         $response->assertCreated();
         $response->assertJsonPath('data.mime_type', 'image/webp');
         $asset = Asset::first();
-        Storage::disk('public')->assertExists($asset->thumbnailPath());
+        Storage::disk(config('assets.disk'))->assertExists($asset->thumbnailPath());
     }
 
     public function test_store_does_not_generate_a_thumbnail_for_svg_and_reuses_the_original_url(): void
@@ -225,7 +227,7 @@ class AssetApiTest extends TestCase
 
         $asset = Asset::first();
         $this->assertSame($asset->url, $response->json('data.thumbnail_url'));
-        Storage::disk('public')->assertMissing($asset->thumbnailPath());
+        Storage::disk(config('assets.disk'))->assertMissing($asset->thumbnailPath());
     }
 
     public function test_store_does_not_generate_a_thumbnail_for_a_font_and_reuses_the_original_url(): void
@@ -240,7 +242,7 @@ class AssetApiTest extends TestCase
 
         $asset = Asset::first();
         $this->assertSame($asset->url, $response->json('data.thumbnail_url'));
-        Storage::disk('public')->assertMissing($asset->thumbnailPath());
+        Storage::disk(config('assets.disk'))->assertMissing($asset->thumbnailPath());
     }
 
     public function test_store_rejects_a_disallowed_file_type(): void
@@ -292,7 +294,7 @@ class AssetApiTest extends TestCase
 
         $response->assertServerError();
         $this->assertSame(0, Asset::count());
-        Storage::disk('public')->assertDirectoryEmpty('assets');
+        Storage::disk(config('assets.disk'))->assertDirectoryEmpty('assets');
     }
 
     private function corruptPngWithValidHeader(): string
@@ -330,7 +332,7 @@ class AssetApiTest extends TestCase
 
         $response->assertNoContent();
         $this->assertDatabaseMissing('assets', ['id' => $asset->id]);
-        Storage::disk('public')->assertMissing($asset->disk_path);
-        Storage::disk('public')->assertMissing($asset->thumbnailPath());
+        Storage::disk(config('assets.disk'))->assertMissing($asset->disk_path);
+        Storage::disk(config('assets.disk'))->assertMissing($asset->thumbnailPath());
     }
 }

@@ -34,26 +34,18 @@ class ThemeController extends Controller
                 ->first()
             : null;
 
-        $font = $resolver->resolveFont($layout);
+        // One theme now supplies tokens, font, widget style defaults and
+        // site chrome together, so they're all resolved from the same
+        // scope rather than each having its own lookup. The response shape
+        // is unchanged — the SPA doesn't need to know where any of it
+        // came from.
+        $theme = $resolver->effectiveTheme($game, $server);
 
         return response()->json([
             'tokens' => $resolver->resolve($game, $server),
-            'font' => $font ? [
-                // Synthetic, stable — never shown to an admin, just needs
-                // to be a valid, collision-free CSS identifier. No new
-                // "font display name" field on Asset for this.
-                'family' => "gh-font-{$font->id}",
-                'url' => $font->url,
-            ] : null,
-            // Global widget style defaults — additive, not another
-            // breaking shape change like font's rollout. No params needed
-            // (see ThemeResolver::widgetStyleDefaults's docblock).
-            'widgetStyle' => $resolver->widgetStyleDefaults(),
-            // Site chrome (header/favicon) — deliberately its own key
-            // rather than folded into widgetStyle, which is specifically
-            // the per-widget defaults layer. Also global, so like
-            // widgetStyle it ignores every param above.
-            'site' => $resolver->siteChrome(),
+            'font' => $resolver->resolveFont($layout, $theme),
+            'widgetStyle' => $resolver->widgetStyleDefaults($theme),
+            'site' => $resolver->siteChrome($theme),
         ]);
     }
 }

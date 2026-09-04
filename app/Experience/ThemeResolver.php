@@ -2,101 +2,142 @@
 
 namespace App\Experience;
 
-use GamingHub\Core\Models\Game;
-use GamingHub\Core\Models\Server;
 use App\Models\Asset;
 use App\Models\PageLayout;
 use App\Models\SiteOption;
 use App\Models\Theme;
+use App\Models\ThemeAssignment;
+use GamingHub\Core\Models\Game;
+use GamingHub\Core\Models\Server;
 
 /**
- * Resolves the effective design tokens for a given scope by merging the
- * theme hierarchy: platform defaults, then game overrides, then server
- * overrides. Each level only needs to set the tokens it wants to change.
+ * Resolves the effective appearance for a scope by merging the theme
+ * hierarchy: platform, then game, then server. Each level only needs to
+ * set what it changes.
+ *
+ * What changed with the folder restructure: a level's theme is now found
+ * through ThemeAssignment (which theme is used where) rather than by
+ * filtering Theme rows that carried their own scope, and a theme
+ * contributes its whole bundle — tokens, font, widget style defaults, site
+ * chrome — not just tokens. Everything is read from the cached `payload`,
+ * so resolving a scope is one query per level and never touches the disk.
  */
 class ThemeResolver
 {
+    /** @return array<string, string> */
     public function resolve(?Game $game = null, ?Server $server = null): array
     {
         $tokens = [];
 
-        $tokens = array_merge($tokens, $this->tokensFor(Theme::LEVEL_PLATFORM));
-
-        if ($game) {
-            $tokens = array_merge($tokens, $this->tokensFor(Theme::LEVEL_GAME, gameId: $game->id));
-        }
-
-        if ($server) {
-            $tokens = array_merge($tokens, $this->tokensFor(Theme::LEVEL_SERVER, serverId: $server->id));
+        foreach ($this->cascade($game, $server) as $theme) {
+            $tokens = array_merge($tokens, $theme->payload['tokens'] ?? []);
         }
 
         return $tokens;
     }
 
-    protected function tokensFor(string $level, ?int $gameId = null, ?int $serverId = null): array
-    {
-        $theme = Theme::query()
-            ->where('level', $level)
-            ->when($gameId, fn ($query) => $query->where('game_id', $gameId))
-            ->when($serverId, fn ($query) => $query->where('server_id', $serverId))
-            ->orderByDesc('is_default')
-            ->first();
-
-        return $theme?->tokens ?? [];
-    }
-
     /**
-     * A separate, much simpler axis from resolve()'s platform/game/server
-     * color cascade: font is scoped by *page* (page_layouts' subject),
-     * which is the only scoping that covers Home and the Games listing —
-     * neither has a Game/Server to hang a Theme row off of. Just two
-     * levels: this page's own override, else the platform-wide default —
-     * a null font_asset_id on the layout *is* "sync to global", not a
-     * separate flag.
-     */
-    public function resolveFont(?PageLayout $layout): ?Asset
-    {
-        $assetId = $layout?->font_asset_id ?? SiteOption::value('font_asset_id');
-
-        return $assetId ? Asset::find($assetId) : null;
-    }
-
-    /**
-     * Purely global — no page/game/server cascade like resolve()'s color
-     * tokens, and no page-level tier like resolveFont() either (confirmed:
-     * border/text/background are naturally per-widget-instance, not a
-     * whole-page choice). A widget's own config carries its override, if
-     * any; this is just the one app-wide fallback layer beneath that,
-     * resolved client-side (see the frontend's resolveWidgetStyle) since
-     * there's nothing server-scoped left to compute once this one value is
-     * fetched.
-     */
-    public function widgetStyleDefaults(): array
-    {
-        return SiteOption::value('widget_style_defaults', []) ?? [];
-    }
-
-    /**
-     * Site chrome — settings that belong to the shell around the pages
-     * rather than to any widget on them. Purely global, like
-     * widgetStyleDefaults(): there's no per-game header or per-page
-     * favicon, and inventing a cascade for something a site has exactly
-     * one of would be scaffolding with nothing to hold up.
+     * Platform first, then any game override, then any server override —
+     * ordered so a later entry wins. A level with no assignment simply
+     * contributes nothing, which is what makes partial overrides work.
      *
-     * favicon_url is resolved to a URL here rather than passed as a bare
-     * asset id, so the client never has to make a second request to find
-     * out what to render. Note SpaController injects the favicon into the
-     * shell's <head> independently of this — the browser asks for a
-     * favicon long before any JS runs — so this copy exists for the SPA to
-     * swap it live (a theme being applied, in Phase B) without a reload.
+     * @return list<Theme>
      */
-    public function siteChrome(): array
+    public function cascade(?Game $game = null, ?Server $server = null): array
     {
-        $faviconId = SiteOption::value('favicon_asset_id');
+        $themes = [];
 
+        if ($platform = $this->themeFor(ThemeAssignment::LEVEL_PLATFORM)) {
+            $themes[] = $platform;
+        }
+        if ($game && $t = $this->themeFor(ThemeAssignment::LEVEL_GAME, gameId: $game->id)) {
+            $themes[] = $t;
+        }
+        if ($server && $t = $this->themeFor(ThemeAssignment::LEVEL_SERVER, serverId: $server->id)) {
+            $themes[] = $t;
+        }
+
+        return $themes;
+    }
+
+    /** The most specific theme in scope, or null when nothing is assigned anywhere. */
+    public function effectiveTheme(?Game $game = null, ?Server $server = null): ?Theme
+    {
+        $cascade = $this->cascade($game, $server);
+
+        return end($cascade) ?: null;
+    }
+
+    protected function themeFor(string $level, ?int $gameId = null, ?int $serverId = null): ?Theme
+    {
+        return ThemeAssignment::query()
+            ->where('level', $level)
+            ->when($gameId, fn ($q) => $q->where('game_id', $gameId))
+            ->when($serverId, fn ($q) => $q->where('server_id', $serverId))
+            ->with('theme')
+            ->first()?->theme;
+    }
+
+    /**
+     * Font is scoped by *page*, not by the game/server cascade above — the
+     * only scoping that covers Home and the Games listing, neither of
+     * which has a Game or Server to hang a theme off. Two levels: this
+     * page's own override, else whatever the effective theme provides. A
+     * null font_asset_id on the layout *is* "use the theme's font".
+     *
+     * The page-level override still points at an Asset in the shared
+     * library rather than at a theme's own font folder: it's deliberately
+     * a per-page exception to the theme, so making it live inside the
+     * theme it's overriding would be backwards.
+     *
+     * @return array{family: string, url: string}|null
+     */
+    public function resolveFont(?PageLayout $layout, ?Theme $theme = null): ?array
+    {
+        if ($layout?->font_asset_id && $asset = Asset::find($layout->font_asset_id)) {
+            return ['family' => "gh-font-{$asset->id}", 'url' => $asset->url];
+        }
+
+        return $theme?->payload['font'] ?? null;
+    }
+
+    /**
+     * Global widget style defaults, now carried by the effective theme
+     * rather than by SiteOption. Still the one app-wide layer beneath each
+     * widget's own override, which is resolved client-side.
+     */
+    public function widgetStyleDefaults(?Theme $theme = null): array
+    {
+        return $theme?->payload['widgetStyle'] ?? [];
+    }
+
+    /**
+     * Header/favicon — the shell around the pages. Also the theme's now,
+     * with one exception: SpaController still needs a favicon URL before
+     * any request scoping exists, so platformFavicon() below is what it
+     * calls.
+     */
+    public function siteChrome(?Theme $theme = null): array
+    {
         return [
-            'header_transparent' => (bool) SiteOption::value('header_transparent', false),
-            'favicon_url' => $faviconId ? Asset::find($faviconId)?->url : null,
+            'header_transparent' => (bool) ($theme?->payload['site']['header_transparent'] ?? false),
+            'favicon_url' => $theme?->payload['favicon_url'] ?? null,
         ];
+    }
+
+    /**
+     * The favicon for the SPA shell. Always the platform theme's: the
+     * shell is served before any route has been matched, so there is no
+     * game or server in scope to narrow it with.
+     */
+    public function platformFavicon(): ?string
+    {
+        return $this->themeFor(ThemeAssignment::LEVEL_PLATFORM)?->payload['favicon_url'] ?? null;
+    }
+
+    /** Kept for the branding-only settings that stayed behind. */
+    public function siteName(): string
+    {
+        return (string) SiteOption::value('site_name', config('app.name'));
     }
 }

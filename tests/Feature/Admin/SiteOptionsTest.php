@@ -69,61 +69,19 @@ class SiteOptionsTest extends TestCase
             ->assertHasFormErrors(['admin_email']);
     }
 
-    public function test_saving_persists_the_widget_style_defaults_as_a_nested_object(): void
+    public function test_appearance_settings_are_no_longer_part_of_site_options(): void
     {
+        // Colours, font, favicon, header style and widget defaults moved
+        // onto the Theme record — Site Options is branding only now, and
+        // saving it must not resurrect the old keys.
         Livewire::test(SiteOptions::class)
-            ->fillForm([
-                'site_name' => 'Hub',
-                'timezone' => 'UTC',
-                'widget_style_defaults' => [
-                    'border_enabled' => true,
-                    'border_thickness' => 2,
-                    'border_color' => '#00ff00',
-                    'border_radius' => 12,
-                    'text_size' => 16,
-                    'text_color' => '#ff0000',
-                    'text_scale' => 1.2,
-                    'background_type' => 'pattern',
-                    'background_color' => '#000000',
-                    'background_opacity' => 0.5,
-                    'background_pattern' => 'dots',
-                    'background_pattern_color' => '#ffffff',
-                    'background_image_fit' => 'tile',
-                ],
-            ])
+            ->fillForm(['site_name' => 'Hub', 'timezone' => 'UTC'])
             ->call('save')
             ->assertHasNoFormErrors();
 
         $values = SiteOption::current()->values;
-        $this->assertSame(true, $values['widget_style_defaults']['border_enabled']);
-        $this->assertSame('#00ff00', $values['widget_style_defaults']['border_color']);
-        $this->assertSame(12, $values['widget_style_defaults']['border_radius']);
-        $this->assertSame(1.2, $values['widget_style_defaults']['text_scale']);
-        $this->assertSame(2, $values['widget_style_defaults']['border_thickness']);
-        $this->assertSame('#ff0000', $values['widget_style_defaults']['text_color']);
-        $this->assertSame(0.5, $values['widget_style_defaults']['background_opacity']);
-        $this->assertSame('pattern', $values['widget_style_defaults']['background_type']);
-        $this->assertSame('dots', $values['widget_style_defaults']['background_pattern']);
-        $this->assertSame('#ffffff', $values['widget_style_defaults']['background_pattern_color']);
-        $this->assertSame('tile', $values['widget_style_defaults']['background_image_fit']);
-    }
-
-    public function test_saving_persists_the_site_chrome_settings(): void
-    {
-        $asset = \App\Models\Asset::factory()->create();
-
-        Livewire::test(SiteOptions::class)
-            ->fillForm([
-                'site_name' => 'Hub',
-                'timezone' => 'UTC',
-                'header_transparent' => true,
-                'favicon_asset_id' => $asset->id,
-            ])
-            ->call('save')
-            ->assertHasNoFormErrors();
-
-        $values = SiteOption::current()->values;
-        $this->assertTrue($values['header_transparent']);
-        $this->assertSame($asset->id, $values['favicon_asset_id']);
+        foreach (['widget_style_defaults', 'font_asset_id', 'favicon_asset_id', 'header_transparent'] as $moved) {
+            $this->assertArrayNotHasKey($moved, $values);
+        }
     }
 }

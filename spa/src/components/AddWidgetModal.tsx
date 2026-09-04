@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal } from './Modal';
 import { listWidgetDefinitions } from '../widgets/registry';
+import { Listbox } from './Listbox';
 
 export function AddWidgetModal({
   onClose,
@@ -25,13 +26,12 @@ export function AddWidgetModal({
         >
           <label>
             Widget type
-            <select value={selected} onChange={(event) => setSelected(event.target.value)}>
-              {definitions.map((definition) => (
-                <option key={definition.type} value={definition.type}>
-                  {definition.label}
-                </option>
-              ))}
-            </select>
+            <Listbox
+              label="Widget type"
+              value={selected}
+              options={definitions.map((definition) => ({ value: definition.type, label: definition.label }))}
+              onChange={setSelected}
+            />
           </label>
           <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <button type="button" onClick={onClose}>

@@ -2,8 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Asset;
-use App\Models\SiteOption;
+use App\Experience\ThemeResolver;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -105,17 +104,15 @@ class SpaController extends Controller
      */
     private function injectFavicon(string $html): string
     {
-        $assetId = SiteOption::value('favicon_asset_id');
-        if (! $assetId) {
+        // The platform theme's, not a scoped one: this shell is served
+        // before any route has matched, so there's no game or server yet
+        // to narrow the theme with.
+        $url = app(ThemeResolver::class)->platformFavicon();
+        if (! $url) {
             return $html;
         }
 
-        $asset = Asset::find($assetId);
-        if (! $asset) {
-            return $html;
-        }
-
-        $tag = '<link rel="icon" href="'.e($asset->url).'" type="'.e($asset->mime_type).'">';
+        $tag = '<link rel="icon" href="'.e($url).'">';
 
         return str_replace('</head>', $tag.'</head>', $html);
     }

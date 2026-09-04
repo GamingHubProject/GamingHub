@@ -12,6 +12,7 @@ import { GroupTemplatePickerModal } from './GroupTemplatePickerModal';
 import { getPageLayoutWidgetDefinition } from '../widgets/pageLayout/registry';
 import type { PageLayoutWidgetContext } from '../widgets/pageLayout/registry';
 import type { AssetFolder, AssetList, GroupWidgetTemplate, PageLayout, PageLayoutWidget } from '../api/types';
+import { Listbox } from './Listbox';
 
 const ResponsiveGridLayout = WidthProvider(GridLayout);
 const GRID_COLS = 12;
@@ -150,17 +151,18 @@ function PageFontControl({ layout, queryKey }: { layout: PageLayout; queryKey: u
   return (
     <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
       Page font
-      <select
-        value={layout.font_asset_id ?? ''}
-        onChange={(event) => updateFontMutation.mutate(event.target.value ? Number(event.target.value) : null)}
-      >
-        <option value="">Sync to global</option>
-        {fontAssets?.items?.map((asset) => (
-          <option key={asset.id} value={asset.id}>
-            {asset.alt_text ?? `Font #${asset.id}`}
-          </option>
-        ))}
-      </select>
+      <Listbox
+        label="Page font"
+        value={layout.font_asset_id ? String(layout.font_asset_id) : ''}
+        options={[
+          { value: '', label: 'Sync to global' },
+          ...(fontAssets?.items ?? []).map((asset) => ({
+            value: String(asset.id),
+            label: asset.alt_text ?? `Font #${asset.id}`,
+          })),
+        ]}
+        onChange={(next) => updateFontMutation.mutate(next ? Number(next) : null)}
+      />
     </label>
   );
 }

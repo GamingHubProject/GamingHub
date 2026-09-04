@@ -2,14 +2,16 @@
 
 namespace Tests\Feature;
 
-use App\Models\Asset;
-use App\Models\SiteOption;
+use App\Experience\ThemeStorage;
+use App\Models\ThemeAssignment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\InteractsWithThemes;
 use Tests\TestCase;
 
 class SpaControllerTest extends TestCase
 {
     use RefreshDatabase;
+    use InteractsWithThemes;
 
     private array $tempFiles = [];
 
@@ -115,22 +117,46 @@ class SpaControllerTest extends TestCase
         $this->get('/')->assertOk()->assertDontSee('rel="icon"', false);
     }
 
-    public function test_the_configured_favicon_is_injected_into_the_shell_head(): void
+    public function test_the_platform_themes_favicon_is_injected_into_the_shell_head(): void
     {
         // Has to be in the served HTML: the browser requests a favicon
         // while parsing <head>, before any of the SPA's JS runs.
-        $asset = Asset::factory()->create(['url' => 'https://cdn.example/icon.png', 'mime_type' => 'image/png']);
-        SiteOption::current()->update(['values' => ['favicon_asset_id' => $asset->id]]);
+        $this->fakeThemeDisk();
+        ThemeAssignment::query()->delete();
+        $theme = $this->makeTheme('Default', [], ThemeAssignment::LEVEL_PLATFORM);
+        $this->putThemeFile($theme, 'favicon/icon.png');
+        app(ThemeStorage::class)->writeBundle($theme, tap($theme->bundle(), function ($b) {
+            $b->faviconFile = 'favicon/icon.png';
+        }));
 
         $response = $this->get('/');
 
         $response->assertOk();
-        $response->assertSee('<link rel="icon" href="https://cdn.example/icon.png" type="image/png">', false);
+        $response->assertSee('rel="icon"', false);
+        $response->assertSee("themes/{$theme->slug}/favicon/icon.png", false);
     }
 
-    public function test_the_shell_still_renders_when_the_favicon_asset_was_deleted(): void
+    public function test_the_shell_still_renders_when_the_theme_references_a_missing_favicon(): void
     {
-        SiteOption::current()->update(['values' => ['favicon_asset_id' => 999999]]);
+        $this->fakeThemeDisk();
+        ThemeAssignment::query()->delete();
+        $this->makeTheme('Default', ['favicon_file' => 'favicon/gone.png'], ThemeAssignment::LEVEL_PLATFORM);
+
+        $this->get('/')->assertOk()->assertDontSee('rel="icon"', false);
+    }
+
+    public function test_a_scoped_theme_never_changes_the_shells_favicon(): void
+    {
+        // The shell is served before any route has matched, so there is no
+        // game or server in scope — it is always the platform theme's.
+        $this->fakeThemeDisk();
+        ThemeAssignment::query()->delete();
+        $game = \GamingHub\Core\Models\Game::factory()->create();
+        $scoped = $this->makeTheme('Ark', [], ThemeAssignment::LEVEL_GAME, gameId: $game->id);
+        $this->putThemeFile($scoped, 'favicon/ark.png');
+        app(ThemeStorage::class)->writeBundle($scoped, tap($scoped->bundle(), function ($b) {
+            $b->faviconFile = 'favicon/ark.png';
+        }));
 
         $this->get('/')->assertOk()->assertDontSee('rel="icon"', false);
     }
