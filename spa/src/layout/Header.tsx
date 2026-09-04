@@ -14,7 +14,7 @@ export function Header() {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 'var(--spacing, 12px) calc(var(--spacing, 12px) * 2)',
+        padding: 'var(--space-normal, 12px) var(--space-section, 24px)',
         // Opaque by default via --surface, which is unset on a fresh
         // install and so resolves to `transparent` — i.e. byte-identical
         // to the header's pre-existing look — and becomes a real solid bar

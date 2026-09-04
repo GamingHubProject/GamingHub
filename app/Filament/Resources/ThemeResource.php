@@ -61,7 +61,7 @@ class ThemeResource extends Resource
                 ->columns(2),
 
             Forms\Components\Section::make('Shape & spacing')
-                ->description('Applies site-wide — cards, dropdowns, dialogs and inputs all round by the same amount unless a widget overrides it.')
+                ->description('Applies site-wide. Each spacing step has one job, so different parts of the site stay consistent with each other — leave any of them blank to use the built-in value.')
                 ->schema(static::scaleFields())
                 ->columns(2),
 

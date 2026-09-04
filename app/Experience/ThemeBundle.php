@@ -64,8 +64,27 @@ class ThemeBundle
      */
     public const SCALE_TOKENS = [
         'radius' => ['label' => 'Corner radius', 'unit' => 'px', 'default' => 8],
-        'spacing' => ['label' => 'Base spacing', 'unit' => 'px', 'default' => 12],
+
+        /*
+         * A real four-step scale rather than one number everything
+         * multiplies. A single base forces every consumer to invent its
+         * own multiplier — `calc(var(--spacing) * 2)` scattered around is
+         * a scale, just an undocumented one nobody can change coherently.
+         *
+         * Named by the job rather than by size (no xs/sm/md/lg), because
+         * these are admin-facing: "how much room between sections" is a
+         * question an admin can answer, "what is space-lg" isn't. Each
+         * step has one clear use, which is what keeps a site consistent
+         * when different widgets pick different steps.
+         */
+        'space-tight' => ['label' => 'Tight spacing (inside buttons and rows)', 'unit' => 'px', 'default' => 6],
+        'space-normal' => ['label' => 'Normal spacing (inside cards)', 'unit' => 'px', 'default' => 12],
+        'space-loose' => ['label' => 'Loose spacing (between cards)', 'unit' => 'px', 'default' => 20],
+        'space-section' => ['label' => 'Section spacing (page margins)', 'unit' => 'px', 'default' => 32],
     ];
+
+    /** The spacing steps, in order, for anything that needs the scale as a scale. */
+    public const SPACING_STEPS = ['space-tight', 'space-normal', 'space-loose', 'space-section'];
 
     /** Every token the contract knows about, colour and scale together. */
     public static function contractTokens(): array

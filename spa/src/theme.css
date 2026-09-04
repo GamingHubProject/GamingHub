@@ -32,7 +32,9 @@ textarea {
   background: var(--surface-muted, transparent);
   border: 1px solid var(--border, #ddd);
   border-radius: calc(var(--radius, 8px) / 2);
-  padding: 4px 10px;
+  /* Tight is the step for the inside of a control; the horizontal side
+     gets the next step up so a label isn't crammed against the edge. */
+  padding: var(--space-tight, 6px) var(--space-normal, 12px);
 }
 
 button {

@@ -55,7 +55,10 @@ class BuiltInThemes
                     'accent' => '#7c5cff',
                     'accent-contrast' => '#ffffff',
                     'radius' => 14,
-                    'spacing' => 16,
+                    'space-tight' => 6,
+                    'space-normal' => 14,
+                    'space-loose' => 20,
+                    'space-section' => 32,
                 ],
                 // No border, lifted surface: cards separate from the ground
                 // by tone rather than by an outline, which is what keeps a
@@ -84,7 +87,10 @@ class BuiltInThemes
                     'accent' => '#e63946',
                     'accent-contrast' => '#ffffff',
                     'radius' => 12,
-                    'spacing' => 16,
+                    'space-tight' => 6,
+                    'space-normal' => 12,
+                    'space-loose' => 18,
+                    'space-section' => 28,
                 ],
                 'widgetStyle' => [
                     'border_enabled' => false,
@@ -111,7 +117,10 @@ class BuiltInThemes
                     'accent' => '#5b3fd9',
                     'accent-contrast' => '#ffffff',
                     'radius' => 14,
-                    'spacing' => 16,
+                    'space-tight' => 6,
+                    'space-normal' => 14,
+                    'space-loose' => 20,
+                    'space-section' => 32,
                 ],
                 // A border earns its place here: on a light ground, white
                 // cards on near-white have too little tonal separation to

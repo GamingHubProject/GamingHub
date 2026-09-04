@@ -43,7 +43,7 @@ export function Modal({
           background: 'var(--surface, #fff)',
           color: 'var(--text, #111)',
           borderRadius: 'var(--radius, 8px)',
-          padding: 24,
+          padding: 'var(--space-section, 24px)',
           minWidth: 320,
           maxWidth: '90vw',
           maxHeight: '85vh',

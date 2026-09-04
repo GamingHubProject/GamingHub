@@ -179,4 +179,45 @@ class ThemeStorageTest extends TestCase
         $this->assertNotNull($assignment->theme);
         $this->assertNotNull($assignment->theme->folder_id);
     }
+
+    public function test_a_legacy_single_spacing_token_converts_into_the_scale(): void
+    {
+        // The pre-scale shape: one base value every consumer multiplied
+        // for itself. Left alone it would linger in the admin's
+        // "Additional tokens" looking like something they had added.
+        $theme = $this->makeTheme('Legacy');
+        Storage::disk(config('assets.disk'))->put(
+            $this->storage()->themePath($theme->slug, 'theme.json'),
+            json_encode(['id' => $theme->slug, 'name' => 'Legacy', 'tokens' => ['spacing' => 16, 'accent' => '#4f46e5']])
+        );
+        $this->storage()->sync($theme);
+
+        $this->runSpacingMigration();
+
+        $bundle = $theme->refresh()->bundle();
+        $this->assertArrayNotHasKey('spacing', $bundle->tokens);
+        $this->assertArrayNotHasKey('spacing', $bundle->extraTokens);
+        $this->assertSame(16, $bundle->tokens['space-normal']);
+        $this->assertSame(8, $bundle->tokens['space-tight']);
+        $this->assertSame(24, $bundle->tokens['space-loose']);
+        $this->assertSame(32, $bundle->tokens['space-section']);
+        // Everything else is untouched.
+        $this->assertSame('#4f46e5', $bundle->tokens['accent']);
+    }
+
+    public function test_the_spacing_conversion_leaves_a_theme_that_never_had_one_alone(): void
+    {
+        $theme = $this->makeTheme('Modern', ['tokens' => ['space-normal' => 14]]);
+
+        $this->runSpacingMigration();
+
+        $bundle = $theme->refresh()->bundle();
+        $this->assertSame(14, $bundle->tokens['space-normal']);
+        $this->assertArrayNotHasKey('space-tight', $bundle->tokens);
+    }
+
+    private function runSpacingMigration(): void
+    {
+        (require database_path('migrations/2026_09_05_100000_replace_single_spacing_token_with_a_scale.php'))->up();
+    }
 }

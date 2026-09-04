@@ -92,17 +92,48 @@ class BuiltInThemesTest extends TestCase
         }
     }
 
-    public function test_every_built_in_sets_shape_and_spacing_rather_than_inheriting_the_default(): void
+    public function test_every_built_in_sets_shape_and_the_whole_spacing_scale(): void
     {
         $this->seedBuiltIns();
 
         foreach (array_keys(BuiltInThemes::all()) as $slug) {
             $tokens = Theme::where('slug', $slug)->firstOrFail()->bundle()->tokens;
             $this->assertArrayHasKey('radius', $tokens, "{$slug} has no radius");
-            $this->assertArrayHasKey('spacing', $tokens, "{$slug} has no spacing");
             // The direction calls for generous rounding, not the 8px the
             // components fall back to.
             $this->assertGreaterThanOrEqual(12, $tokens['radius'], "{$slug} rounding is too tight for the design direction");
+
+            foreach (ThemeBundle::SPACING_STEPS as $step) {
+                $this->assertArrayHasKey($step, $tokens, "{$slug} is missing {$step}");
+            }
+        }
+    }
+
+    public function test_every_built_ins_spacing_steps_increase(): void
+    {
+        // A scale whose steps aren't ordered isn't a scale — a widget
+        // reaching for "loose" would sometimes get less room than one
+        // reaching for "normal".
+        $this->seedBuiltIns();
+
+        foreach (array_keys(BuiltInThemes::all()) as $slug) {
+            $tokens = Theme::where('slug', $slug)->firstOrFail()->bundle()->tokens;
+            $values = array_map(fn ($step) => $tokens[$step], ThemeBundle::SPACING_STEPS);
+            $sorted = $values;
+            sort($sorted);
+
+            $this->assertSame($sorted, $values, "{$slug}'s spacing steps are not in ascending order");
+            $this->assertSame(count($values), count(array_unique($values)), "{$slug} has duplicate spacing steps");
+        }
+    }
+
+    public function test_the_spacing_steps_are_named_by_job_not_by_size(): void
+    {
+        // These labels are what an admin reads; "how much room between
+        // sections" is answerable, "space-lg" is not.
+        foreach (ThemeBundle::SPACING_STEPS as $step) {
+            $this->assertArrayHasKey($step, ThemeBundle::SCALE_TOKENS);
+            $this->assertNotEmpty(ThemeBundle::SCALE_TOKENS[$step]['label']);
         }
     }
 
@@ -113,8 +144,10 @@ class BuiltInThemesTest extends TestCase
 
         // theme.json keeps the honest value, for an importing site to reason about...
         $this->assertSame(14, $nebula->bundle()->tokens['radius']);
+        $this->assertSame(20, $nebula->bundle()->tokens['space-loose']);
         // ...and the payload the browser consumes is CSS-ready.
         $this->assertSame('14px', $nebula->payload['tokens']['radius']);
+        $this->assertSame('20px', $nebula->payload['tokens']['space-loose']);
     }
 
     public function test_a_value_that_already_carries_a_unit_is_passed_through(): void
