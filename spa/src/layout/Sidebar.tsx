@@ -39,6 +39,24 @@ const NAV_ALIGN_MARGIN: Record<NavAlign, CSSProperties> = {
  *  says — "always visible" on a phone leaves a 200px-wide page. */
 const NARROW = 900;
 
+/**
+ * Shared so Layout and Sidebar can't disagree about what "narrow" means.
+ * Layout needs it to decide whether a toggle button is worth showing at
+ * all, which is the same question the sidebar answers when it forces
+ * `toggle` behaviour on a small screen.
+ */
+export function useIsNarrowViewport(): boolean {
+  const [narrow, setNarrow] = useState(() => window.innerWidth < NARROW);
+
+  useEffect(() => {
+    const onResize = () => setNarrow(window.innerWidth < NARROW);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  return narrow;
+}
+
 /** Named widths an admin can judge, rather than a raw pixel field. */
 const WIDTHS: Record<SidebarWidth, number> = { compact: 200, standard: 240, wide: 300 };
 
@@ -62,14 +80,8 @@ export function Sidebar({
 }) {
   const { nodes } = useNavigation('sidebar');
   const { pathname } = useLocation();
-  const [narrow, setNarrow] = useState(() => window.innerWidth < NARROW);
+  const narrow = useIsNarrowViewport();
   const [hovered, setHovered] = useState(false);
-
-  useEffect(() => {
-    const onResize = () => setNarrow(window.innerWidth < NARROW);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
 
   // A sidebar that stays open over the content after a tap is a sidebar
   // covering the thing you just navigated to.
@@ -148,7 +160,11 @@ export function Sidebar({
           display: 'flex',
           flexDirection: 'column',
           gap: 'var(--space-normal, 12px)',
-          ...(contained ? { margin, borderRadius: region?.radius ?? 'var(--radius, 8px)' } : {}),
+          // A hidden sidebar is hidden: without this it still renders its
+          // margin and its 1px outline, leaving a thin bordered sliver
+          // pinned to the edge of the page.
+          ...(visible ? {} : { border: 'none', margin: 0 }),
+          ...(contained && visible ? { margin, borderRadius: region?.radius ?? 'var(--radius, 8px)' } : {}),
           ...(height ? { height } : {}),
           // On a narrow screen it floats over the content instead of
           // squeezing it into nothing.

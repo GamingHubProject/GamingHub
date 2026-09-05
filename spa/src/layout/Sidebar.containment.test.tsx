@@ -132,4 +132,30 @@ describe('Sidebar nav alignment', () => {
     const branding = screen.getByText('Hub').closest('a')!;
     expect(branding.compareDocumentPosition(list()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
+
+  it('leaves nothing behind when hidden, not a bordered sliver', async () => {
+    // A contained sidebar still carried its margin and 1px outline while
+    // closed, which drew a thin line pinned to the edge of the page.
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ApiClientProvider client={{ get: async () => [] } as any}>
+          <ThemeProvider>
+            <MemoryRouter>
+              <Sidebar behavior="toggle" region={{ margin: 16 }} open={false} onOpenChange={() => {}} />
+            </MemoryRouter>
+          </ThemeProvider>
+        </ApiClientProvider>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('sidebar')).toBeInTheDocument());
+    // Asserted through computed style: jsdom doesn't reserialize the
+    // `border` shorthand, and what matters is that nothing is drawn.
+    const el = screen.getByTestId('sidebar');
+    expect(el.style.width).toBe('0px');
+    // Whatever jsdom does with the shorthand, the inline style must not
+    // still be asking for a visible edge or a gap around one.
+    expect(el.getAttribute('style')).not.toMatch(/border:\s*1px/);
+    expect(el.getAttribute('style')).not.toMatch(/margin:\s*16px/);
+  });
 });

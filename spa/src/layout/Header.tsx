@@ -11,12 +11,16 @@ import type { NavNode } from './useNavigation';
 
 export function Header({
   showNavLinks = true,
+  showBranding,
   onToggleSidebar,
 }: {
   /** False in sidebar-only mode, where a top bar of links would just
    *  duplicate the sidebar. The account controls always stay. */
   showNavLinks?: boolean;
-  /** Provided only when a sidebar exists to toggle. */
+  /** Layout decides this, not the theme alone — the branding should appear
+   *  once, and in sidebar-only mode the sidebar is where it belongs. */
+  showBranding?: boolean;
+  /** Provided only when the sidebar is actually hideable. */
   onToggleSidebar?: () => void;
 } = {}) {
   const { user, isLoading } = useAuth();
@@ -33,6 +37,15 @@ export function Header({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: 'var(--space-normal, 12px) var(--space-section, 24px)',
+        // The toggle belongs to the sidebar, so it sits close to it rather
+        // than a full section-gap away, where it read as an unrelated
+        // control floating in the header.
+        //
+        // Both branches are spelled out: `undefined` here does NOT fall
+        // back to the shorthand above — React assigns style properties one
+        // by one, so it clears the longhand the shorthand had set and the
+        // header loses its left padding entirely.
+        paddingLeft: onToggleSidebar ? 'var(--space-normal, 12px)' : 'var(--space-section, 24px)',
         gap: 'var(--space-normal, 12px)',
         // Styled independently of the sidebar — one can be transparent
         // while the other is solid. See layout/regionStyle.
@@ -60,7 +73,9 @@ export function Header({
             built a navigation yet — without them a fresh install would
             have no way to move around at all. Once any link exists, the
             configured navigation replaces them entirely. */}
-        {region?.show_branding !== false && <SiteBranding showTagline={region?.show_tagline === true} />}
+        {(showBranding ?? region?.show_branding !== false) && (
+          <SiteBranding showTagline={region?.show_tagline === true} />
+        )}
         {showNavLinks &&
           (nodes.length > 0 ? (
             nodes.map((node) => <TopNavNode key={node.id} node={node} pathname={pathname} accent={accent} />)
@@ -79,13 +94,13 @@ export function Header({
             has nothing to do there. */}
         {user?.is_admin && <Link to="/admin">Admin</Link>}
         {user && <Link to="/dashboard">Dashboard</Link>}
-        {!isLoading && (user ? <UserMenu name={user.name} isAdmin={user.is_admin} /> : <Link to="/login">Log in</Link>)}
+        {!isLoading && (user ? <UserMenu name={user.name} /> : <Link to="/login">Log in</Link>)}
       </div>
     </header>
   );
 }
 
-function UserMenu({ name, isAdmin }: { name: string; isAdmin: boolean }) {
+function UserMenu({ name }: { name: string }) {
   const api = useApi();
   const { refetch } = useAuth();
   const navigate = useNavigate();
@@ -136,15 +151,6 @@ function UserMenu({ name, isAdmin }: { name: string; isAdmin: boolean }) {
             zIndex: 10,
           }}
         >
-          {isAdmin && (
-            <Link
-              to="/admin/assets"
-              onClick={() => setOpen(false)}
-              style={{ display: 'block', width: '100%', padding: '8px 12px', color: 'inherit', textDecoration: 'none' }}
-            >
-              Assets
-            </Link>
-          )}
           {/* No profile page built yet — placeholder only. */}
           <button type="button" disabled style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--muted, #999)', cursor: 'not-allowed' }}>
             Profile

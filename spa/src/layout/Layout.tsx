@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Header } from './Header';
 import { Breadcrumbs } from './Breadcrumbs';
-import { Sidebar } from './Sidebar';
+import { Sidebar, useIsNarrowViewport } from './Sidebar';
 import type { SidebarBehavior, SidebarWidth } from './Sidebar';
 import { useSiteChrome } from '../providers/ThemeProvider';
 
@@ -20,6 +20,7 @@ import { useSiteChrome } from '../providers/ThemeProvider';
 export function Layout() {
   const chrome = useSiteChrome();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const narrow = useIsNarrowViewport();
 
   const position = chrome.nav_enabled === false ? 'top' : chrome.nav_position ?? 'top';
   const showSidebar = position === 'sidebar' || position === 'both';
@@ -27,6 +28,31 @@ export function Layout() {
   // it — so in sidebar-only mode the header keeps its account controls and
   // drops the nav links.
   const showTopNav = chrome.nav_enabled !== false && (position === 'top' || position === 'both');
+
+  /*
+   * The branding appears once. When the sidebar is the *only* nav surface
+   * it's the natural home for it — it's where the reference design puts
+   * it, and it has the room — so the header defers rather than repeating
+   * the site's name a few pixels away. The header still takes it if the
+   * sidebar has turned its own off, otherwise the name would vanish
+   * entirely.
+   *
+   * In `both` mode each surface keeps its own toggle, which is what those
+   * settings are for.
+   */
+  const sidebarShowsBranding = showSidebar && chrome.sidebar?.show_branding !== false;
+  const headerShowsBranding =
+    chrome.header?.show_branding !== false && !(position === 'sidebar' && sidebarShowsBranding);
+
+  /*
+   * The toggle button only appears when it would actually do something.
+   * `open` is ignored unless the sidebar's effective behaviour is
+   * `toggle`: `always` never hides, and `auto-hide` expands on hover
+   * instead. A button that visibly refuses to work is worse than no
+   * button. Narrow screens force `toggle` regardless of the setting, so
+   * they always get one.
+   */
+  const canToggleSidebar = showSidebar && (narrow || chrome.sidebar?.behavior === 'toggle');
 
   const sidebar = showSidebar ? (
     <Sidebar
@@ -41,7 +67,8 @@ export function Layout() {
   const header = (
     <Header
       showNavLinks={showTopNav}
-      onToggleSidebar={showSidebar ? () => setSidebarOpen((o) => !o) : undefined}
+      showBranding={headerShowsBranding}
+      onToggleSidebar={canToggleSidebar ? () => setSidebarOpen((o) => !o) : undefined}
     />
   );
 

@@ -60,6 +60,17 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin/system')
+            /*
+             * The brand link (top-left of every Filament page) goes back to
+             * the React admin at /admin, not to Filament's own dashboard.
+             *
+             * /admin is the primary admin landing — Filament is reached
+             * *through* it, for the things it still owns. Sending the
+             * brand link to Filament's dashboard made this a one-way door:
+             * the obvious "go home" affordance kept you inside the panel
+             * with no route back out.
+             */
+            ->homeUrl('/admin')
             ->login()
             ->colors([
                 'primary' => Color::Amber,

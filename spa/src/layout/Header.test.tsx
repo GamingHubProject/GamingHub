@@ -44,28 +44,30 @@ describe('Header', () => {
     expect(screen.queryByRole('link', { name: 'Assets' })).not.toBeInTheDocument();
   });
 
-  it('shows Assets inside the user dropdown for an admin once opened', async () => {
+  it('no longer offers Assets in the dropdown — the admin page has a card for it', async () => {
+    // Two routes to the same page, one of them hidden behind an avatar, is
+    // one more than the admin needs.
     renderHeader(admin);
 
     await waitFor(() => expect(screen.getByText('Rose ▾')).toBeInTheDocument());
     screen.getByText('Rose ▾').click();
 
-    await waitFor(() => expect(screen.getByRole('link', { name: 'Assets' })).toHaveAttribute('href', '/admin/assets'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument());
+    expect(screen.queryByRole('link', { name: 'Assets' })).not.toBeInTheDocument();
   });
 
-  it('does not show Assets in the dropdown for a non-admin', async () => {
+  it('still offers logout to a non-admin', async () => {
     renderHeader(player);
 
     await waitFor(() => expect(screen.getByText('Player ▾')).toBeInTheDocument());
     screen.getByText('Player ▾').click();
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument());
-    expect(screen.queryByRole('link', { name: 'Assets' })).not.toBeInTheDocument();
   });
 
   // --- Site chrome: header transparency ---
 
-  function renderThemedHeader(site: Record<string, unknown>) {
+  function renderThemedHeader(site: Record<string, unknown>, props: Record<string, unknown> = {}) {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const client = {
       get: async (path: string) => {
@@ -84,7 +86,7 @@ describe('Header', () => {
           <ThemeProvider>
             <AuthProvider>
               <MemoryRouter>
-                <Header />
+                <Header {...props} />
               </MemoryRouter>
             </AuthProvider>
           </ThemeProvider>
@@ -135,5 +137,40 @@ describe('Header', () => {
 
     await waitFor(() => expect(screen.getByRole('link', { name: 'Log in' })).toBeInTheDocument());
     expect(screen.queryByText('Hub')).not.toBeInTheDocument();
+  });
+
+  it('hands the branding to the sidebar rather than repeating it, when Layout says so', async () => {
+    // In sidebar-only mode the sidebar is the branding's home, so the
+    // header defers even though its own setting still says show it.
+    renderThemedHeader({ favicon_url: null, header: { show_branding: true } }, { showBranding: false });
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Log in' })).toBeInTheDocument());
+    expect(screen.queryByText('Hub')).not.toBeInTheDocument();
+  });
+
+  it('shows no sidebar toggle unless one is given', async () => {
+    // Layout only passes the handler when the sidebar can actually hide —
+    // a button that visibly refuses to work is worse than no button.
+    renderThemedHeader({ favicon_url: null });
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Log in' })).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'Toggle navigation' })).not.toBeInTheDocument();
+  });
+
+  it('sits the toggle close to the sidebar rather than a full section-gap away', async () => {
+    const { container } = renderThemedHeader({ favicon_url: null }, { onToggleSidebar: () => {} });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Toggle navigation' })).toBeInTheDocument());
+    expect(container.querySelector('header')).toHaveStyle({ paddingLeft: 'var(--space-normal, 12px)' });
+  });
+
+  it('keeps its full left padding when there is no toggle', async () => {
+    // Regression guard: leaving this branch undefined clears the longhand
+    // the `padding` shorthand set, and the header loses its left padding
+    // altogether.
+    const { container } = renderThemedHeader({ favicon_url: null });
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Log in' })).toBeInTheDocument());
+    expect(container.querySelector('header')).toHaveStyle({ paddingLeft: 'var(--space-section, 24px)' });
   });
 });
