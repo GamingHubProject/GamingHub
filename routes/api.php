@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\PageLayoutController;
 use App\Http\Controllers\Api\PageLayoutWidgetController;
 use App\Http\Controllers\Api\ServerController;
 use App\Http\Controllers\Api\ServerGroupController;
+use App\Http\Controllers\Api\NavigationController;
 use App\Http\Controllers\Api\ThemeController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -47,6 +48,8 @@ Route::prefix('v1')->group(function () {
     Route::get('/home/layout', [PageLayoutController::class, 'showForHome']);
     Route::get('/games-list/layout', [PageLayoutController::class, 'showForGamesList']);
     Route::get('/theme', [ThemeController::class, 'show']);
+    // Public: it's what every visitor's header and sidebar render from.
+    Route::get('/navigation', [NavigationController::class, 'index']);
     // Browsing the library needs no more privilege than browsing
     // games/servers/theme — only uploading/deleting are gated (below).
     // Visibility of individual assets/folders is still enforced per-row
@@ -102,6 +105,12 @@ Route::prefix('v1')->group(function () {
         Route::post('/assets', [AssetController::class, 'store']);
         Route::patch('/assets/{asset}', [AssetController::class, 'update']);
         Route::delete('/assets/{asset}', [AssetController::class, 'destroy']);
+
+        // The editor's view (hidden links, unresolved targets, the target
+        // picker's options) and the whole-tree write. Admin-only, unlike
+        // the public read above.
+        Route::get('/navigation/edit', [NavigationController::class, 'edit']);
+        Route::put('/navigation/tree', [NavigationController::class, 'replace']);
 
         // Static path, must come before /asset-folders/{folder}-style
         // dynamic routes if any existed — kept alongside store() for the

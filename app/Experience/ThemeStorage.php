@@ -121,8 +121,32 @@ class ThemeStorage
             ] : null,
             'favicon_url' => $bundle->faviconFile ? $this->fileUrl($theme->slug, $bundle->faviconFile) : null,
             'widgetStyle' => $bundle->widgetStyle,
-            'site' => ['header_transparent' => $bundle->headerTransparent],
+            'site' => [
+                'header_transparent' => $bundle->headerTransparent,
+                'background' => $this->resolveBackground($theme, $bundle->siteBackground),
+                'nav_enabled' => $bundle->navEnabled,
+                'nav_position' => $bundle->navPosition,
+                'sidebar_behavior' => $bundle->sidebarBehavior,
+            ],
         ];
+    }
+
+    /**
+     * The site background, with its folder-relative image turned into a
+     * URL — the same treatment the font and favicon get, and for the same
+     * reason: theme.json stays portable, and the client never has to know
+     * where a theme's folder lives.
+     *
+     * `image` is kept alongside `image_url` rather than replaced, so the
+     * admin form can still show which file is selected after a round trip.
+     */
+    private function resolveBackground(Theme $theme, array $background): array
+    {
+        if (($background['image'] ?? null) !== null) {
+            $background['image_url'] = $this->fileUrl($theme->slug, $background['image']);
+        }
+
+        return $background;
     }
 
     private function fileUrl(string $slug, string $relative): ?string

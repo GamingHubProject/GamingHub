@@ -59,6 +59,12 @@ class EditTheme extends EditRecord
             'favicon_file' => $bundle->faviconFile,
             'widgetStyle' => $bundle->widgetStyle,
             'header_transparent' => $bundle->headerTransparent,
+            // Defaulted rather than left empty so the type dropdown has a
+            // selection on a theme that has never set a background.
+            'site_background' => $bundle->siteBackground ?: ['type' => 'color'],
+            'nav_enabled' => $bundle->navEnabled,
+            'nav_position' => $bundle->navPosition,
+            'sidebar_behavior' => $bundle->sidebarBehavior,
         ];
     }
 
@@ -78,7 +84,38 @@ class EditTheme extends EditRecord
             faviconFile: $state['favicon_file'] ?? null,
             widgetStyle: array_filter($state['widgetStyle'] ?? [], fn ($v) => $v !== null && $v !== ''),
             headerTransparent: (bool) ($state['header_transparent'] ?? false),
+            siteBackground: static::cleanBackground($state['site_background'] ?? []),
+            navPosition: $state['nav_position'] ?? 'top',
+            sidebarBehavior: $state['sidebar_behavior'] ?? 'always',
+            navEnabled: (bool) ($state['nav_enabled'] ?? true),
         );
+    }
+
+    /**
+     * Drops the fields the chosen type doesn't use, so a theme that ended
+     * up as a gradient isn't still carrying the pattern someone tried
+     * first — theme.json is a published contract, and stale keys in it
+     * mislead whoever reads an export.
+     */
+    private static function cleanBackground(array $background): array
+    {
+        $type = $background['type'] ?? 'color';
+        $keep = match ($type) {
+            'pattern' => ['type', 'color', 'opacity', 'pattern', 'pattern_color'],
+            'gradient' => ['type', 'opacity', 'gradient'],
+            'image' => ['type', 'color', 'image', 'image_fit'],
+            default => ['type', 'color', 'opacity'],
+        };
+
+        $cleaned = array_filter(
+            array_intersect_key($background, array_flip($keep)),
+            fn ($value) => $value !== null && $value !== '' && $value !== []
+        );
+
+        // Nothing but the default type set is the same as no background at
+        // all; storing {"type":"color"} would imply an intent that isn't
+        // there.
+        return $cleaned === ['type' => 'color'] ? [] : $cleaned;
     }
 
     protected function handleRecordUpdate($record, array $data): Theme

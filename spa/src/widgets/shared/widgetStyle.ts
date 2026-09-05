@@ -1,5 +1,11 @@
 import type { CSSProperties } from 'react';
-import { patternBackground } from './backgroundPattern';
+import { backgroundCss, hexWithOpacity } from './background';
+import type { BackgroundImageFit, BackgroundType, GradientSpec } from './background';
+
+// Re-exported so existing importers (WidgetStyleSection, the container)
+// keep one place to get these from.
+export type { BackgroundImageFit, BackgroundType, GradientSpec };
+export { hexWithOpacity };
 
 /**
  * Universal per-widget style overrides — Border/Text/Background, the same
@@ -60,15 +66,12 @@ export interface WidgetStyleOverride {
   background_image_asset_id: number | null;
   background_image_url: string | null;
   background_image_fit: BackgroundImageFit | null;
+  /** Linear or radial with 2–3 stops. Shared with the site background —
+   *  see widgets/shared/background.ts. */
+  background_gradient: GradientSpec | null;
 }
 
-export type BackgroundType = 'color' | 'pattern' | 'image';
 
-/** cover/contain carry PictureWidget's existing meaning. `tile` replaces
- *  that widget's `fill` (stretch): stretching a chrome background distorts
- *  it at every widget aspect ratio, whereas repeating it is what a
- *  background texture actually wants. */
-export type BackgroundImageFit = 'cover' | 'contain' | 'tile';
 
 export const EMPTY_WIDGET_STYLE: WidgetStyleOverride = {
   border_enabled: null,
@@ -86,6 +89,7 @@ export const EMPTY_WIDGET_STYLE: WidgetStyleOverride = {
   background_image_asset_id: null,
   background_image_url: null,
   background_image_fit: null,
+  background_gradient: null,
 };
 
 export interface ResolvedWidgetStyle {
@@ -103,6 +107,7 @@ export interface ResolvedWidgetStyle {
   backgroundPatternColor: string | undefined;
   backgroundImageUrl: string | undefined;
   backgroundImageFit: BackgroundImageFit;
+  backgroundGradient: GradientSpec | undefined;
 }
 
 /**
@@ -128,6 +133,7 @@ const FALLBACK: ResolvedWidgetStyle = {
   backgroundPatternColor: undefined,
   backgroundImageUrl: undefined,
   backgroundImageFit: 'cover',
+  backgroundGradient: undefined,
 };
 
 function readStyle(config: Record<string, unknown> | null | undefined): Partial<WidgetStyleOverride> {
@@ -164,56 +170,26 @@ export function resolveWidgetStyle(
       instance.background_pattern_color ?? global.background_pattern_color ?? FALLBACK.backgroundPatternColor,
     backgroundImageUrl: instance.background_image_url ?? global.background_image_url ?? FALLBACK.backgroundImageUrl,
     backgroundImageFit: instance.background_image_fit ?? global.background_image_fit ?? FALLBACK.backgroundImageFit,
+    backgroundGradient: instance.background_gradient ?? global.background_gradient ?? FALLBACK.backgroundGradient,
   };
 }
 
 /**
- * The CSS for a resolved style's background, as one object to spread — the
- * single place that knows how the three background_type modes actually
- * render, so PageLayoutWidgetContainer stays a thin caller and a future
- * fourth mode lands here rather than in the container's JSX.
- *
- * Returns an empty object when nothing is configured, which is the normal
- * case (a widget nobody has set a background on) — spreading `{}` leaves
- * the container's inline style untouched, exactly as before this existed.
+ * A widget's background, delegated to the shared builder so a widget and
+ * the site background can never drift apart on what a "pattern" or a
+ * "gradient" means. This function's only job is the mapping.
  */
 export function backgroundStyle(style: ResolvedWidgetStyle): CSSProperties {
-  const base = style.backgroundColor ? hexWithOpacity(style.backgroundColor, style.backgroundOpacity) : undefined;
-
-  if (style.backgroundType === 'pattern') {
-    // The ink carries the same opacity as the base fill — one "how solid
-    // is this background" control for the whole thing, rather than a
-    // second slider that only applies to half of it.
-    const ink = style.backgroundPatternColor
-      ? hexWithOpacity(style.backgroundPatternColor, style.backgroundOpacity)
-      : undefined;
-    const pattern = ink ? patternBackground(style.backgroundPattern, ink) : null;
-    if (!pattern) return base ? { backgroundColor: base } : {};
-
-    return { backgroundColor: base, backgroundImage: pattern.backgroundImage, backgroundSize: pattern.backgroundSize };
-  }
-
-  if (style.backgroundType === 'image') {
-    if (!style.backgroundImageUrl) return base ? { backgroundColor: base } : {};
-
-    return {
-      backgroundColor: base,
-      backgroundImage: `url(${style.backgroundImageUrl})`,
-      backgroundSize: style.backgroundImageFit === 'tile' ? 'auto' : style.backgroundImageFit,
-      backgroundRepeat: style.backgroundImageFit === 'tile' ? 'repeat' : 'no-repeat',
-      backgroundPosition: 'center',
-    };
-  }
-
-  return base ? { backgroundColor: base } : {};
-}
-
-/** #rrggbb (what a <input type="color"> / Filament ColorPicker produce) + a 0–1 opacity -> rgba(). */
-export function hexWithOpacity(hex: string, opacity: number): string {
-  const match = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
-  if (!match) return hex;
-  const [, r, g, b] = match;
-  return `rgba(${parseInt(r, 16)}, ${parseInt(g, 16)}, ${parseInt(b, 16)}, ${opacity})`;
+  return backgroundCss({
+    type: style.backgroundType,
+    color: style.backgroundColor,
+    opacity: style.backgroundOpacity,
+    pattern: style.backgroundPattern,
+    patternColor: style.backgroundPatternColor,
+    imageUrl: style.backgroundImageUrl,
+    imageFit: style.backgroundImageFit,
+    gradient: style.backgroundGradient,
+  });
 }
 
 function relativeLuminance(hex: string): number | null {

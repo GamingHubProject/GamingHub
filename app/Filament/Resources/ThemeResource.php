@@ -105,12 +105,80 @@ class ThemeResource extends Resource
                 ])
                 ->columns(2),
 
+            Forms\Components\Section::make('Page background')
+                ->description('Sits behind everything. A pattern or gradient here reads at page scale, where the page-background colour alone would be flat.')
+                ->schema([
+                    Forms\Components\Select::make('site_background.type')
+                        ->label('Type')
+                        ->native(false)
+                        ->options([
+                            'color' => 'Just the page background colour',
+                            'pattern' => 'Pattern',
+                            'gradient' => 'Gradient',
+                            'image' => 'Image',
+                        ])
+                        ->default('color')
+                        ->live(),
+
+                    ...static::backgroundFields('site_background'),
+
+                    Forms\Components\FileUpload::make('background_upload')
+                        ->label('Upload a background image')
+                        ->image()
+                        ->disk(config('assets.disk'))
+                        ->directory(fn (?Theme $record) => $record ? app(ThemeStorage::class)->themePath($record->slug, 'backgrounds') : null)
+                        ->visible(fn (?Theme $record, Get $get) => $record !== null && $get('site_background.type') === 'image')
+                        ->dehydrated(false)
+                        ->helperText('Save after uploading, then pick the file below.'),
+                    Forms\Components\Select::make('site_background.image')
+                        ->label('Background image')
+                        ->native(false)
+                        ->options(fn (?Theme $record) => $record ? app(ThemeStorage::class)->filesIn($record, 'backgrounds') : [])
+                        ->visible(fn (Get $get) => $get('site_background.type') === 'image')
+                        ->nullable(),
+                ])
+                ->columns(2)
+                ->collapsed(),
+
             Forms\Components\Section::make('Site chrome')
                 ->schema([
                     Forms\Components\Toggle::make('header_transparent')
                         ->label('Transparent site header')
                         ->helperText('Drops the header\'s own background and bottom border so a page-wide background image shows through behind the nav.'),
-                ]),
+
+                    Forms\Components\Toggle::make('nav_enabled')
+                        ->label('Show site navigation')
+                        ->default(true)
+                        ->live(),
+                    Forms\Components\Select::make('nav_position')
+                        ->label('Navigation position')
+                        ->native(false)
+                        ->options([
+                            'top' => 'Top bar only',
+                            'sidebar' => 'Left sidebar only',
+                            'both' => 'Both',
+                        ])
+                        ->default('top')
+                        ->live()
+                        ->visible(fn (Get $get) => (bool) $get('nav_enabled'))
+                        // The links themselves are site data, not part of
+                        // the theme — a theme handed to another install
+                        // must not carry someone else's games.
+                        ->helperText('Edit the links themselves under Admin → Navigation.'),
+                    Forms\Components\Select::make('sidebar_behavior')
+                        ->label('Sidebar behaviour')
+                        ->native(false)
+                        ->options([
+                            'always' => 'Always visible',
+                            'toggle' => 'Hidden until the menu icon is clicked',
+                            'auto-hide' => 'Collapsed to icons, expands on hover',
+                        ])
+                        ->default('always')
+                        ->visible(fn (Get $get) => (bool) $get('nav_enabled')
+                            && in_array($get('nav_position'), ['sidebar', 'both'], true))
+                        ->helperText('Narrow screens always use the menu-icon behaviour, whatever this is set to.'),
+                ])
+                ->columns(2),
 
             Forms\Components\Section::make('Default widget style')
                 ->description('Applies to every widget on every page unless a specific widget instance overrides it in its own settings.')
@@ -167,6 +235,87 @@ class ThemeResource extends Resource
                 ->placeholder((string) $spec['default']))
             ->values()
             ->all();
+    }
+
+    /**
+     * The type-dependent half of a background: pattern, gradient and
+     * opacity controls that appear only for the type that uses them.
+     *
+     * Written against a path prefix so the same fields serve the page
+     * background and (later) any other surface that grows one — the CSS is
+     * already shared by one builder, and the form should be too rather
+     * than drifting into two near-identical copies.
+     *
+     * @return list<Forms\Components\Component>
+     */
+    private static function backgroundFields(string $prefix): array
+    {
+        $isType = fn (string $type) => fn (Get $get) => $get("{$prefix}.type") === $type;
+
+        return [
+            Forms\Components\ColorPicker::make("{$prefix}.color")
+                ->label('Base colour')
+                ->helperText('Drawn under a pattern or a non-covering image. Leave blank to use the page background token.')
+                ->hex()
+                ->visible(fn (Get $get) => in_array($get("{$prefix}.type"), ['color', 'pattern', 'image'], true)),
+
+            Forms\Components\Select::make("{$prefix}.pattern")
+                ->label('Pattern')
+                ->native(false)
+                ->options([
+                    'dots' => 'Dots', 'grid' => 'Grid', 'diagonal-stripes' => 'Diagonal stripes',
+                    'crosshatch' => 'Crosshatch', 'checkerboard' => 'Checkerboard',
+                ])
+                ->visible($isType('pattern')),
+            Forms\Components\ColorPicker::make("{$prefix}.pattern_color")
+                ->label('Pattern colour')
+                ->hex()
+                ->visible($isType('pattern')),
+
+            Forms\Components\Select::make("{$prefix}.gradient.kind")
+                ->label('Gradient style')
+                ->native(false)
+                ->options(['linear' => 'Linear', 'radial' => 'Radial'])
+                ->default('linear')
+                ->live()
+                ->visible($isType('gradient')),
+            Forms\Components\TextInput::make("{$prefix}.gradient.angle")
+                ->label('Angle')
+                ->numeric()->minValue(0)->maxValue(360)->suffix('°')
+                ->default(135)
+                // Radial gradients have no direction, so an angle field
+                // would be a control that does nothing.
+                ->visible(fn (Get $get) => $get("{$prefix}.type") === 'gradient' && $get("{$prefix}.gradient.kind") !== 'radial'),
+            Forms\Components\Repeater::make("{$prefix}.gradient.stops")
+                ->label('Colours')
+                ->schema([
+                    Forms\Components\ColorPicker::make('color')->label('Colour')->hex()->required(),
+                    Forms\Components\TextInput::make('position')
+                        ->label('Position')
+                        ->numeric()->minValue(0)->maxValue(100)->suffix('%')
+                        ->required(),
+                ])
+                ->columns(2)
+                ->minItems(2)
+                ->maxItems(3)
+                ->defaultItems(2)
+                ->helperText('Two or three colours. Position is how far along the gradient each one sits.')
+                ->columnSpanFull()
+                ->visible($isType('gradient')),
+
+            Forms\Components\Select::make("{$prefix}.image_fit")
+                ->label('Image fit')
+                ->native(false)
+                ->options(['cover' => 'Cover (crop to fill)', 'contain' => 'Contain (fit whole image)', 'tile' => 'Tile (repeat)'])
+                ->default('cover')
+                ->visible($isType('image')),
+
+            Forms\Components\TextInput::make("{$prefix}.opacity")
+                ->label('Opacity')
+                ->helperText('Applies to the base colour, a pattern\'s ink and a gradient. Not to an image.')
+                ->numeric()->minValue(0)->maxValue(1)->step(0.05)
+                ->visible(fn (Get $get) => $get("{$prefix}.type") !== 'image'),
+        ];
     }
 
     /** @return list<Forms\Components\Component> */

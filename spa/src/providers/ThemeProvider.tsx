@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from './ApiClientProvider';
 import type { PageLayoutSubjectType, ThemeTokens } from '../api/types';
+import { backgroundCss } from '../widgets/shared/background';
+import type { BackgroundImageFit, BackgroundType, GradientSpec } from '../widgets/shared/background';
 import type { WidgetStyleOverride } from '../widgets/shared/widgetStyle';
 
 interface ThemeScope {
@@ -24,9 +26,35 @@ interface ThemeFont {
 export interface SiteChrome {
   header_transparent: boolean;
   favicon_url: string | null;
+  /** The page background a theme sets. Same field names as a widget's
+   *  background — both are drawn by widgets/shared/background.ts. */
+  background: {
+    type?: BackgroundType;
+    color?: string;
+    opacity?: number;
+    pattern?: string;
+    pattern_color?: string;
+    image_url?: string;
+    image_fit?: BackgroundImageFit;
+    gradient?: GradientSpec;
+  };
+  /** Which navigation regions exist. Appearance, so it's the theme's —
+   *  the links themselves are site data (see /api/v1/navigation). */
+  nav_enabled: boolean;
+  nav_position: 'top' | 'sidebar' | 'both';
+  sidebar_behavior: 'always' | 'auto-hide' | 'toggle';
 }
 
-const EMPTY_SITE_CHROME: SiteChrome = { header_transparent: false, favicon_url: null };
+const EMPTY_SITE_CHROME: SiteChrome = {
+  header_transparent: false,
+  favicon_url: null,
+  background: {},
+  // Top nav, no sidebar — an install that has never touched this renders
+  // exactly as it always did.
+  nav_enabled: true,
+  nav_position: 'top',
+  sidebar_behavior: 'always',
+};
 
 interface ThemeResponse {
   tokens: ThemeTokens;
@@ -95,6 +123,47 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // to black or white by a half-configured theme.
     if (theme.tokens.background) document.body.style.background = 'var(--background)';
     if (theme.tokens.text) document.body.style.color = 'var(--text)';
+  }, [theme]);
+
+  // The page background a theme sets — a pattern, gradient or image behind
+  // everything, over the --background token. Painted on <body> rather than
+  // a wrapper element so it covers the whole viewport including any
+  // overscroll area, and so `background-attachment` behaves.
+  useEffect(() => {
+    const background = theme?.site?.background;
+    const style = document.body.style;
+
+    // Cleared explicitly on every run: switching a theme from an image
+    // back to a plain colour has to remove the old image, not just stop
+    // setting a new one.
+    style.backgroundImage = '';
+    style.backgroundSize = '';
+    style.backgroundRepeat = '';
+    style.backgroundPosition = '';
+    style.backgroundAttachment = '';
+
+    if (!background?.type) return;
+
+    const css = backgroundCss({
+      type: background.type,
+      color: background.color,
+      opacity: background.opacity ?? 1,
+      pattern: background.pattern,
+      patternColor: background.pattern_color,
+      imageUrl: background.image_url,
+      imageFit: background.image_fit ?? 'cover',
+      gradient: background.gradient,
+    });
+
+    if (css.backgroundColor) style.backgroundColor = css.backgroundColor as string;
+    if (css.backgroundImage) style.backgroundImage = css.backgroundImage as string;
+    if (css.backgroundSize) style.backgroundSize = css.backgroundSize as string;
+    if (css.backgroundRepeat) style.backgroundRepeat = css.backgroundRepeat as string;
+    if (css.backgroundPosition) style.backgroundPosition = css.backgroundPosition as string;
+    // A page-scale image or gradient that scrolls away from a long page
+    // is almost never what's wanted; a repeating pattern must scroll or it
+    // visibly slides under the content.
+    if (background.type === 'image' || background.type === 'gradient') style.backgroundAttachment = 'fixed';
   }, [theme]);
 
   useEffect(() => {

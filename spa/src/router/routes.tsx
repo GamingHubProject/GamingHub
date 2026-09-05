@@ -8,6 +8,7 @@ import { Dashboard } from '../pages/Dashboard';
 import { Login } from '../pages/Login';
 import { AdminPlaceholder } from '../pages/AdminPlaceholder';
 import { AssetLibrary } from '../pages/AssetLibrary';
+import { NavigationEditor } from '../pages/NavigationEditor';
 import { WebTreePage } from '../pages/WebTreePage';
 
 export const router = createBrowserRouter(
@@ -27,6 +28,7 @@ export const router = createBrowserRouter(
         // Admin's real content is built.
         { path: 'admin', element: <AdminPlaceholder /> },
         { path: 'admin/assets', element: <AssetLibrary /> },
+        { path: 'admin/navigation', element: <NavigationEditor /> },
         // Bare catch-all, not "pages/*": mirrors the arbitrary top-level
         // paths Web Tree pages have always used (e.g. "games/ark/ragnarok"),
         // matching the old server-side Blade catch-all this route replaced.

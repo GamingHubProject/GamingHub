@@ -109,6 +109,31 @@ class ThemeBundle
         /** @var array<string, mixed> */
         public array $widgetStyle = [],
         public bool $headerTransparent = false,
+        /**
+         * The page background behind everything. Same shape as a widget's
+         * background (see widgets/shared/background.ts, which draws both)
+         * — type plus per-type fields — so "pattern" and "gradient" can't
+         * come to mean different things at different scales.
+         *
+         * An image here is a folder-relative path like every other theme
+         * asset, resolved to a URL at sync time.
+         *
+         * @var array<string, mixed>
+         */
+        public array $siteBackground = [],
+        /**
+         * Where the site's navigation renders, and how the sidebar
+         * behaves. Appearance rather than content, which is why it lives
+         * in the theme while the links themselves live in the database —
+         * "show a sidebar, always visible" travels to another install;
+         * "Phantom Galaxies -> /games/phantom-galaxies" does not.
+         *
+         * @var 'top'|'sidebar'|'both'
+         */
+        public string $navPosition = 'top',
+        /** @var 'always'|'auto-hide'|'toggle' */
+        public string $sidebarBehavior = 'always',
+        public bool $navEnabled = true,
     ) {
     }
 
@@ -134,6 +159,16 @@ class ThemeBundle
             faviconFile: $data['favicon']['file'] ?? null,
             widgetStyle: is_array($data['widgetStyle'] ?? null) ? $data['widgetStyle'] : [],
             headerTransparent: (bool) ($data['site']['header_transparent'] ?? false),
+            siteBackground: is_array($data['site']['background'] ?? null) ? $data['site']['background'] : [],
+            // Defaults keep an existing install exactly as it is: top nav,
+            // no sidebar.
+            navPosition: in_array($data['site']['nav_position'] ?? null, ['top', 'sidebar', 'both'], true)
+                ? $data['site']['nav_position']
+                : 'top',
+            sidebarBehavior: in_array($data['site']['sidebar_behavior'] ?? null, ['always', 'auto-hide', 'toggle'], true)
+                ? $data['site']['sidebar_behavior']
+                : 'always',
+            navEnabled: (bool) ($data['site']['nav_enabled'] ?? true),
         );
     }
 
@@ -155,7 +190,13 @@ class ThemeBundle
             'font' => $this->fontFile ? ['file' => $this->fontFile, 'family' => $this->fontFamily] : null,
             'favicon' => $this->faviconFile ? ['file' => $this->faviconFile] : null,
             'widgetStyle' => (object) $this->widgetStyle,
-            'site' => ['header_transparent' => $this->headerTransparent],
+            'site' => [
+                'header_transparent' => $this->headerTransparent,
+                'background' => (object) $this->siteBackground,
+                'nav_enabled' => $this->navEnabled,
+                'nav_position' => $this->navPosition,
+                'sidebar_behavior' => $this->sidebarBehavior,
+            ],
         ];
     }
 

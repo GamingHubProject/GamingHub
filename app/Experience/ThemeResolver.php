@@ -122,6 +122,13 @@ class ThemeResolver
         return [
             'header_transparent' => (bool) ($theme?->payload['site']['header_transparent'] ?? false),
             'favicon_url' => $theme?->payload['favicon_url'] ?? null,
+            // Empty object rather than null when unset: the client spreads
+            // this into a style, and a shape that changes type when empty
+            // is a trap for whatever consumes it.
+            'background' => (object) ($theme?->payload['site']['background'] ?? []),
+            'nav_enabled' => (bool) ($theme?->payload['site']['nav_enabled'] ?? true),
+            'nav_position' => $theme?->payload['site']['nav_position'] ?? 'top',
+            'sidebar_behavior' => $theme?->payload['site']['sidebar_behavior'] ?? 'always',
         ];
     }
 
