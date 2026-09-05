@@ -2,7 +2,7 @@
     "id": "gaming-hub",
     "name": "Gaming Hub Platform",
     "type": "platform",
-    "version": "0.1.018.00",
+    "version": "0.1.019.00",
     "description": "Standalone modular Laravel platform for game communities.",
     "repository": "https://github.com/GamingHubProject/gaming-hub"
 }
