@@ -129,7 +129,40 @@ class ThemeBundle
     public const SIDEBAR_DEFAULTS = self::REGION_DEFAULTS + [
         'width' => 'standard',
         'behavior' => 'always',
+
+        /*
+         * Containment: whether the sidebar is an edge-flush panel or a
+         * rounded block floating clear of the viewport edges.
+         *
+         * `margin` is the switch. At 0 the sidebar is flush and draws a
+         * right edge only, which is what a panel wants. Above 0 it becomes
+         * a contained card — and its border becomes a full outline, because
+         * a rounded card with a single curved line down one side reads as
+         * broken rather than as a choice (see Sidebar/regionStyle).
+         */
+        'radius' => null,
+        'margin' => 0,
+
+        // auto: exactly as tall as its contents (the original behaviour).
+        // full: fills the viewport, less the margins.
+        // fixed: whatever height_px says.
+        'height' => 'auto',
+        'height_px' => null,
+
+        /*
+         * Where the links sit in whatever height the sidebar has. Only
+         * does anything when there IS spare height — with `auto` the
+         * sidebar is exactly its contents and there is nothing to anchor
+         * within. Deliberately not forced: quietly changing `height`
+         * because of this setting would be a worse surprise than a control
+         * that does nothing until its companion is set.
+         */
+        'nav_align' => 'top',
     ];
+
+    public const SIDEBAR_HEIGHTS = ['auto', 'full', 'fixed'];
+
+    public const NAV_ALIGNMENTS = ['top', 'center', 'bottom'];
 
     /** @var array<string, int> Named widths — an admin can judge these; a raw pixel value they can't. */
     public const SIDEBAR_WIDTHS = ['compact' => 200, 'standard' => 240, 'wide' => 300];

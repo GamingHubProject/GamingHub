@@ -5,7 +5,7 @@ import type { PageLayoutSubjectType, ThemeTokens } from '../api/types';
 import { backgroundCss } from '../widgets/shared/background';
 import type { BackgroundImageFit, BackgroundType, GradientSpec } from '../widgets/shared/background';
 import type { RegionStyle } from '../layout/regionStyle';
-import type { SidebarBehavior, SidebarWidth } from '../layout/Sidebar';
+import type { SidebarRegion } from '../layout/Sidebar';
 import type { WidgetStyleOverride } from '../widgets/shared/widgetStyle';
 
 interface ThemeScope {
@@ -46,7 +46,7 @@ export interface SiteChrome {
   nav_mirror: 'none' | 'sidebar_follows_header' | 'header_follows_sidebar';
   /** The two surfaces, styled independently — see layout/regionStyle. */
   header: RegionStyle & { show_tagline?: boolean; spans_full_width?: boolean };
-  sidebar: RegionStyle & { width?: SidebarWidth; behavior?: SidebarBehavior };
+  sidebar: SidebarRegion;
 }
 
 /**

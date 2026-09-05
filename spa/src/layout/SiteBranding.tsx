@@ -36,7 +36,11 @@ export function SiteBranding({
         padding: 'var(--space-normal, 12px)',
         color: 'inherit',
         textDecoration: 'none',
-        minWidth: 0,
+        // The site's name is the last thing that should give way when the
+        // header runs out of room — squeezed to "G…" it's worse than
+        // absent. The navigation shrinks instead (and in `both` mode those
+        // links are in the sidebar too), so this holds its width.
+        flexShrink: 0,
       }}
     >
       {branding.logo_url && (

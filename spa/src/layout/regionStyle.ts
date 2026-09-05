@@ -56,10 +56,15 @@ const SHADOWS: Record<string, string> = {
  * divider line floating over a page background is the seam transparency
  * exists to remove.
  */
-export function regionCss(region: RegionStyle | undefined, edge: 'bottom' | 'right'): CSSProperties {
+export type RegionEdge = 'bottom' | 'right' | 'all';
+
+export function regionCss(region: RegionStyle | undefined, edge: RegionEdge): CSSProperties {
   if (!region) return {};
 
-  const borderProperty = edge === 'bottom' ? 'borderBottom' : 'borderRight';
+  // 'all' is what a *contained* region wants: once the sidebar floats
+  // clear of the viewport with rounded corners, a single curved line down
+  // one side reads as a rendering bug rather than as a border.
+  const borderProperty = edge === 'all' ? 'border' : edge === 'bottom' ? 'borderBottom' : 'borderRight';
 
   if (region.transparent) {
     return {

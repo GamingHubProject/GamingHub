@@ -204,6 +204,48 @@ class ThemeResource extends Resource
                         ])
                         ->default('always')
                         ->helperText('Narrow screens always use the menu-icon behaviour, whatever this says.'),
+
+                    Forms\Components\TextInput::make('sidebar.margin')
+                        ->label('Gap from the window edges (px)')
+                        ->helperText('0 keeps the sidebar flush against the edges. Anything above that floats it clear as a rounded panel, with a full outline instead of just a right edge.')
+                        ->numeric()->minValue(0)->maxValue(64)
+                        ->default(0)
+                        ->live(),
+                    Forms\Components\TextInput::make('sidebar.radius')
+                        ->label('Corner radius (px)')
+                        ->helperText('Leave blank to use the theme\'s corner radius.')
+                        ->numeric()->minValue(0)->maxValue(64)
+                        ->visible(fn (Get $get) => (int) $get('sidebar.margin') > 0),
+
+                    Forms\Components\Select::make('sidebar.height')
+                        ->label('Height')
+                        ->native(false)
+                        ->options([
+                            'auto' => 'Follows its contents',
+                            'full' => 'Fills the window',
+                            'fixed' => 'A fixed height',
+                        ])
+                        ->default('auto')
+                        ->live(),
+                    Forms\Components\TextInput::make('sidebar.height_px')
+                        ->label('Height (px)')
+                        ->numeric()->minValue(80)
+                        ->visible(fn (Get $get) => $get('sidebar.height') === 'fixed'),
+
+                    Forms\Components\Select::make('sidebar.nav_align')
+                        ->label('Where the links sit')
+                        ->native(false)
+                        ->options(['top' => 'Top', 'center' => 'Centred', 'bottom' => 'Bottom'])
+                        ->default('top')
+                        // Deliberately still shown when height is `auto`,
+                        // with the reason stated — silently hiding it would
+                        // leave an admin wondering where the setting went,
+                        // and quietly forcing a height instead would be a
+                        // worse surprise than a control that waits.
+                        ->helperText(fn (Get $get) => $get('sidebar.height') === 'auto'
+                            ? 'The sidebar is currently only as tall as its contents, so there is no spare room to move the links into. Give it a fixed or full height to use this.'
+                            : 'The logo and site name stay at the top; only the links move.'),
+
                     ...static::regionFields('sidebar'),
                 ])
                 ->columns(2)

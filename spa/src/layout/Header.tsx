@@ -39,7 +39,18 @@ export function Header({
         ...regionCss(region, 'bottom'),
       }}
     >
-      <nav aria-label="Main" style={{ display: 'flex', gap: 'var(--space-normal, 16px)', alignItems: 'center' }}>
+      {/* minWidth:0 makes this the element that compresses when the header
+          is tight, rather than the branding or the account controls. */}
+      <nav
+        aria-label="Main"
+        style={{
+          display: 'flex',
+          gap: 'var(--space-normal, 16px)',
+          alignItems: 'center',
+          minWidth: 0,
+          overflow: 'hidden',
+        }}
+      >
         {onToggleSidebar && (
           <button type="button" aria-label="Toggle navigation" onClick={onToggleSidebar} style={{ padding: '4px 8px' }}>
             ☰
@@ -60,7 +71,7 @@ export function Header({
             </>
           ))}
       </nav>
-      <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexShrink: 0, whiteSpace: 'nowrap' }}>
         {/* /admin is the SPA's own (in-progress) admin area and is now the
             primary entry point; Filament at /admin/system is reached via a
             button inside React Admin, not directly from this header.

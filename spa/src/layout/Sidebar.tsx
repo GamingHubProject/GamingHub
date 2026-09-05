@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useLocation } from 'react-router-dom';
 import { isActive, useNavigation } from './useNavigation';
 import type { NavNode } from './useNavigation';
@@ -9,6 +9,31 @@ import type { RegionStyle } from './regionStyle';
 
 export type SidebarBehavior = 'always' | 'toggle' | 'auto-hide';
 export type SidebarWidth = 'compact' | 'standard' | 'wide';
+export type SidebarHeight = 'auto' | 'full' | 'fixed';
+export type NavAlign = 'top' | 'center' | 'bottom';
+
+/**
+ * The sidebar's own settings, on top of the styling every region shares.
+ * Named here rather than inline in ThemeProvider so the component that
+ * consumes them owns their shape.
+ */
+export interface SidebarRegion extends RegionStyle {
+  width?: SidebarWidth;
+  behavior?: SidebarBehavior;
+  radius?: number | null;
+  /** Above zero turns the sidebar from an edge-flush panel into a card. */
+  margin?: number;
+  height?: SidebarHeight;
+  height_px?: number | null;
+  nav_align?: NavAlign;
+}
+
+/** Where the links sit when the sidebar is taller than they are. */
+const NAV_ALIGN_MARGIN: Record<NavAlign, CSSProperties> = {
+  top: {},
+  center: { marginTop: 'auto', marginBottom: 'auto' },
+  bottom: { marginTop: 'auto' },
+};
 
 /** Below this the sidebar always behaves as `toggle`, whatever the theme
  *  says — "always visible" on a phone leaves a 200px-wide page. */
@@ -30,7 +55,7 @@ export function Sidebar({
   behavior: SidebarBehavior;
   width?: SidebarWidth;
   /** Styled independently of the header — see layout/regionStyle. */
-  region?: RegionStyle;
+  region?: SidebarRegion;
   /** Controlled by Layout, which also owns the header's menu button. */
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -60,6 +85,31 @@ export function Sidebar({
   const visible = effective !== 'toggle' || open;
   const accent = regionAccent(region);
 
+  /*
+   * Containment. A margin above zero turns the sidebar from an edge-flush
+   * panel into a card floating clear of the viewport — which changes three
+   * things together, because any one of them alone looks like a mistake:
+   * the border becomes a full outline rather than a right edge, the corners
+   * round, and the sticky offset and max height have to account for the
+   * gap or the sidebar overhangs the bottom of the window.
+   *
+   * The narrow-screen drawer opts out of all of it: a panel that slides in
+   * from the edge with a gap behind it reads as broken, not as contained.
+   */
+  const margin = narrow ? 0 : Number(region?.margin ?? 0);
+  const contained = margin > 0;
+  const heightMode = (region?.height ?? 'auto') as SidebarHeight;
+  // dvh rather than vh so a mobile browser's retracting chrome doesn't
+  // leave the sidebar hanging below the fold. Same support story as the
+  // container queries this app already relies on.
+  const viewportHeight = `calc(100dvh - ${margin * 2}px)`;
+  const height =
+    heightMode === 'full'
+      ? viewportHeight
+      : heightMode === 'fixed' && region?.height_px
+        ? `${region.height_px}px`
+        : undefined;
+
   // Unlike before, an empty navigation no longer hides the whole sidebar —
   // the branding block is reason enough for it to exist.
   const showBranding = region?.show_branding !== false;
@@ -82,9 +132,15 @@ export function Sidebar({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
-          ...regionCss(region, 'right'),
+          ...regionCss(region, contained ? 'all' : 'right'),
           width: visible ? (expanded ? WIDTHS[width] ?? WIDTHS.standard : COLLAPSED_WIDTH) : 0,
           flexShrink: 0,
+          // Without this the height calc is content-box, so the sidebar's
+          // own padding and border are added ON TOP of "fill the viewport"
+          // and it overhangs by exactly that much (30px, found during
+          // verification). There's no global box-sizing reset in this app,
+          // so anything doing viewport arithmetic has to say so itself.
+          boxSizing: 'border-box',
           overflowX: 'hidden',
           overflowY: 'auto',
           padding: visible ? 'var(--space-normal, 12px) var(--space-tight, 6px)' : 0,
@@ -92,11 +148,13 @@ export function Sidebar({
           display: 'flex',
           flexDirection: 'column',
           gap: 'var(--space-normal, 12px)',
+          ...(contained ? { margin, borderRadius: region?.radius ?? 'var(--radius, 8px)' } : {}),
+          ...(height ? { height } : {}),
           // On a narrow screen it floats over the content instead of
           // squeezing it into nothing.
           ...(narrow
             ? { position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 50 }
-            : { position: 'sticky', top: 0, alignSelf: 'flex-start', maxHeight: '100vh' }),
+            : { position: 'sticky', top: margin, alignSelf: 'flex-start', maxHeight: viewportHeight }),
         }}
       >
         {showBranding && visible && (
@@ -110,7 +168,21 @@ export function Sidebar({
           </>
         )}
 
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* Branding stays pinned to the top; only the links move, which is
+            what the reference design does — the identity anchors the panel
+            and the menu sits wherever the theme wants it. */}
+        <ul
+          style={{
+            listStyle: 'none',
+            margin: 0,
+            padding: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            width: '100%',
+            ...NAV_ALIGN_MARGIN[(region?.nav_align ?? 'top') as NavAlign],
+          }}
+        >
           {nodes.map((node) => (
             <SidebarNode key={node.id} node={node} pathname={pathname} expanded={expanded} accent={accent} />
           ))}
