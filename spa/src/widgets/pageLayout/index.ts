@@ -6,6 +6,8 @@ import { ServerMetricsWidget } from './ServerMetricsWidget';
 import { ServerPlayerCountWidget } from './ServerPlayerCountWidget';
 import { ServerAllocationsWidget } from './ServerAllocationsWidget';
 import { GameCardWidget, GameCardWidgetConfigForm, gameCardWidgetDefaultConfig } from './GameCardWidget';
+import { HeroWidget, HeroWidgetConfigForm, heroWidgetDefaultConfig } from './HeroWidget';
+import { ContentStripWidget, ContentStripWidgetConfigForm, contentStripWidgetDefaultConfig } from './ContentStripWidget';
 import { ServerCardWidget, ServerCardWidgetConfigForm, serverCardWidgetDefaultConfig } from './ServerCardWidget';
 import { ServerGroupCardWidget, ServerGroupCardWidgetConfigForm, serverGroupCardWidgetDefaultConfig } from './ServerGroupCardWidget';
 
@@ -140,6 +142,43 @@ registerPageLayoutWidget({
   defaultWidth: 4,
   defaultHeight: 2,
   selfScaling: true,
+});
+
+
+registerPageLayoutWidget({
+  type: 'hero',
+  label: 'Hero',
+  category: 'General',
+  validFor: [...ALL_PAGES],
+  component: HeroWidget,
+  configForm: HeroWidgetConfigForm,
+  defaultConfig: heroWidgetDefaultConfig,
+  // Wide and tall by default: a hero that arrives the size of a status
+  // badge doesn't read as one, and an admin shouldn't have to resize it
+  // before they can tell what it is.
+  defaultWidth: 12,
+  defaultHeight: 4,
+  // The artwork IS the hero, so the container's own border would frame a
+  // picture that already fills its box. Background still applies (see
+  // registry.ts's chromeless docblock) — a hero with no artwork picked
+  // yet is a plain panel, and that panel should still take the theme's
+  // widget background.
+  chromeless: true,
+});
+
+registerPageLayoutWidget({
+  type: 'content-strip',
+  label: 'Content strip',
+  category: 'General',
+  validFor: [...ALL_PAGES],
+  component: ContentStripWidget,
+  configForm: ContentStripWidgetConfigForm,
+  defaultConfig: contentStripWidgetDefaultConfig,
+  defaultWidth: 12,
+  defaultHeight: 3,
+  // Its cards draw their own borders, exactly like game-card's grid — the
+  // container's would double-box every one of them.
+  chromeless: true,
 });
 
 export {
