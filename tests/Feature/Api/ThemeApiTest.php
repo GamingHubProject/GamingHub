@@ -148,7 +148,7 @@ class ThemeApiTest extends TestCase
         $this->makeTheme('Default', [], ThemeAssignment::LEVEL_PLATFORM);
 
         $this->getJson('/api/v1/theme')
-            ->assertJsonPath('site.header_transparent', false)
+            ->assertJsonPath('site.header.transparent', false)
             ->assertJsonPath('site.favicon_url', null);
     }
 
@@ -156,7 +156,45 @@ class ThemeApiTest extends TestCase
     {
         $this->makeTheme('Default', ['header_transparent' => true], ThemeAssignment::LEVEL_PLATFORM);
 
-        $this->getJson('/api/v1/theme')->assertJsonPath('site.header_transparent', true);
+        $this->getJson('/api/v1/theme')->assertJsonPath('site.header.transparent', true);
+    }
+
+    public function test_the_header_and_sidebar_are_styled_independently(): void
+    {
+        // The point of splitting them: one can be transparent while the
+        // other is solid, which a single shared block couldn't express.
+        $theme = $this->makeTheme('Default', [], ThemeAssignment::LEVEL_PLATFORM);
+        $bundle = $theme->bundle();
+        $bundle->header['transparent'] = true;
+        $bundle->sidebar['transparent'] = false;
+        $bundle->sidebar['text_color'] = '#ff0000';
+        app(\App\Experience\ThemeStorage::class)->writeBundle($theme, $bundle);
+
+        $this->getJson('/api/v1/theme')
+            ->assertJsonPath('site.header.transparent', true)
+            ->assertJsonPath('site.sidebar.transparent', false)
+            ->assertJsonPath('site.sidebar.text_color', '#ff0000')
+            ->assertJsonPath('site.header.text_color', null);
+    }
+
+    public function test_branding_comes_from_site_options_not_the_theme(): void
+    {
+        // A theme handed to another community must not arrive carrying
+        // someone else's logo.
+        \App\Models\SiteOption::current()->update(['values' => [
+            'site_name' => 'My Hub', 'site_tagline' => 'Play together',
+        ]]);
+        $this->makeTheme('Default', [], ThemeAssignment::LEVEL_PLATFORM);
+
+        $this->getJson('/api/v1/theme')
+            ->assertJsonPath('branding.name', 'My Hub')
+            ->assertJsonPath('branding.tagline', 'Play together')
+            ->assertJsonPath('branding.logo_url', null);
+    }
+
+    public function test_branding_falls_back_to_the_app_name_when_no_site_name_is_set(): void
+    {
+        $this->getJson('/api/v1/theme')->assertJsonPath('branding.name', config('app.name'));
     }
 
     public function test_site_chrome_resolves_the_favicon_to_a_url_from_the_themes_own_folder(): void
@@ -187,6 +225,7 @@ class ThemeApiTest extends TestCase
         $this->getJson('/api/v1/theme')
             ->assertOk()
             ->assertJsonPath('font', null)
-            ->assertJsonPath('site.header_transparent', false);
+            ->assertJsonPath('site.header.transparent', false)
+            ->assertJsonPath('site.nav_mirror', 'sidebar_follows_header');
     }
 }

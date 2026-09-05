@@ -4,6 +4,8 @@ import { useApi } from './ApiClientProvider';
 import type { PageLayoutSubjectType, ThemeTokens } from '../api/types';
 import { backgroundCss } from '../widgets/shared/background';
 import type { BackgroundImageFit, BackgroundType, GradientSpec } from '../widgets/shared/background';
+import type { RegionStyle } from '../layout/regionStyle';
+import type { SidebarBehavior, SidebarWidth } from '../layout/Sidebar';
 import type { WidgetStyleOverride } from '../widgets/shared/widgetStyle';
 
 interface ThemeScope {
@@ -24,7 +26,6 @@ interface ThemeFont {
 /** Settings for the shell around the pages, not for anything on them —
  *  see ThemeResolver::siteChrome. Global, like widgetStyle. */
 export interface SiteChrome {
-  header_transparent: boolean;
   favicon_url: string | null;
   /** The page background a theme sets. Same field names as a widget's
    *  background — both are drawn by widgets/shared/background.ts. */
@@ -42,19 +43,36 @@ export interface SiteChrome {
    *  the links themselves are site data (see /api/v1/navigation). */
   nav_enabled: boolean;
   nav_position: 'top' | 'sidebar' | 'both';
-  sidebar_behavior: 'always' | 'auto-hide' | 'toggle';
+  nav_mirror: 'none' | 'sidebar_follows_header' | 'header_follows_sidebar';
+  /** The two surfaces, styled independently — see layout/regionStyle. */
+  header: RegionStyle & { show_tagline?: boolean; spans_full_width?: boolean };
+  sidebar: RegionStyle & { width?: SidebarWidth; behavior?: SidebarBehavior };
+}
+
+/**
+ * The site's own identity, NOT the theme's — a theme exported to another
+ * community must not carry someone else's logo. Served alongside the theme
+ * only because the shell fetches that on every page anyway.
+ */
+export interface SiteBrandingData {
+  name: string;
+  tagline: string | null;
+  logo_url: string | null;
 }
 
 const EMPTY_SITE_CHROME: SiteChrome = {
-  header_transparent: false,
   favicon_url: null,
   background: {},
   // Top nav, no sidebar — an install that has never touched this renders
   // exactly as it always did.
   nav_enabled: true,
   nav_position: 'top',
-  sidebar_behavior: 'always',
+  nav_mirror: 'sidebar_follows_header',
+  header: {},
+  sidebar: {},
 };
+
+const EMPTY_BRANDING: SiteBrandingData = { name: '', tagline: null, logo_url: null };
 
 interface ThemeResponse {
   tokens: ThemeTokens;
@@ -63,18 +81,19 @@ interface ThemeResponse {
   // present in every response regardless of scope, unlike tokens/font.
   widgetStyle: Partial<WidgetStyleOverride>;
   site: SiteChrome;
+  branding: SiteBrandingData;
 }
 
 interface ThemeContextValue {
   setScope: (scope: ThemeScope) => void;
   widgetStyleDefaults: Partial<WidgetStyleOverride>;
-  siteChrome: SiteChrome;
+  siteChrome: SiteChrome & { branding: SiteBrandingData };
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   setScope: () => {},
   widgetStyleDefaults: {},
-  siteChrome: EMPTY_SITE_CHROME,
+  siteChrome: { ...EMPTY_SITE_CHROME, branding: EMPTY_BRANDING },
 });
 
 /**
@@ -216,7 +235,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       value={{
         setScope,
         widgetStyleDefaults: theme?.widgetStyle ?? {},
-        siteChrome: theme?.site ?? EMPTY_SITE_CHROME,
+        siteChrome: {
+          ...(theme?.site ?? EMPTY_SITE_CHROME),
+          branding: theme?.branding ?? EMPTY_BRANDING,
+        },
       }}
     >
       {children}
@@ -232,7 +254,7 @@ export function useWidgetStyleDefaults(): Partial<WidgetStyleOverride> {
 
 /** Header/favicon settings for the shell around the pages — see
  *  ThemeResolver::siteChrome. */
-export function useSiteChrome(): SiteChrome {
+export function useSiteChrome(): SiteChrome & { branding: SiteBrandingData } {
   return useContext(ThemeContext).siteChrome;
 }
 

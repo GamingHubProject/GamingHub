@@ -75,7 +75,9 @@ class ThemeResourceTest extends TestCase
         $theme = $this->makeTheme('Midnight', ['tokens' => ['accent' => '#4f46e5'], 'header_transparent' => true]);
 
         Livewire::test(EditTheme::class, ['record' => $theme->getRouteKey()])
-            ->assertFormSet(fn (array $state) => $state['tokens']['accent'] === '#4f46e5' && $state['header_transparent'] === true);
+            ->assertFormSet(fn (array $state) => $state['tokens']['accent'] === '#4f46e5'
+                // Header styling is a region now, not a flat site setting.
+                && $state['header']['transparent'] === true);
     }
 
     public function test_saving_writes_back_to_theme_json_and_refreshes_the_cached_row(): void

@@ -48,6 +48,22 @@ class SiteOptions extends Page implements HasForms
                     ->label('Site name')
                     ->required()
                     ->maxLength(255),
+                Forms\Components\TextInput::make('site_tagline')
+                    ->label('Tagline')
+                    ->helperText('A short line shown under the site name in the sidebar. Separate from the description above, which is the SEO meta text.')
+                    ->maxLength(255),
+                Forms\Components\Select::make('logo_asset_id')
+                    ->label('Logo')
+                    ->native(false)
+                    ->helperText('Shown beside the site name in the header and sidebar. Upload it in the Asset Library first (Admin > Assets).')
+                    ->options(fn () => \App\Models\Asset::query()
+                        ->whereIn('mime_type', ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'])
+                        ->latest()
+                        ->limit(200)
+                        ->get()
+                        ->mapWithKeys(fn (\App\Models\Asset $asset) => [$asset->id => $asset->alt_text ?: basename($asset->disk_path)]))
+                    ->searchable()
+                    ->nullable(),
                 Forms\Components\Textarea::make('site_description')
                     ->label('Site description')
                     ->helperText('Used as the meta description for SEO.')

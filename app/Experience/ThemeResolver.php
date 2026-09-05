@@ -119,16 +119,22 @@ class ThemeResolver
      */
     public function siteChrome(?Theme $theme = null): array
     {
+        $site = $theme?->payload['site'] ?? [];
+
         return [
-            'header_transparent' => (bool) ($theme?->payload['site']['header_transparent'] ?? false),
             'favicon_url' => $theme?->payload['favicon_url'] ?? null,
             // Empty object rather than null when unset: the client spreads
             // this into a style, and a shape that changes type when empty
             // is a trap for whatever consumes it.
-            'background' => (object) ($theme?->payload['site']['background'] ?? []),
-            'nav_enabled' => (bool) ($theme?->payload['site']['nav_enabled'] ?? true),
-            'nav_position' => $theme?->payload['site']['nav_position'] ?? 'top',
-            'sidebar_behavior' => $theme?->payload['site']['sidebar_behavior'] ?? 'always',
+            'background' => (object) ($site['background'] ?? []),
+            'nav_enabled' => (bool) ($site['nav_enabled'] ?? true),
+            'nav_position' => $site['nav_position'] ?? 'top',
+            'nav_mirror' => $site['nav_mirror'] ?? 'sidebar_follows_header',
+            // No (object) cast here, unlike `background`: a region always
+            // has keys, so it can never serialize as [] — and casting made
+            // it awkward to read on the PHP side for no gain.
+            'header' => $site['header'] ?? ThemeBundle::HEADER_DEFAULTS,
+            'sidebar' => $site['sidebar'] ?? ThemeBundle::SIDEBAR_DEFAULTS,
         ];
     }
 
@@ -142,9 +148,25 @@ class ThemeResolver
         return $this->themeFor(ThemeAssignment::LEVEL_PLATFORM)?->payload['favicon_url'] ?? null;
     }
 
-    /** Kept for the branding-only settings that stayed behind. */
-    public function siteName(): string
+    /**
+     * The site's own identity — name, tagline, logo. Deliberately NOT part
+     * of a theme: a theme exported and handed to another community must
+     * not arrive carrying someone else's logo. The theme only decides
+     * whether each surface *shows* this (see the region blocks'
+     * show_branding), never what it says.
+     *
+     * Served alongside the theme because the shell fetches that on every
+     * page anyway and the branding block renders in it — one request
+     * rather than two for something every page needs.
+     */
+    public function branding(): array
     {
-        return (string) SiteOption::value('site_name', config('app.name'));
+        $logoId = SiteOption::value('logo_asset_id');
+
+        return [
+            'name' => (string) SiteOption::value('site_name', config('app.name')),
+            'tagline' => SiteOption::value('site_tagline') ?: null,
+            'logo_url' => $logoId ? Asset::find($logoId)?->url : null,
+        ];
     }
 }

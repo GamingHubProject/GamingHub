@@ -140,24 +140,16 @@ class ThemeResource extends Resource
                 ->columns(2)
                 ->collapsed(),
 
-            Forms\Components\Section::make('Site chrome')
+            Forms\Components\Section::make('Navigation')
                 ->schema([
-                    Forms\Components\Toggle::make('header_transparent')
-                        ->label('Transparent site header')
-                        ->helperText('Drops the header\'s own background and bottom border so a page-wide background image shows through behind the nav.'),
-
                     Forms\Components\Toggle::make('nav_enabled')
                         ->label('Show site navigation')
                         ->default(true)
                         ->live(),
                     Forms\Components\Select::make('nav_position')
-                        ->label('Navigation position')
+                        ->label('Where it appears')
                         ->native(false)
-                        ->options([
-                            'top' => 'Top bar only',
-                            'sidebar' => 'Left sidebar only',
-                            'both' => 'Both',
-                        ])
+                        ->options(['top' => 'Top bar only', 'sidebar' => 'Left sidebar only', 'both' => 'Both'])
                         ->default('top')
                         ->live()
                         ->visible(fn (Get $get) => (bool) $get('nav_enabled'))
@@ -165,8 +157,45 @@ class ThemeResource extends Resource
                         // the theme — a theme handed to another install
                         // must not carry someone else's games.
                         ->helperText('Edit the links themselves under Admin → Navigation.'),
-                    Forms\Components\Select::make('sidebar_behavior')
-                        ->label('Sidebar behaviour')
+                    Forms\Components\Select::make('nav_mirror')
+                        ->label('Do both surfaces show the same links?')
+                        ->native(false)
+                        ->options([
+                            'sidebar_follows_header' => 'Sidebar shows the header\'s links',
+                            'header_follows_sidebar' => 'Header shows the sidebar\'s links',
+                            'none' => 'Each has its own links',
+                        ])
+                        ->default('sidebar_follows_header')
+                        ->visible(fn (Get $get) => (bool) $get('nav_enabled') && $get('nav_position') === 'both')
+                        ->helperText('While one follows the other they are the same links — editing either changes both.'),
+                ])
+                ->columns(2),
+
+            Forms\Components\Section::make('Header')
+                ->description('Styled independently of the sidebar — one can be transparent while the other is solid.')
+                ->schema([
+                    ...static::regionFields('header'),
+                    Forms\Components\Toggle::make('header.spans_full_width')
+                        ->label('Header spans the full window')
+                        ->helperText('Off: the sidebar runs full height and the header sits beside it. On: the header runs edge to edge above the sidebar.'),
+                    Forms\Components\Toggle::make('header.show_tagline')
+                        ->label('Show the tagline in the header')
+                        ->helperText('Off by default — the header is the tighter surface and a tagline competes with the links.')
+                        ->visible(fn (Get $get) => (bool) $get('header.show_branding')),
+                ])
+                ->columns(2)
+                ->collapsed(),
+
+            Forms\Components\Section::make('Sidebar')
+                ->description('Styled independently of the header. The sidebar always shows the tagline when its branding block is on — space is not the constraint there.')
+                ->schema([
+                    Forms\Components\Select::make('sidebar.width')
+                        ->label('Width')
+                        ->native(false)
+                        ->options(['compact' => 'Compact (200px)', 'standard' => 'Standard (240px)', 'wide' => 'Wide (300px)'])
+                        ->default('standard'),
+                    Forms\Components\Select::make('sidebar.behavior')
+                        ->label('Behaviour')
                         ->native(false)
                         ->options([
                             'always' => 'Always visible',
@@ -174,11 +203,11 @@ class ThemeResource extends Resource
                             'auto-hide' => 'Collapsed to icons, expands on hover',
                         ])
                         ->default('always')
-                        ->visible(fn (Get $get) => (bool) $get('nav_enabled')
-                            && in_array($get('nav_position'), ['sidebar', 'both'], true))
-                        ->helperText('Narrow screens always use the menu-icon behaviour, whatever this is set to.'),
+                        ->helperText('Narrow screens always use the menu-icon behaviour, whatever this says.'),
+                    ...static::regionFields('sidebar'),
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->collapsed(),
 
             Forms\Components\Section::make('Default widget style')
                 ->description('Applies to every widget on every page unless a specific widget instance overrides it in its own settings.')
@@ -248,16 +277,23 @@ class ThemeResource extends Resource
      *
      * @return list<Forms\Components\Component>
      */
-    private static function backgroundFields(string $prefix): array
+    private static function backgroundFields(string $prefix, ?\Closure $unless = null): array
     {
-        $isType = fn (string $type) => fn (Get $get) => $get("{$prefix}.type") === $type;
+        // Conditions compose rather than replace. Calling ->visible()
+        // twice on a field overwrites the first closure, so a caller that
+        // wants an extra condition has to pass it in here to be ANDed —
+        // the alternative silently dropped each field's own type check,
+        // which left a hidden gradient repeater validating its required
+        // fields on a solid-colour background.
+        $also = fn (\Closure $own) => fn (Get $get) => ($unless === null || $unless($get)) && $own($get);
+        $isType = fn (string $type) => $also(fn (Get $get) => $get("{$prefix}.type") === $type);
 
         return [
             Forms\Components\ColorPicker::make("{$prefix}.color")
                 ->label('Base colour')
                 ->helperText('Drawn under a pattern or a non-covering image. Leave blank to use the page background token.')
                 ->hex()
-                ->visible(fn (Get $get) => in_array($get("{$prefix}.type"), ['color', 'pattern', 'image'], true)),
+                ->visible($also(fn (Get $get) => in_array($get("{$prefix}.type"), ['color', 'pattern', 'image'], true))),
 
             Forms\Components\Select::make("{$prefix}.pattern")
                 ->label('Pattern')
@@ -285,7 +321,7 @@ class ThemeResource extends Resource
                 ->default(135)
                 // Radial gradients have no direction, so an angle field
                 // would be a control that does nothing.
-                ->visible(fn (Get $get) => $get("{$prefix}.type") === 'gradient' && $get("{$prefix}.gradient.kind") !== 'radial'),
+                ->visible($also(fn (Get $get) => $get("{$prefix}.type") === 'gradient' && $get("{$prefix}.gradient.kind") !== 'radial')),
             Forms\Components\Repeater::make("{$prefix}.gradient.stops")
                 ->label('Colours')
                 ->schema([
@@ -314,7 +350,56 @@ class ThemeResource extends Resource
                 ->label('Opacity')
                 ->helperText('Applies to the base colour, a pattern\'s ink and a gradient. Not to an image.')
                 ->numeric()->minValue(0)->maxValue(1)->step(0.05)
-                ->visible(fn (Get $get) => $get("{$prefix}.type") !== 'image'),
+                ->visible($also(fn (Get $get) => $get("{$prefix}.type") !== 'image')),
+        ];
+    }
+
+    /**
+     * One region's styling. Written once and used for both surfaces —
+     * they're symmetrical by design, and two near-identical field lists
+     * would drift the first time one gained a control.
+     *
+     * No "which side" border control: the sidebar's border is its right
+     * edge and the header's is its bottom. See ThemeBundle::REGION_DEFAULTS.
+     *
+     * @return list<Forms\Components\Component>
+     */
+    private static function regionFields(string $prefix): array
+    {
+        return [
+            Forms\Components\Toggle::make("{$prefix}.show_branding")
+                ->label('Show the site logo and name')
+                ->default(true)
+                ->live()
+                ->helperText('The logo, name and tagline themselves are set in Site Options — they belong to the site, not the theme.'),
+            Forms\Components\Toggle::make("{$prefix}.transparent")
+                ->label('Transparent')
+                ->helperText('Drops this region\'s own background and edge so the page background shows through.')
+                ->live(),
+
+            Forms\Components\Select::make("{$prefix}.background.type")
+                ->label('Background')
+                ->native(false)
+                ->options(['color' => 'Solid colour', 'pattern' => 'Pattern', 'gradient' => 'Gradient', 'image' => 'Image'])
+                ->default('color')
+                ->live()
+                ->visible(fn (Get $get) => ! $get("{$prefix}.transparent")),
+            ...static::backgroundFields("{$prefix}.background", fn (Get $get) => ! $get("{$prefix}.transparent")),
+
+            Forms\Components\ColorPicker::make("{$prefix}.text_color")->label('Text colour')->hex(),
+            Forms\Components\ColorPicker::make("{$prefix}.accent_color")
+                ->label('Current item colour')
+                ->helperText('Falls back to the theme\'s accent when blank.')
+                ->hex(),
+            Forms\Components\ColorPicker::make("{$prefix}.border.color")->label('Edge colour')->hex(),
+            Forms\Components\TextInput::make("{$prefix}.border.thickness")
+                ->label('Edge thickness (px)')
+                ->numeric()->minValue(0)->maxValue(8),
+            Forms\Components\Select::make("{$prefix}.shadow")
+                ->label('Shadow')
+                ->native(false)
+                ->options(['none' => 'None', 'soft' => 'Soft', 'strong' => 'Strong'])
+                ->default('none'),
         ];
     }
 

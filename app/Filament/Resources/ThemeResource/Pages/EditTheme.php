@@ -3,7 +3,9 @@
 namespace App\Filament\Resources\ThemeResource\Pages;
 
 use App\Experience\ThemeBundle;
+use App\Experience\ThemeResolver;
 use App\Experience\ThemeStorage;
+use App\Models\NavigationLink;
 use App\Filament\Resources\ThemeResource;
 use App\Models\Theme;
 use Filament\Actions;
@@ -58,13 +60,14 @@ class EditTheme extends EditRecord
             'font_family' => $bundle->fontFamily,
             'favicon_file' => $bundle->faviconFile,
             'widgetStyle' => $bundle->widgetStyle,
-            'header_transparent' => $bundle->headerTransparent,
             // Defaulted rather than left empty so the type dropdown has a
             // selection on a theme that has never set a background.
             'site_background' => $bundle->siteBackground ?: ['type' => 'color'],
             'nav_enabled' => $bundle->navEnabled,
             'nav_position' => $bundle->navPosition,
-            'sidebar_behavior' => $bundle->sidebarBehavior,
+            'nav_mirror' => $bundle->navMirror,
+            'header' => static::regionToFormState($bundle->header),
+            'sidebar' => static::regionToFormState($bundle->sidebar),
         ];
     }
 
@@ -83,12 +86,35 @@ class EditTheme extends EditRecord
             fontFamily: $state['font_family'] ?: null,
             faviconFile: $state['favicon_file'] ?? null,
             widgetStyle: array_filter($state['widgetStyle'] ?? [], fn ($v) => $v !== null && $v !== ''),
-            headerTransparent: (bool) ($state['header_transparent'] ?? false),
             siteBackground: static::cleanBackground($state['site_background'] ?? []),
-            navPosition: $state['nav_position'] ?? 'top',
-            sidebarBehavior: $state['sidebar_behavior'] ?? 'always',
+            header: static::regionFromFormState($state['header'] ?? [], ThemeBundle::HEADER_DEFAULTS),
+            sidebar: static::regionFromFormState($state['sidebar'] ?? [], ThemeBundle::SIDEBAR_DEFAULTS),
             navEnabled: (bool) ($state['nav_enabled'] ?? true),
+            navPosition: $state['nav_position'] ?? 'top',
+            navMirror: $state['nav_mirror'] ?? 'sidebar_follows_header',
         );
+    }
+
+    /** Gives the background sub-form a type to show controls for. */
+    private static function regionToFormState(array $region): array
+    {
+        $region['background'] = ($region['background'] ?? []) ?: ['type' => 'color'];
+
+        return $region;
+    }
+
+    /**
+     * A region back from the form, over its defaults so an unrendered
+     * control (one hidden behind `transparent`, say) keeps its stored
+     * value rather than being blanked by its own absence.
+     */
+    private static function regionFromFormState(array $state, array $defaults): array
+    {
+        $region = array_merge($defaults, $state);
+        $region['border'] = array_merge($defaults['border'], is_array($state['border'] ?? null) ? $state['border'] : []);
+        $region['background'] = static::cleanBackground($state['background'] ?? []);
+
+        return $region;
     }
 
     /**
@@ -120,6 +146,43 @@ class EditTheme extends EditRecord
 
     protected function handleRecordUpdate($record, array $data): Theme
     {
-        return app(ThemeStorage::class)->writeBundle($record, static::formStateToBundle($data, $record->bundle()));
+        $before = $record->bundle()->navMirror;
+        $saved = app(ThemeStorage::class)->writeBundle($record, static::formStateToBundle($data, $record->bundle()));
+
+        $this->materialiseMirroredLinks($before, $saved->bundle()->navMirror);
+
+        return $saved;
+    }
+
+    /**
+     * Mirroring is a pointer while it's on: the follower owns no rows and
+     * simply renders the leader's. Turning it off is therefore the one
+     * moment anything is copied — without this the follower would go from
+     * showing the leader's links to showing nothing at all, which reads as
+     * having lost them.
+     *
+     * Only meaningful for the theme actually in effect; a mirroring change
+     * on some other theme takes effect when that one is applied, and
+     * copying now would clobber the live navigation.
+     */
+    private function materialiseMirroredLinks(string $before, string $after): void
+    {
+        if ($before === $after || $after !== 'none') {
+            return;
+        }
+
+        if (app(ThemeResolver::class)->effectiveTheme()?->id !== $this->getRecord()->id) {
+            return;
+        }
+
+        [$from, $to] = match ($before) {
+            'sidebar_follows_header' => [NavigationLink::SURFACE_HEADER, NavigationLink::SURFACE_SIDEBAR],
+            'header_follows_sidebar' => [NavigationLink::SURFACE_SIDEBAR, NavigationLink::SURFACE_HEADER],
+            default => [null, null],
+        };
+
+        if ($from !== null) {
+            NavigationLink::copySurface($from, $to);
+        }
     }
 }

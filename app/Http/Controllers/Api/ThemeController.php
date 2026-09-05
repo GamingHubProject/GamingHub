@@ -46,6 +46,13 @@ class ThemeController extends Controller
             'font' => $resolver->resolveFont($layout, $theme),
             'widgetStyle' => $resolver->widgetStyleDefaults($theme),
             'site' => $resolver->siteChrome($theme),
+            // Not the theme's — the site's own identity (see
+            // ThemeResolver::branding). Served here because the shell
+            // fetches this on every page anyway and the branding block
+            // renders in it. The endpoint is really "everything the shell
+            // needs" at this point; renaming it isn't worth a breaking
+            // change.
+            'branding' => $resolver->branding(),
         ]);
     }
 }

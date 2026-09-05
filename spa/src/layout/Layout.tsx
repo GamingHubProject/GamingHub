@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Header } from './Header';
 import { Breadcrumbs } from './Breadcrumbs';
 import { Sidebar } from './Sidebar';
-import type { SidebarBehavior } from './Sidebar';
+import type { SidebarBehavior, SidebarWidth } from './Sidebar';
 import { useSiteChrome } from '../providers/ThemeProvider';
 
 /**
@@ -28,27 +28,62 @@ export function Layout() {
   // drops the nav links.
   const showTopNav = chrome.nav_enabled !== false && (position === 'top' || position === 'both');
 
+  const sidebar = showSidebar ? (
+    <Sidebar
+      behavior={(chrome.sidebar?.behavior ?? 'always') as SidebarBehavior}
+      width={(chrome.sidebar?.width ?? 'standard') as SidebarWidth}
+      region={chrome.sidebar}
+      open={sidebarOpen}
+      onOpenChange={setSidebarOpen}
+    />
+  ) : null;
+
+  const header = (
+    <Header
+      showNavLinks={showTopNav}
+      onToggleSidebar={showSidebar ? () => setSidebarOpen((o) => !o) : undefined}
+    />
+  );
+
+  const content = (
+    // minWidth:0 so a wide child (a table, a grid) shrinks inside this
+    // column instead of pushing the sidebar off screen.
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <Breadcrumbs />
+      <main style={{ padding: 'var(--space-section, 24px)', flex: 1 }}>
+        <Outlet />
+      </main>
+    </div>
+  );
+
+  /*
+   * Two arrangements. By default the sidebar runs the full height and the
+   * header sits only over the content — that's what both reference designs
+   * do, and it's what makes a sidebar's branding block the top of the page
+   * rather than something tucked under a bar.
+   *
+   * The alternative puts the header across the whole window with the
+   * sidebar beneath it, which some sites want and previously had no way to
+   * get.
+   */
+  if (chrome.header?.spans_full_width) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        {header}
+        <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+          {sidebar}
+          {content}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {showSidebar && (
-        <Sidebar
-          behavior={(chrome.sidebar_behavior ?? 'always') as SidebarBehavior}
-          open={sidebarOpen}
-          onOpenChange={setSidebarOpen}
-        />
-      )}
-
-      {/* minWidth:0 so a wide child (a table, a grid) shrinks inside this
-          column instead of pushing the sidebar off screen. */}
+      {sidebar}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <Header
-          showNavLinks={showTopNav}
-          onToggleSidebar={showSidebar ? () => setSidebarOpen((o) => !o) : undefined}
-        />
-        <Breadcrumbs />
-        <main style={{ padding: 'var(--space-section, 24px)', flex: 1 }}>
-          <Outlet />
-        </main>
+        {header}
+        {content}
       </div>
     </div>
   );

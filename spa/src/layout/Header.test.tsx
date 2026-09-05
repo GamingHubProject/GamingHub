@@ -65,12 +65,15 @@ describe('Header', () => {
 
   // --- Site chrome: header transparency ---
 
-  function renderThemedHeader(site: { header_transparent: boolean; favicon_url: string | null }) {
+  function renderThemedHeader(site: Record<string, unknown>) {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const client = {
       get: async (path: string) => {
         if (path.includes('/user')) throw Object.assign(new Error('Unauthenticated.'), { status: 401 });
-        if (path.startsWith('/api/v1/theme')) return { tokens: {}, font: null, widgetStyle: {}, site };
+        if (path.startsWith('/api/v1/theme')) {
+          return { tokens: {}, font: null, widgetStyle: {}, site, branding: { name: 'Hub', tagline: null, logo_url: null } };
+        }
+        if (path.startsWith('/api/v1/navigation')) return [];
         return null;
       },
     };
@@ -90,8 +93,8 @@ describe('Header', () => {
     );
   }
 
-  it('keeps its background token and bottom border by default, matching the pre-existing look', async () => {
-    const { container } = renderThemedHeader({ header_transparent: false, favicon_url: null });
+  it('keeps its surface background and bottom edge by default, matching the pre-existing look', async () => {
+    const { container } = renderThemedHeader({ favicon_url: null, header: { transparent: false } });
 
     await waitFor(() => expect(screen.getByRole('link', { name: 'Log in' })).toBeInTheDocument());
     // --surface is unset on a fresh install, so this resolves to
@@ -100,12 +103,37 @@ describe('Header', () => {
     expect(container.querySelector('header')).toHaveStyle({ borderBottom: '1px solid var(--border, #ddd)' });
   });
 
-  it('drops both the background and the bottom border when header_transparent is on', async () => {
-    const { container } = renderThemedHeader({ header_transparent: true, favicon_url: null });
+  it('drops both the background and the bottom edge when the header region is transparent', async () => {
+    const { container } = renderThemedHeader({ favicon_url: null, header: { transparent: true } });
 
     await waitFor(() => expect(container.querySelector('header')).toHaveStyle({ background: 'transparent' }));
     // The divider goes too — a line floating over a background image is
     // the seam this setting exists to remove.
     expect(container.querySelector('header')).toHaveStyle({ borderBottom: 'none' });
+  });
+
+  it('styles the header independently of the sidebar', async () => {
+    // The point of splitting them: a transparent header alongside a solid
+    // sidebar is a thing a theme can now express.
+    const { container } = renderThemedHeader({
+      favicon_url: null,
+      header: { transparent: true },
+      sidebar: { transparent: false, text_color: '#ff0000' },
+    });
+
+    await waitFor(() => expect(container.querySelector('header')).toHaveStyle({ background: 'transparent' }));
+  });
+
+  it('renders the site branding when the header region asks for it', async () => {
+    renderThemedHeader({ favicon_url: null, header: { show_branding: true } });
+
+    await waitFor(() => expect(screen.getByText('Hub')).toBeInTheDocument());
+  });
+
+  it('leaves the branding out when the header region turns it off', async () => {
+    renderThemedHeader({ favicon_url: null, header: { show_branding: false } });
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Log in' })).toBeInTheDocument());
+    expect(screen.queryByText('Hub')).not.toBeInTheDocument();
   });
 });

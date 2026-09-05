@@ -109,6 +109,6 @@ class ThemeResolverTest extends TestCase
         ], ThemeAssignment::LEVEL_PLATFORM);
 
         $this->assertSame(12, $this->resolver()->widgetStyleDefaults($theme)['border_radius']);
-        $this->assertTrue($this->resolver()->siteChrome($theme)['header_transparent']);
+        $this->assertTrue($this->resolver()->siteChrome($theme)['header']['transparent']);
     }
 }

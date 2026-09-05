@@ -1,24 +1,41 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { isActive, isExternal, useNavigation } from './useNavigation';
+import { useLocation } from 'react-router-dom';
+import { isActive, useNavigation } from './useNavigation';
 import type { NavNode } from './useNavigation';
+import { NavFolderRow, NavLeaf } from './NavRow';
+import { SiteBranding } from './SiteBranding';
+import { regionAccent, regionCss } from './regionStyle';
+import type { RegionStyle } from './regionStyle';
 
 export type SidebarBehavior = 'always' | 'toggle' | 'auto-hide';
+export type SidebarWidth = 'compact' | 'standard' | 'wide';
 
 /** Below this the sidebar always behaves as `toggle`, whatever the theme
  *  says — "always visible" on a phone leaves a 200px-wide page. */
 const NARROW = 900;
 
-const COLLAPSED_WIDTH = 64;
-const EXPANDED_WIDTH = 240;
+/** Named widths an admin can judge, rather than a raw pixel field. */
+const WIDTHS: Record<SidebarWidth, number> = { compact: 200, standard: 240, wide: 300 };
 
-export function Sidebar({ behavior, open, onOpenChange }: {
+/** The auto-hide rail. Sized by the icon, so it isn't a preference. */
+const COLLAPSED_WIDTH = 64;
+
+export function Sidebar({
+  behavior,
+  width = 'standard',
+  region,
+  open,
+  onOpenChange,
+}: {
   behavior: SidebarBehavior;
+  width?: SidebarWidth;
+  /** Styled independently of the header — see layout/regionStyle. */
+  region?: RegionStyle;
   /** Controlled by Layout, which also owns the header's menu button. */
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { nodes } = useNavigation();
+  const { nodes } = useNavigation('sidebar');
   const { pathname } = useLocation();
   const [narrow, setNarrow] = useState(() => window.innerWidth < NARROW);
   const [hovered, setHovered] = useState(false);
@@ -41,8 +58,12 @@ export function Sidebar({ behavior, open, onOpenChange }: {
   // auto-hide keeps a rail of icons on screen; toggle takes the whole
   // column away, so the main content can use the space.
   const visible = effective !== 'toggle' || open;
+  const accent = regionAccent(region);
 
-  if (nodes.length === 0) return null;
+  // Unlike before, an empty navigation no longer hides the whole sidebar —
+  // the branding block is reason enough for it to exist.
+  const showBranding = region?.show_branding !== false;
+  if (nodes.length === 0 && !showBranding) return null;
 
   return (
     <>
@@ -61,14 +82,16 @@ export function Sidebar({ behavior, open, onOpenChange }: {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
-          width: visible ? (expanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH) : 0,
+          ...regionCss(region, 'right'),
+          width: visible ? (expanded ? WIDTHS[width] ?? WIDTHS.standard : COLLAPSED_WIDTH) : 0,
           flexShrink: 0,
           overflowX: 'hidden',
           overflowY: 'auto',
-          background: 'var(--surface, transparent)',
-          borderRight: visible ? '1px solid var(--border, #ddd)' : 'none',
           padding: visible ? 'var(--space-normal, 12px) var(--space-tight, 6px)' : 0,
           transition: 'width 150ms ease',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--space-normal, 12px)',
           // On a narrow screen it floats over the content instead of
           // squeezing it into nothing.
           ...(narrow
@@ -76,9 +99,20 @@ export function Sidebar({ behavior, open, onOpenChange }: {
             : { position: 'sticky', top: 0, alignSelf: 'flex-start', maxHeight: '100vh' }),
         }}
       >
+        {showBranding && visible && (
+          <>
+            {/* Space is not the constraint here, so the sidebar always
+                shows the tagline when its branding block is on. */}
+            <SiteBranding showTagline compact={!expanded} />
+            {nodes.length > 0 && (
+              <hr style={{ border: 0, borderTop: '1px solid var(--border, #ddd)', opacity: 0.5, margin: 0, width: '100%' }} />
+            )}
+          </>
+        )}
+
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
           {nodes.map((node) => (
-            <SidebarNode key={node.id} node={node} pathname={pathname} expanded={expanded} />
+            <SidebarNode key={node.id} node={node} pathname={pathname} expanded={expanded} accent={accent} />
           ))}
         </ul>
       </nav>
@@ -86,9 +120,17 @@ export function Sidebar({ behavior, open, onOpenChange }: {
   );
 }
 
-function SidebarNode({ node, pathname, expanded }: { node: NavNode; pathname: string; expanded: boolean }) {
+function SidebarNode({
+  node, pathname, expanded, accent,
+}: {
+  node: NavNode;
+  pathname: string;
+  expanded: boolean;
+  accent: string;
+}) {
   // A folder holding the current page starts open, so a visitor never has
-  // to hunt for where they already are.
+  // to hunt for where they already are — and now highlights too, which the
+  // old row couldn't express.
   const holdsCurrent = node.children.some((child) => isActive(child.url, pathname));
   const [open, setOpen] = useState(holdsCurrent);
 
@@ -99,24 +141,18 @@ function SidebarNode({ node, pathname, expanded }: { node: NavNode; pathname: st
   if (node.type === 'folder') {
     return (
       <li>
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
-          style={{ ...rowStyle(false), width: '100%', background: 'none', border: 'none' }}
-        >
-          <NodeIcon node={node} />
-          {expanded && (
-            <>
-              <span style={labelStyle}>{node.label}</span>
-              <span aria-hidden="true" style={{ opacity: 0.6, fontSize: '0.7em' }}>{open ? '▾' : '▸'}</span>
-            </>
-          )}
-        </button>
+        <NavFolderRow
+          node={node}
+          open={open}
+          active={holdsCurrent}
+          accent={accent}
+          showLabel={expanded}
+          onToggle={() => setOpen((o) => !o)}
+        />
         {open && expanded && (
           <ul style={{ listStyle: 'none', margin: 0, padding: '2px 0 2px 20px', display: 'flex', flexDirection: 'column', gap: 2 }}>
             {node.children.map((child) => (
-              <SidebarNode key={child.id} node={child} pathname={pathname} expanded={expanded} />
+              <SidebarNode key={child.id} node={child} pathname={pathname} expanded={expanded} accent={accent} />
             ))}
           </ul>
         )}
@@ -126,63 +162,7 @@ function SidebarNode({ node, pathname, expanded }: { node: NavNode; pathname: st
 
   return (
     <li>
-      <NavLeaf node={node} pathname={pathname} showLabel={expanded} />
+      <NavLeaf node={node} pathname={pathname} accent={accent} showLabel={expanded} />
     </li>
   );
 }
-
-export function NavLeaf({ node, pathname, showLabel = true }: { node: NavNode; pathname: string; showLabel?: boolean }) {
-  const active = isActive(node.url, pathname);
-  const style = { ...rowStyle(active), textDecoration: 'none' };
-  const content = (
-    <>
-      <NodeIcon node={node} />
-      {showLabel && <span style={labelStyle}>{node.label}</span>}
-    </>
-  );
-
-  if (!node.url) return <span style={style}>{content}</span>;
-
-  // An off-site URL isn't a react-router route; handing it to <Link> would
-  // try to resolve it against the app's own routes.
-  return isExternal(node.url) ? (
-    <a href={node.url} style={style} rel="noreferrer noopener" target="_blank" title={showLabel ? undefined : node.label}>
-      {content}
-    </a>
-  ) : (
-    <Link to={node.url} style={style} aria-current={active ? 'page' : undefined} title={showLabel ? undefined : node.label}>
-      {content}
-    </Link>
-  );
-}
-
-function NodeIcon({ node }: { node: NavNode }) {
-  if (!node.icon_url) return null;
-
-  return (
-    <img
-      src={node.icon_url}
-      alt=""
-      style={{ width: 20, height: 20, objectFit: 'contain', flexShrink: 0, borderRadius: 'calc(var(--radius, 8px) / 3)' }}
-    />
-  );
-}
-
-function rowStyle(active: boolean) {
-  return {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--space-normal, 12px)',
-    padding: 'var(--space-tight, 6px) var(--space-normal, 12px)',
-    borderRadius: 'calc(var(--radius, 8px) / 1.5)',
-    color: active ? 'var(--accent, inherit)' : 'inherit',
-    background: active ? 'var(--surface-muted, rgba(0,0,0,0.05))' : 'transparent',
-    font: 'inherit',
-    fontWeight: active ? 600 : 400,
-    cursor: 'pointer',
-    textAlign: 'left' as const,
-    whiteSpace: 'nowrap' as const,
-  };
-}
-
-const labelStyle = { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' } as const;

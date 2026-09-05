@@ -20,14 +20,23 @@ export interface NavNode {
   children: NavNode[];
 }
 
-export function useNavigation(): { nodes: NavNode[]; isLoading: boolean } {
+export type NavSurface = 'header' | 'sidebar';
+
+/**
+ * One surface's navigation tree.
+ *
+ * Mirroring is resolved server-side, so asking for the sidebar while it
+ * follows the header simply returns the header's tree — the client never
+ * has to know which surface owns the rows.
+ */
+export function useNavigation(surface: NavSurface = 'header'): { nodes: NavNode[]; isLoading: boolean } {
   const api = useApi();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['navigation'],
+    queryKey: ['navigation', surface],
     // The client unwraps the `data` envelope, so this resolves to the
     // array itself rather than { data: [...] }.
-    queryFn: () => api.get<NavNode[]>('/api/v1/navigation'),
+    queryFn: () => api.get<NavNode[]>(`/api/v1/navigation?surface=${surface}`),
     // The nav changes when an admin edits it, not while someone is
     // browsing — refetching it on every window focus is pure noise.
     staleTime: 5 * 60 * 1000,

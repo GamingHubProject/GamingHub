@@ -122,11 +122,15 @@ class ThemeStorage
             'favicon_url' => $bundle->faviconFile ? $this->fileUrl($theme->slug, $bundle->faviconFile) : null,
             'widgetStyle' => $bundle->widgetStyle,
             'site' => [
-                'header_transparent' => $bundle->headerTransparent,
                 'background' => $this->resolveBackground($theme, $bundle->siteBackground),
                 'nav_enabled' => $bundle->navEnabled,
                 'nav_position' => $bundle->navPosition,
-                'sidebar_behavior' => $bundle->sidebarBehavior,
+                'nav_mirror' => $bundle->navMirror,
+                // A region's background can reference a file in the
+                // theme's own folder, so it needs the same relative-path
+                // resolution the page background gets.
+                'header' => $this->resolveRegion($theme, $bundle->header),
+                'sidebar' => $this->resolveRegion($theme, $bundle->sidebar),
             ],
         ];
     }
@@ -147,6 +151,13 @@ class ThemeStorage
         }
 
         return $background;
+    }
+
+    private function resolveRegion(Theme $theme, array $region): array
+    {
+        $region['background'] = $this->resolveBackground($theme, $region['background'] ?? []);
+
+        return $region;
     }
 
     private function fileUrl(string $slug, string $relative): ?string
@@ -339,7 +350,7 @@ class ThemeStorage
             tokens: array_intersect_key($tokens, ThemeBundle::contractTokens()),
             extraTokens: array_diff_key($tokens, ThemeBundle::contractTokens()),
             widgetStyle: $values['widget_style_defaults'] ?? [],
-            headerTransparent: (bool) ($values['header_transparent'] ?? false),
+            header: array_merge(ThemeBundle::HEADER_DEFAULTS, ['transparent' => (bool) ($values['header_transparent'] ?? false)]),
         );
 
         // Copy the referenced font/favicon in, so the theme owns its

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Experience\NavigationTargets;
+use App\Experience\ThemeResolver;
 use App\Http\Controllers\Controller;
 use App\Models\NavigationLink;
 use Illuminate\Http\JsonResponse;
@@ -21,12 +22,38 @@ class NavigationController extends Controller
      * folder becomes a dropdown in one and an expandable section in the
      * other, which is a rendering decision rather than a data one.
      */
-    public function index(NavigationTargets $targets): JsonResponse
+    public function index(Request $request, NavigationTargets $targets, ThemeResolver $themes): JsonResponse
     {
-        $links = NavigationLink::ordered();
-        $byParent = $links->groupBy('parent_id');
+        $surface = $this->effectiveSurface($request->string('surface', NavigationLink::SURFACE_HEADER), $themes);
+        $byParent = NavigationLink::ordered($surface)->groupBy('parent_id');
 
         return response()->json(['data' => $this->build($byParent, null, $targets)]);
+    }
+
+    /**
+     * Which surface's rows actually answer for the one being asked about.
+     *
+     * Mirroring is a pointer, not a copy: while the sidebar follows the
+     * header it owns no rows, and asking for the sidebar has to return the
+     * header's tree. Resolving that here rather than in the client means
+     * every consumer — and every future one — gets it right for free.
+     */
+    private function effectiveSurface(string $requested, ThemeResolver $themes): string
+    {
+        $requested = in_array($requested, NavigationLink::SURFACES, true)
+            ? $requested
+            : NavigationLink::SURFACE_HEADER;
+
+        $mirror = $themes->siteChrome($themes->effectiveTheme())['nav_mirror'] ?? 'none';
+
+        if ($mirror === 'sidebar_follows_header' && $requested === NavigationLink::SURFACE_SIDEBAR) {
+            return NavigationLink::SURFACE_HEADER;
+        }
+        if ($mirror === 'header_follows_sidebar' && $requested === NavigationLink::SURFACE_HEADER) {
+            return NavigationLink::SURFACE_SIDEBAR;
+        }
+
+        return $requested;
     }
 
     private function build($byParent, ?int $parentId, NavigationTargets $targets): array
@@ -60,11 +87,16 @@ class NavigationController extends Controller
      * The editor's view: the raw tree including hidden links and unresolved
      * targets, which the public endpoint deliberately strips.
      */
-    public function edit(Request $request, NavigationTargets $targets): JsonResponse
+    public function edit(Request $request, NavigationTargets $targets, ThemeResolver $themes): JsonResponse
     {
         abort_unless($request->user()?->hasRole('Admin'), 403);
 
-        $byParent = NavigationLink::ordered()->groupBy('parent_id');
+        $requested = $request->string('surface', NavigationLink::SURFACE_HEADER)->toString();
+        $requested = in_array($requested, NavigationLink::SURFACES, true) ? $requested : NavigationLink::SURFACE_HEADER;
+        $mirror = $themes->siteChrome($themes->effectiveTheme())['nav_mirror'] ?? 'none';
+        $effective = $this->effectiveSurface($requested, $themes);
+
+        $byParent = NavigationLink::ordered($effective)->groupBy('parent_id');
 
         $build = function ($parentId) use (&$build, $byParent) {
             return $byParent->get($parentId, collect())->map(fn (NavigationLink $link) => [
@@ -87,6 +119,13 @@ class NavigationController extends Controller
         // neither gets the envelope name.
         return response()->json([
             'tree' => $build(null),
+            'surface' => $requested,
+            // When these differ the requested surface is a mirror: it owns
+            // no rows and is showing the other's. The editor renders it
+            // read-only rather than letting an admin type into edits that
+            // would be saved against a surface they didn't choose.
+            'effective_surface' => $effective,
+            'mirror' => $mirror,
             // Bundled with the tree so the editor has everything it needs
             // to render a target picker in one request.
             'targets' => $targets->grouped(),
@@ -115,9 +154,21 @@ class NavigationController extends Controller
             ...$this->nodeRules('tree.*.children.*'),
         ]);
 
-        NavigationLink::replaceTree($data['tree']);
+        $surface = $request->string('surface', NavigationLink::SURFACE_HEADER)->toString();
+        $surface = in_array($surface, NavigationLink::SURFACES, true) ? $surface : NavigationLink::SURFACE_HEADER;
 
-        return $this->edit($request, app(NavigationTargets::class));
+        // Writing to a surface that is currently mirroring another would
+        // save rows nothing renders, then silently lose them the next time
+        // the leader is edited.
+        abort_if(
+            $this->effectiveSurface($surface, app(ThemeResolver::class)) !== $surface,
+            422,
+            'That surface is mirroring the other one. Turn mirroring off before editing it separately.'
+        );
+
+        NavigationLink::replaceTree($data['tree'], $surface);
+
+        return $this->edit($request, app(NavigationTargets::class), app(ThemeResolver::class));
     }
 
     /**

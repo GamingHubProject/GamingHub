@@ -46,7 +46,9 @@ trait InteractsWithThemes
             fontFamily: $bundle['font_family'] ?? null,
             faviconFile: $bundle['favicon_file'] ?? null,
             widgetStyle: $bundle['widget_style'] ?? [],
-            headerTransparent: $bundle['header_transparent'] ?? false,
+            header: array_merge(\App\Experience\ThemeBundle::HEADER_DEFAULTS, ['transparent' => $bundle['header_transparent'] ?? false]),
+            sidebar: \App\Experience\ThemeBundle::SIDEBAR_DEFAULTS,
+            navMirror: $bundle['nav_mirror'] ?? 'none',
         ));
 
         if ($level) {

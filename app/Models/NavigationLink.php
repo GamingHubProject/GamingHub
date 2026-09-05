@@ -28,8 +28,13 @@ class NavigationLink extends Model
      */
     public const MAX_DEPTH = 2;
 
+    public const SURFACE_HEADER = 'header';
+    public const SURFACE_SIDEBAR = 'sidebar';
+
+    public const SURFACES = [self::SURFACE_HEADER, self::SURFACE_SIDEBAR];
+
     protected $fillable = [
-        'parent_id', 'position', 'type', 'label',
+        'surface', 'parent_id', 'position', 'type', 'label',
         'target_type', 'target_id', 'url', 'icon_asset_id', 'is_visible',
     ];
 
@@ -64,9 +69,14 @@ class NavigationLink extends Model
      *
      * @return Collection<int, self>
      */
-    public static function ordered(): Collection
+    public static function ordered(string $surface = self::SURFACE_HEADER): Collection
     {
-        return static::query()->with('icon')->orderBy('position')->orderBy('id')->get();
+        return static::query()
+            ->where('surface', $surface)
+            ->with('icon')
+            ->orderBy('position')
+            ->orderBy('id')
+            ->get();
     }
 
     /**
@@ -81,26 +91,59 @@ class NavigationLink extends Model
      * @param  list<array{id?: int|null, ...}>  $tree  Nested; children under 'children'.
      * @return list<int> the ids that survived, so a caller can report on them
      */
-    public static function replaceTree(array $tree): array
+    public static function replaceTree(array $tree, string $surface = self::SURFACE_HEADER): array
     {
-        return DB::transaction(function () use ($tree) {
+        return DB::transaction(function () use ($tree, $surface) {
             $kept = [];
-            self::writeLevel($tree, null, 1, $kept);
+            self::writeLevel($tree, null, 1, $kept, $surface);
 
+            // Scoped to this surface: the other one's links are not in the
+            // payload and deleting them would wipe it every time this one
+            // is saved.
+            //
             // Deleting last means a link that merely *moved* is never
             // briefly absent, and cascade never fires on a parent that is
             // about to be re-parented rather than removed.
-            static::query()->whereNotIn('id', $kept ?: [0])->delete();
+            static::query()->where('surface', $surface)->whereNotIn('id', $kept ?: [0])->delete();
 
             return $kept;
         });
     }
 
+    /**
+     * Copy one surface's tree onto the other. The one moment mirroring
+     * duplicates anything — while it's on, the follower has no rows at all
+     * and simply renders the leader's, so turning it off is what
+     * materialises an independent copy to diverge from.
+     */
+    public static function copySurface(string $from, string $to): void
+    {
+        DB::transaction(function () use ($from, $to) {
+            static::query()->where('surface', $to)->delete();
+
+            $byParent = static::ordered($from)->groupBy('parent_id');
+
+            $copy = function (?int $parentId, ?int $newParentId) use (&$copy, $byParent, $to): void {
+                foreach ($byParent->get($parentId, collect()) as $link) {
+                    $clone = $link->replicate(['id']);
+                    $clone->surface = $to;
+                    $clone->parent_id = $newParentId;
+                    $clone->save();
+
+                    $copy($link->id, $clone->id);
+                }
+            };
+
+            $copy(null, null);
+        });
+    }
+
     /** @param  list<int>  $kept */
-    private static function writeLevel(array $nodes, ?int $parentId, int $depth, array &$kept): void
+    private static function writeLevel(array $nodes, ?int $parentId, int $depth, array &$kept, string $surface): void
     {
         foreach (array_values($nodes) as $position => $node) {
             $attributes = [
+                'surface' => $surface,
                 'parent_id' => $parentId,
                 'position' => $position,
                 'type' => $node['type'],
@@ -123,7 +166,7 @@ class NavigationLink extends Model
             // middle of a drag. The editor's own drop rules are the real
             // guard; this is the backstop.
             if ($depth < self::MAX_DEPTH && ! empty($node['children'])) {
-                self::writeLevel($node['children'], $link->id, $depth + 1, $kept);
+                self::writeLevel($node['children'], $link->id, $depth + 1, $kept, $surface);
             }
         }
     }

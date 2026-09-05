@@ -9,11 +9,20 @@ use App\Models\User;
 use GamingHub\Core\Models\Game;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
+use Tests\InteractsWithThemes;
 use Tests\TestCase;
 
 class NavigationApiTest extends TestCase
 {
     use RefreshDatabase;
+    use InteractsWithThemes;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->fakeThemeDisk();
+        \App\Models\ThemeAssignment::query()->delete();
+    }
 
     private function admin(): User
     {
@@ -297,5 +306,118 @@ class NavigationApiTest extends TestCase
         $folder->delete();
 
         $this->assertSame(0, NavigationLink::count());
+    }
+
+    // --- Surfaces and mirroring ---------------------------------------
+
+    private function mirrorMode(string $mode): void
+    {
+        $theme = $this->makeTheme('Default', [], \App\Models\ThemeAssignment::LEVEL_PLATFORM);
+        $bundle = $theme->bundle();
+        $bundle->navMirror = $mode;
+        app(\App\Experience\ThemeStorage::class)->writeBundle($theme, $bundle);
+    }
+
+    public function test_each_surface_serves_its_own_links_when_nothing_is_mirroring(): void
+    {
+        $this->mirrorMode('none');
+        NavigationLink::create(['surface' => 'header', 'type' => 'page', 'label' => 'Top', 'target_type' => 'home']);
+        NavigationLink::create(['surface' => 'sidebar', 'type' => 'page', 'label' => 'Side', 'target_type' => 'games']);
+
+        $this->assertSame(['Top'], array_column($this->getJson('/api/v1/navigation?surface=header')->json('data'), 'label'));
+        $this->assertSame(['Side'], array_column($this->getJson('/api/v1/navigation?surface=sidebar')->json('data'), 'label'));
+    }
+
+    public function test_a_mirroring_surface_serves_the_other_ones_links_without_owning_any(): void
+    {
+        // The pointer model: no duplicated rows, so "editing one updates
+        // the other" is the only thing that can happen.
+        $this->mirrorMode('sidebar_follows_header');
+        NavigationLink::create(['surface' => 'header', 'type' => 'page', 'label' => 'Top', 'target_type' => 'home']);
+
+        $this->assertSame(['Top'], array_column($this->getJson('/api/v1/navigation?surface=sidebar')->json('data'), 'label'));
+        $this->assertSame(0, NavigationLink::where('surface', 'sidebar')->count());
+    }
+
+    public function test_mirroring_can_run_the_other_way(): void
+    {
+        $this->mirrorMode('header_follows_sidebar');
+        NavigationLink::create(['surface' => 'sidebar', 'type' => 'page', 'label' => 'Side', 'target_type' => 'games']);
+
+        $this->assertSame(['Side'], array_column($this->getJson('/api/v1/navigation?surface=header')->json('data'), 'label'));
+    }
+
+    public function test_the_editor_reports_when_the_requested_surface_is_a_mirror(): void
+    {
+        $this->mirrorMode('sidebar_follows_header');
+
+        $this->actingAs($this->admin())->getJson('/api/v1/navigation/edit?surface=sidebar')
+            ->assertJsonPath('surface', 'sidebar')
+            ->assertJsonPath('effective_surface', 'header')
+            ->assertJsonPath('mirror', 'sidebar_follows_header');
+    }
+
+    public function test_writing_to_a_mirroring_surface_is_refused_rather_than_silently_lost(): void
+    {
+        // Rows saved there would render nowhere and vanish the next time
+        // the leader was edited.
+        $this->mirrorMode('sidebar_follows_header');
+
+        $this->actingAs($this->admin())
+            ->putJson('/api/v1/navigation/tree?surface=sidebar', $this->tree([
+                ['type' => 'page', 'label' => 'Nope', 'target_type' => 'home'],
+            ]))
+            ->assertStatus(422);
+
+        $this->assertSame(0, NavigationLink::count());
+    }
+
+    public function test_saving_one_surface_leaves_the_others_links_alone(): void
+    {
+        // The delete pass is scoped: without that, saving one surface would
+        // wipe the other every time.
+        $this->mirrorMode('none');
+        NavigationLink::create(['surface' => 'sidebar', 'type' => 'page', 'label' => 'Side', 'target_type' => 'games']);
+
+        $this->actingAs($this->admin())
+            ->putJson('/api/v1/navigation/tree?surface=header', $this->tree([
+                ['type' => 'page', 'label' => 'Top', 'target_type' => 'home'],
+            ]))
+            ->assertOk();
+
+        $this->assertSame(1, NavigationLink::where('surface', 'sidebar')->count());
+        $this->assertSame(1, NavigationLink::where('surface', 'header')->count());
+    }
+
+    public function test_copying_a_surface_duplicates_its_tree_including_nesting(): void
+    {
+        // What turning mirroring off does, once.
+        $folder = NavigationLink::create(['surface' => 'header', 'type' => 'folder', 'label' => 'Community']);
+        NavigationLink::create(['surface' => 'header', 'type' => 'link', 'label' => 'Discord', 'url' => 'https://x.test', 'parent_id' => $folder->id]);
+
+        NavigationLink::copySurface('header', 'sidebar');
+
+        $copiedFolder = NavigationLink::where('surface', 'sidebar')->where('type', 'folder')->firstOrFail();
+        $this->assertSame('Community', $copiedFolder->label);
+        $this->assertSame('Discord', NavigationLink::where('parent_id', $copiedFolder->id)->firstOrFail()->label);
+        // A copy, not a move.
+        $this->assertSame(2, NavigationLink::where('surface', 'header')->count());
+    }
+
+    public function test_copying_a_surface_replaces_whatever_was_already_there(): void
+    {
+        NavigationLink::create(['surface' => 'header', 'type' => 'page', 'label' => 'Top', 'target_type' => 'home']);
+        NavigationLink::create(['surface' => 'sidebar', 'type' => 'page', 'label' => 'Stale', 'target_type' => 'games']);
+
+        NavigationLink::copySurface('header', 'sidebar');
+
+        $this->assertSame(['Top'], NavigationLink::where('surface', 'sidebar')->pluck('label')->all());
+    }
+
+    public function test_an_unknown_surface_falls_back_to_the_header(): void
+    {
+        NavigationLink::create(['surface' => 'header', 'type' => 'page', 'label' => 'Top', 'target_type' => 'home']);
+
+        $this->assertSame(['Top'], array_column($this->getJson('/api/v1/navigation?surface=wormhole')->json('data'), 'label'));
     }
 }

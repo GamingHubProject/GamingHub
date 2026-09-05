@@ -3,7 +3,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApi } from '../providers/ApiClientProvider';
 import { useAuth } from '../providers/AuthProvider';
 import { useSiteChrome } from '../providers/ThemeProvider';
-import { NavLeaf, } from './Sidebar';
+import { NavLeaf } from './NavRow';
+import { SiteBranding } from './SiteBranding';
+import { regionAccent, regionCss } from './regionStyle';
 import { useNavigation } from './useNavigation';
 import type { NavNode } from './useNavigation';
 
@@ -18,9 +20,11 @@ export function Header({
   onToggleSidebar?: () => void;
 } = {}) {
   const { user, isLoading } = useAuth();
-  const { header_transparent: transparent } = useSiteChrome();
-  const { nodes } = useNavigation();
+  const chrome = useSiteChrome();
+  const region = chrome.header;
+  const { nodes } = useNavigation('header');
   const { pathname } = useLocation();
+  const accent = regionAccent(region);
 
   return (
     <header
@@ -29,15 +33,10 @@ export function Header({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: 'var(--space-normal, 12px) var(--space-section, 24px)',
-        // Opaque by default via --surface, which is unset on a fresh
-        // install and so resolves to `transparent` — i.e. byte-identical
-        // to the header's pre-existing look — and becomes a real solid bar
-        // as soon as a theme defines that token. Turning the setting on
-        // forces transparency regardless of the token, and drops the
-        // bottom border too: a divider line floating over a background
-        // image is the exact seam this is meant to remove.
-        background: transparent ? 'transparent' : 'var(--surface, transparent)',
-        borderBottom: transparent ? 'none' : '1px solid var(--border, #ddd)',
+        gap: 'var(--space-normal, 12px)',
+        // Styled independently of the sidebar — one can be transparent
+        // while the other is solid. See layout/regionStyle.
+        ...regionCss(region, 'bottom'),
       }}
     >
       <nav aria-label="Main" style={{ display: 'flex', gap: 'var(--space-normal, 16px)', alignItems: 'center' }}>
@@ -50,9 +49,10 @@ export function Header({
             built a navigation yet — without them a fresh install would
             have no way to move around at all. Once any link exists, the
             configured navigation replaces them entirely. */}
+        {region?.show_branding !== false && <SiteBranding showTagline={region?.show_tagline === true} />}
         {showNavLinks &&
           (nodes.length > 0 ? (
-            nodes.map((node) => <TopNavNode key={node.id} node={node} pathname={pathname} />)
+            nodes.map((node) => <TopNavNode key={node.id} node={node} pathname={pathname} accent={accent} />)
           ) : (
             <>
               <Link to="/">Home</Link>
@@ -152,7 +152,7 @@ function UserMenu({ name, isAdmin }: { name: string; isAdmin: boolean }) {
  * here and an expandable section in the sidebar — same data, two
  * renderings.
  */
-function TopNavNode({ node, pathname }: { node: NavNode; pathname: string }) {
+function TopNavNode({ node, pathname, accent }: { node: NavNode; pathname: string; accent: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -167,7 +167,10 @@ function TopNavNode({ node, pathname }: { node: NavNode; pathname: string }) {
   }, [open]);
 
   if (node.type !== 'folder') {
-    return <NavLeaf node={node} pathname={pathname} />;
+    // No reserved icon column in the top bar: rows sit side by side there,
+    // so there's no column of labels to line up and the gap would just be
+    // dead space beside a link with no icon.
+    return <NavLeaf node={node} pathname={pathname} accent={accent} reserveIcon={false} />;
   }
 
   return (
@@ -202,7 +205,7 @@ function TopNavNode({ node, pathname }: { node: NavNode; pathname: string }) {
           }}
         >
           {node.children.map((child) => (
-            <NavLeaf key={child.id} node={child} pathname={pathname} />
+            <NavLeaf key={child.id} node={child} pathname={pathname} accent={accent} />
           ))}
         </div>
       )}

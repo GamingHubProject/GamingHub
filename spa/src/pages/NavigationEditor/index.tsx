@@ -29,26 +29,52 @@ interface TargetGroup {
  * anyway — so they're the primary control rather than an accessibility
  * afterthought.
  */
+type Surface = 'header' | 'sidebar';
+
+interface EditorResponse {
+  tree: Omit<EditorNode, 'key'>[];
+  surface: Surface;
+  /** Differs from `surface` when this one is mirroring the other. */
+  effective_surface: Surface;
+  mirror: 'none' | 'sidebar_follows_header' | 'header_follows_sidebar';
+  targets: TargetGroup[];
+}
+
 export function NavigationEditor() {
   const api = useApi();
   const queryClient = useQueryClient();
+  const [surface, setSurface] = useState<Surface>('header');
   const [nodes, setNodes] = useState<EditorNode[]>([]);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['navigation', 'edit'],
-    queryFn: () => api.get<{ tree: Omit<EditorNode, 'key'>[]; targets: TargetGroup[] }>('/api/v1/navigation/edit'),
+    queryKey: ['navigation', 'edit', surface],
+    queryFn: () => api.get<EditorResponse>(`/api/v1/navigation/edit?surface=${surface}`),
   });
+
+  // A surface that is following the other owns no rows: what's shown here
+  // belongs to the leader. Editing it would save against a surface the
+  // admin didn't choose, so it's read-only until they break the link.
+  const mirrored = data ? data.effective_surface !== data.surface : false;
 
   useEffect(() => {
     if (data && !dirty) setNodes(withKeys(data.tree));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
+  // Switching tabs abandons whatever was in flight rather than carrying
+  // one surface's unsaved tree onto the other.
+  function switchSurface(next: Surface) {
+    setSurface(next);
+    setDirty(false);
+    setError(null);
+    setEditing(null);
+  }
+
   const save = useMutation({
-    mutationFn: () => api.put('/api/v1/navigation/tree', { tree: toPayload(nodes) }),
+    mutationFn: () => api.put(`/api/v1/navigation/tree?surface=${surface}`, { tree: toPayload(nodes) }),
     onSuccess: () => {
       setDirty(false);
       // Both the editor's own copy and whatever the header/sidebar are
@@ -94,16 +120,41 @@ export function NavigationEditor() {
     <div>
       <h1>Navigation</h1>
       <p style={{ color: 'var(--muted, #666)', maxWidth: '60ch' }}>
-        These links appear in the site's top bar, its sidebar, or both — whichever the current theme is set
-        to show. Drag a row onto a dropdown to nest it inside.
+        The top bar and the sidebar can show different links. Drag a row onto a dropdown to nest it inside.
       </p>
 
+      <div role="tablist" style={{ display: 'flex', gap: 4, margin: 'var(--space-loose, 16px) 0 0' }}>
+        {(['header', 'sidebar'] as Surface[]).map((value) => (
+          <button
+            key={value}
+            role="tab"
+            aria-selected={surface === value}
+            onClick={() => switchSurface(value)}
+            style={{
+              borderBottom: surface === value ? '2px solid var(--accent, #333)' : '2px solid transparent',
+              fontWeight: surface === value ? 600 : 400,
+            }}
+          >
+            {value === 'header' ? 'Top bar' : 'Sidebar'}
+          </button>
+        ))}
+      </div>
+
+      {mirrored && (
+        <p role="status" style={{ color: 'var(--muted, #666)', maxWidth: '60ch' }}>
+          The {surface === 'sidebar' ? 'sidebar' : 'top bar'} is currently showing the{' '}
+          {data?.effective_surface === 'header' ? 'top bar' : 'sidebar'}'s links, so there's nothing separate to
+          edit here. To give it its own, set <strong>“Each has its own links”</strong> under the theme's
+          Navigation settings — the current links are copied across so you start from what's already there.
+        </p>
+      )}
+
       <div style={{ display: 'flex', gap: 'var(--space-tight, 8px)', margin: 'var(--space-loose, 16px) 0' }}>
-        <button type="button" onClick={() => add('page')}>+ Page</button>
-        <button type="button" onClick={() => add('link')}>+ External link</button>
-        <button type="button" onClick={() => add('folder')}>+ Dropdown</button>
+        <button type="button" onClick={() => add('page')} disabled={mirrored}>+ Page</button>
+        <button type="button" onClick={() => add('link')} disabled={mirrored}>+ External link</button>
+        <button type="button" onClick={() => add('folder')} disabled={mirrored}>+ Dropdown</button>
         <span style={{ flex: 1 }} />
-        <button type="button" onClick={() => save.mutate()} disabled={!dirty || save.isPending}>
+        <button type="button" onClick={() => save.mutate()} disabled={mirrored || !dirty || save.isPending}>
           {save.isPending ? 'Saving…' : 'Save navigation'}
         </button>
       </div>
@@ -129,6 +180,7 @@ export function NavigationEditor() {
               onEdit={setEditing}
               onChange={change}
               onDrop={handleDrop}
+              readOnly={mirrored}
             />
           ))}
         </ul>
@@ -138,7 +190,7 @@ export function NavigationEditor() {
 }
 
 function Row({
-  node, depth, nodes, targets, editing, onEdit, onChange, onDrop,
+  node, depth, nodes, targets, editing, onEdit, onChange, onDrop, readOnly = false,
 }: {
   node: EditorNode;
   depth: number;
@@ -148,6 +200,7 @@ function Row({
   onEdit: (key: string | null) => void;
   onChange: (next: EditorNode[]) => void;
   onDrop: (dragKey: string, targetKey: string, position: DropPosition) => void;
+  readOnly?: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
   const [dropHint, setDropHint] = useState<DropPosition | null>(null);
@@ -170,7 +223,7 @@ function Row({
   return (
     <li>
       <div
-        draggable
+        draggable={!readOnly}
         onDragStart={(event) => event.dataTransfer.setData('text/plain', node.key)}
         onDragOver={(event) => {
           event.preventDefault();
@@ -222,13 +275,14 @@ function Row({
         </span>
 
         {/* The keyboard equivalent of a drag. */}
-        <button type="button" aria-label={`Move ${node.label} up`} onClick={() => onChange(nudge(nodes, node.key, 'up'))}>↑</button>
-        <button type="button" aria-label={`Move ${node.label} down`} onClick={() => onChange(nudge(nodes, node.key, 'down'))}>↓</button>
-        <button type="button" aria-label={`Nest ${node.label}`} onClick={() => onChange(nudge(nodes, node.key, 'in'))}>→</button>
-        <button type="button" aria-label={`Move ${node.label} out`} onClick={() => onChange(nudge(nodes, node.key, 'out'))}>←</button>
-        <button type="button" onClick={() => onEdit(isOpen ? null : node.key)}>{isOpen ? 'Done' : 'Edit'}</button>
+        <button type="button" disabled={readOnly} aria-label={`Move ${node.label} up`} onClick={() => onChange(nudge(nodes, node.key, 'up'))}>↑</button>
+        <button type="button" disabled={readOnly} aria-label={`Move ${node.label} down`} onClick={() => onChange(nudge(nodes, node.key, 'down'))}>↓</button>
+        <button type="button" disabled={readOnly} aria-label={`Nest ${node.label}`} onClick={() => onChange(nudge(nodes, node.key, 'in'))}>→</button>
+        <button type="button" disabled={readOnly} aria-label={`Move ${node.label} out`} onClick={() => onChange(nudge(nodes, node.key, 'out'))}>←</button>
+        <button type="button" disabled={readOnly} onClick={() => onEdit(isOpen ? null : node.key)}>{isOpen ? 'Done' : 'Edit'}</button>
         <button
           type="button"
+          disabled={readOnly}
           aria-label={`Remove ${node.label}`}
           onClick={() => onChange(removeNode(nodes, node.key).tree)}
         >
@@ -257,6 +311,7 @@ function Row({
               onEdit={onEdit}
               onChange={onChange}
               onDrop={onDrop}
+              readOnly={readOnly}
             />
           ))}
         </ul>

@@ -83,6 +83,91 @@ class ThemeBundle
         'space-section' => ['label' => 'Section spacing (page margins)', 'unit' => 'px', 'default' => 32],
     ];
 
+    /**
+     * A region's own styling. Header and sidebar share this shape, which
+     * is what makes them symmetrical — anything one can do the other can.
+     *
+     * `border` carries no side: the sidebar's border is its right edge and
+     * the header's is its bottom, always. A "which side" control whose
+     * only sensible value is its default is worse than no control (same
+     * reasoning as hiding the angle field on a radial gradient), so the
+     * region knows its own edge.
+     *
+     * @var array<string, mixed>
+     */
+    public const REGION_DEFAULTS = [
+        'transparent' => false,
+        'background' => [],
+        'text_color' => null,
+        // The current item. Falls back to the --accent token when unset,
+        // so a region that wants the site's accent needn't restate it.
+        'accent_color' => null,
+        'border' => ['color' => null, 'thickness' => 1],
+        // Named presets, not a box-shadow string: an admin can judge
+        // "soft" against "strong", not a blur radius.
+        'shadow' => 'none',
+        // On by default. Branding is new and neither surface shows
+        // anything today, so defaulting it off would ship a feature nobody
+        // discovers — and every reference design puts the site's identity
+        // on both surfaces. The theme only controls whether it shows; the
+        // logo, name and tagline are the site's (see
+        // ThemeResolver::branding).
+        'show_branding' => true,
+    ];
+
+    public const HEADER_DEFAULTS = self::REGION_DEFAULTS + [
+        // Whether the header spans the whole window or sits beside the
+        // sidebar. Beside is the default because it's what both reference
+        // designs do — a full-height sidebar with its own branding at the
+        // top, and the header only over the content.
+        'spans_full_width' => false,
+        // Off by default: the header is the tighter of the two surfaces,
+        // and a tagline there competes with the navigation for room.
+        'show_tagline' => false,
+    ];
+
+    public const SIDEBAR_DEFAULTS = self::REGION_DEFAULTS + [
+        'width' => 'standard',
+        'behavior' => 'always',
+    ];
+
+    /** @var array<string, int> Named widths — an admin can judge these; a raw pixel value they can't. */
+    public const SIDEBAR_WIDTHS = ['compact' => 200, 'standard' => 240, 'wide' => 300];
+
+    public const SHADOWS = ['none', 'soft', 'strong'];
+
+    public const MIRROR_MODES = ['none', 'sidebar_follows_header', 'header_follows_sidebar'];
+
+    /**
+     * A region on its way to disk. `background` is cast so an unset one
+     * serializes as {} rather than [] — theme.json is a published
+     * contract, and a field that changes JSON type when empty is a trap
+     * for whatever reads an export.
+     */
+    private static function serializeRegion(array $region): array
+    {
+        $region['background'] = (object) ($region['background'] ?? []);
+
+        return $region;
+    }
+
+    /**
+     * Merge a stored region over its defaults, one level deep so `border`
+     * doesn't lose its unset half when only one is set.
+     */
+    private static function region(mixed $stored, array $defaults): array
+    {
+        if (! is_array($stored)) {
+            return $defaults;
+        }
+
+        $merged = array_merge($defaults, $stored);
+        $merged['border'] = array_merge($defaults['border'], is_array($stored['border'] ?? null) ? $stored['border'] : []);
+        $merged['background'] = is_array($stored['background'] ?? null) ? $stored['background'] : [];
+
+        return $merged;
+    }
+
     /** The spacing steps, in order, for anything that needs the scale as a scale. */
     public const SPACING_STEPS = ['space-tight', 'space-normal', 'space-loose', 'space-section'];
 
@@ -108,7 +193,6 @@ class ThemeBundle
         public ?string $faviconFile = null,
         /** @var array<string, mixed> */
         public array $widgetStyle = [],
-        public bool $headerTransparent = false,
         /**
          * The page background behind everything. Same shape as a widget's
          * background (see widgets/shared/background.ts, which draws both)
@@ -122,18 +206,36 @@ class ThemeBundle
          */
         public array $siteBackground = [],
         /**
-         * Where the site's navigation renders, and how the sidebar
-         * behaves. Appearance rather than content, which is why it lives
-         * in the theme while the links themselves live in the database —
-         * "show a sidebar, always visible" travels to another install;
-         * "Phantom Galaxies -> /games/phantom-galaxies" does not.
+         * The header and sidebar as symmetrical, independently styled
+         * regions. Each is a REGION_DEFAULTS-shaped array: its own
+         * background (the same four types the page and widgets use), text
+         * and accent colours, border, shadow.
          *
-         * @var 'top'|'sidebar'|'both'
+         * Independent on purpose — one can be transparent while the other
+         * is solid. Sharing one style block would make that impossible,
+         * and "the sidebar looks like the header" is a choice a theme
+         * makes, not a constraint the schema should impose.
+         *
+         * @var array<string, mixed>
          */
-        public string $navPosition = 'top',
-        /** @var 'always'|'auto-hide'|'toggle' */
-        public string $sidebarBehavior = 'always',
+        public array $header = [],
+        /** @var array<string, mixed> */
+        public array $sidebar = [],
         public bool $navEnabled = true,
+        /** @var 'top'|'sidebar'|'both' */
+        public string $navPosition = 'top',
+        /**
+         * Whether one surface renders the other's navigation.
+         *
+         * A pointer rather than a copy: while a surface is following, it
+         * has no rows of its own and the API serves the leader's tree for
+         * both. That makes "editing one updates the other" the only thing
+         * that *can* happen, rather than a sync step to build and keep
+         * correct. Turning it off is the one moment anything is copied.
+         *
+         * @var 'none'|'sidebar_follows_header'|'header_follows_sidebar'
+         */
+        public string $navMirror = 'sidebar_follows_header',
     ) {
     }
 
@@ -158,16 +260,17 @@ class ThemeBundle
             fontFamily: $data['font']['family'] ?? null,
             faviconFile: $data['favicon']['file'] ?? null,
             widgetStyle: is_array($data['widgetStyle'] ?? null) ? $data['widgetStyle'] : [],
-            headerTransparent: (bool) ($data['site']['header_transparent'] ?? false),
             siteBackground: is_array($data['site']['background'] ?? null) ? $data['site']['background'] : [],
+            header: self::region($data['site']['header'] ?? [], self::HEADER_DEFAULTS),
+            sidebar: self::region($data['site']['sidebar'] ?? [], self::SIDEBAR_DEFAULTS),
             // Defaults keep an existing install exactly as it is: top nav,
             // no sidebar.
             navPosition: in_array($data['site']['nav_position'] ?? null, ['top', 'sidebar', 'both'], true)
                 ? $data['site']['nav_position']
                 : 'top',
-            sidebarBehavior: in_array($data['site']['sidebar_behavior'] ?? null, ['always', 'auto-hide', 'toggle'], true)
-                ? $data['site']['sidebar_behavior']
-                : 'always',
+            navMirror: in_array($data['site']['nav_mirror'] ?? null, self::MIRROR_MODES, true)
+                ? $data['site']['nav_mirror']
+                : 'sidebar_follows_header',
             navEnabled: (bool) ($data['site']['nav_enabled'] ?? true),
         );
     }
@@ -191,11 +294,12 @@ class ThemeBundle
             'favicon' => $this->faviconFile ? ['file' => $this->faviconFile] : null,
             'widgetStyle' => (object) $this->widgetStyle,
             'site' => [
-                'header_transparent' => $this->headerTransparent,
                 'background' => (object) $this->siteBackground,
                 'nav_enabled' => $this->navEnabled,
                 'nav_position' => $this->navPosition,
-                'sidebar_behavior' => $this->sidebarBehavior,
+                'nav_mirror' => $this->navMirror,
+                'header' => (object) self::serializeRegion($this->header),
+                'sidebar' => (object) self::serializeRegion($this->sidebar),
             ],
         ];
     }

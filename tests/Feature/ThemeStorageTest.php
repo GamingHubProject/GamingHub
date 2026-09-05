@@ -41,7 +41,7 @@ class ThemeStorageTest extends TestCase
         $this->assertSame('#4f46e5', $bundle->tokens['accent']);
         $this->assertSame('0 2px 4px #000', $bundle->extraTokens['shadow']);
         $this->assertSame(12, $bundle->widgetStyle['border_radius']);
-        $this->assertTrue($bundle->headerTransparent);
+        $this->assertTrue($bundle->header['transparent']);
     }
 
     public function test_the_folder_is_the_source_of_truth_and_sync_rebuilds_the_cache_from_it(): void
