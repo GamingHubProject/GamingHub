@@ -1,10 +1,19 @@
+import type { CSSProperties } from 'react';
 import { AssetPicker } from '../../components/AssetPicker';
 import type { AssetPreview } from '../../components/AssetPicker';
 import type { Asset } from '../../api/types';
 import type { PageLayoutWidgetConfigFormProps, PageLayoutWidgetContext } from './registry';
 import { Listbox } from '../../components/Listbox';
+import { backgroundCss, BACKGROUND_POSITION_OPTIONS, DEFAULT_BACKGROUND_POSITION } from '../shared/background';
+import type { BackgroundImageFit, BackgroundPosition } from '../shared/background';
 
-export type PictureFit = 'cover' | 'contain' | 'fill';
+/**
+ * The subset of the shared BackgroundImageFit this widget offers. Narrowed
+ * rather than aliased: 'tile' is a texture mode that belongs to the
+ * universal Style background, not to a picture that's meant to be the
+ * content of its box.
+ */
+export type PictureFit = Extract<BackgroundImageFit, 'cover' | 'contain' | 'fill'>;
 
 export interface PictureWidgetConfig {
   // Both kept, deliberately redundant: id for a future "is this asset in
@@ -13,10 +22,17 @@ export interface PictureWidgetConfig {
   // itself — that's the Asset row; this is just a snapshot reference.
   background_asset_id: number | null;
   background_url: string | null;
-  // Maps directly to CSS background-size (cover/contain/fill's stretch
-  // behavior — 'fill' isn't a real background-size keyword, so it's
-  // translated to '100% 100%' at render time).
+  // Handed to the shared background builder, which owns the translation
+  // to CSS (see widgets/shared/background.ts's BACKGROUND_IMAGE_SIZE —
+  // 'fill' isn't a real background-size keyword). This used to be a
+  // private map in this file; it moved to the shared builder when the
+  // Hero grew the same control, so the two can't disagree on what a fit
+  // mode means.
   fit: PictureFit;
+  /** Which part of the artwork survives a crop. Read with a `?? 'center'`
+   *  fallback at render — a picture saved before this control existed has
+   *  no such key, and centred is exactly what it was doing. */
+  position: BackgroundPosition;
   // 0 = no overlay, 1 = fully opaque black. A flat number rather than a
   // color picker — this exists purely to keep foreground widgets (Name,
   // Status) readable when layered on top, not as a design/branding knob.
@@ -36,15 +52,32 @@ export const pictureWidgetDefaultConfig: PictureWidgetConfig = {
   background_asset_id: null,
   background_url: null,
   fit: 'cover',
+  position: DEFAULT_BACKGROUND_POSITION,
   overlay_opacity: 0,
   allow_layering: true,
 };
 
-const BACKGROUND_SIZE: Record<PictureFit, string> = {
-  cover: 'cover',
-  contain: 'contain',
-  fill: '100% 100%',
-};
+/**
+ * The artwork's CSS, via the one shared builder (widgets/shared/
+ * background.ts) rather than this file's own — see the `fit` field.
+ * Returns `{}` with no artwork picked, leaving the empty widget exactly
+ * as bare as it was.
+ */
+function pictureBackground(config: PictureWidgetConfig): CSSProperties {
+  if (!config.background_url) return {};
+
+  return backgroundCss({
+    type: 'image',
+    color: undefined,
+    opacity: 1,
+    pattern: undefined,
+    patternColor: undefined,
+    imageUrl: config.background_url,
+    imageFit: config.fit ?? 'cover',
+    imagePosition: config.position ?? DEFAULT_BACKGROUND_POSITION,
+    gradient: undefined,
+  });
+}
 
 // A generic background-image widget, usable on any page — no longer
 // Server-specific (see ServerNameWidget/ServerStatusWidget for the
@@ -57,10 +90,7 @@ export function PictureWidget({ config }: { context: PageLayoutWidgetContext; co
       style={{
         position: 'relative',
         height: '100%',
-        backgroundImage: config.background_url ? `url(${config.background_url})` : undefined,
-        backgroundSize: BACKGROUND_SIZE[config.fit],
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
+        ...pictureBackground(config),
       }}
     >
       {config.overlay_opacity > 0 && (
@@ -105,6 +135,17 @@ export function PictureWidgetConfigForm({ config, onChange }: PageLayoutWidgetCo
               { value: 'fill', label: 'Fill (stretch)' },
             ]}
             onChange={(next) => onChange({ ...config, fit: next })}
+          />
+        </div>
+      </label>
+      <label>
+        Position
+        <div style={{ marginTop: 4 }}>
+          <Listbox<BackgroundPosition>
+            label="Position"
+            value={config.position ?? DEFAULT_BACKGROUND_POSITION}
+            options={BACKGROUND_POSITION_OPTIONS}
+            onChange={(next) => onChange({ ...config, position: next })}
           />
         </div>
       </label>

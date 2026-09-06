@@ -45,8 +45,38 @@ describe('isValidOverlapLayout', () => {
   });
 
   it('rejects two non-layerable widgets overlapping each other', () => {
-    const widgets = [widget(1, 'server-metrics', 0, 0, 4, 3), widget(2, 'server-player-count', 0, 0, 3, 2)];
+    // Metrics/Player Count used to stand in here; they are layerable now
+    // (so they can be dropped on a hero), so this needs types that still
+    // carry neither flag.
+    const widgets = [widget(1, 'server-allocations', 0, 0, 4, 3), widget(2, 'game-card', 0, 0, 3, 2)];
     const rgl = [layout(1, 0, 0, 4, 3), layout(2, 0, 0, 3, 2)];
+
+    expect(isValidOverlapLayout(rgl, widgets)).toBe(false);
+  });
+
+  it('accepts Status, Metrics and Player Count dragged onto a hero', () => {
+    // Issue 3: the hero is meant to read as a card with live figures on
+    // it. layerTarget on the hero is only half of that — isValidOverlapLayout
+    // needs the other widget to be layerable too, which Metrics and
+    // Player Count were not before this release.
+    for (const type of ['server-status', 'server-metrics', 'server-player-count']) {
+      const widgets = [widget(1, 'hero', 0, 0, 12, 4), widget(2, type, 8, 2, 3, 2)];
+      const rgl = [layout(1, 0, 0, 12, 4), layout(2, 8, 2, 3, 2)];
+
+      expect(isValidOverlapLayout(rgl, widgets), type).toBe(true);
+    }
+  });
+
+  it('rejects a widget dragged onto a hero with allow_layering off', () => {
+    const widgets = [widget(1, 'hero', 0, 0, 12, 4, { allow_layering: false }), widget(2, 'server-status', 0, 0, 3, 2)];
+    const rgl = [layout(1, 0, 0, 12, 4), layout(2, 0, 0, 3, 2)];
+
+    expect(isValidOverlapLayout(rgl, widgets)).toBe(false);
+  });
+
+  it('rejects a hero overlapping a picture — two targets, not a pair', () => {
+    const widgets = [widget(1, 'hero', 0, 0, 12, 4), widget(2, 'picture', 0, 0, 12, 2)];
+    const rgl = [layout(1, 0, 0, 12, 4), layout(2, 0, 0, 12, 2)];
 
     expect(isValidOverlapLayout(rgl, widgets)).toBe(false);
   });
@@ -107,8 +137,15 @@ describe('layeredWidgetIds', () => {
     const widgets = [
       widget(1, 'picture', 0, 0, 12, 2),
       widget(2, 'server-name', 0, 0, 4, 1),
-      widget(3, 'server-metrics', 0, 2, 4, 3),
+      // Not server-metrics any more — it carries layerable now.
+      widget(3, 'server-allocations', 0, 2, 4, 3),
     ];
+
+    expect(layeredWidgetIds(widgets)).toEqual(new Set([2]));
+  });
+
+  it('flags a widget sitting on a hero, so the container strips its chrome', () => {
+    const widgets = [widget(1, 'hero', 0, 0, 12, 4), widget(2, 'server-metrics', 8, 2, 3, 2)];
 
     expect(layeredWidgetIds(widgets)).toEqual(new Set([2]));
   });

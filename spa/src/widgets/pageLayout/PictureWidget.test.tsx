@@ -4,6 +4,7 @@ import { PictureWidget, pictureWidgetDefaultConfig } from './PictureWidget';
 import type { PageLayoutWidgetContext } from './registry';
 
 const context: PageLayoutWidgetContext = { subjectType: 'server' };
+const ART = 'http://localhost/storage/picture.png';
 
 function renderPicture(config = pictureWidgetDefaultConfig) {
   const { container } = render(<PictureWidget context={context} config={config} />);
@@ -26,9 +27,41 @@ describe('PictureWidget', () => {
     ['contain', 'contain'],
     ['fill', '100% 100%'],
   ] as const)('maps fit=%s to background-size %s', (fit, expectedSize) => {
-    const config = { ...pictureWidgetDefaultConfig, fit };
+    // With artwork: the fit modes now resolve through the shared builder
+    // (widgets/shared/background.ts), which emits nothing at all when
+    // there's no image — a background-size for an image that isn't there
+    // was meaningless, and this is the one visible change from the move.
+    const config = { ...pictureWidgetDefaultConfig, background_url: ART, fit };
 
     expect(renderPicture(config)).toHaveStyle({ backgroundSize: expectedSize });
+  });
+
+  it('emits no image CSS at all until artwork is picked', () => {
+    const picture = renderPicture({ ...pictureWidgetDefaultConfig, fit: 'contain' });
+
+    expect(picture.style.backgroundImage).toBeFalsy();
+    expect(picture.style.backgroundSize).toBeFalsy();
+  });
+
+  it('centres the artwork by default', () => {
+    const config = { ...pictureWidgetDefaultConfig, background_url: ART };
+
+    expect(renderPicture(config)).toHaveStyle({ backgroundPosition: 'center' });
+  });
+
+  it('applies the configured position so text beside the picture can clear its subject', () => {
+    const config = { ...pictureWidgetDefaultConfig, background_url: ART, position: 'right top' as const };
+
+    expect(renderPicture(config)).toHaveStyle({ backgroundPosition: 'right top' });
+  });
+
+  it('centres a picture saved before the position control existed', () => {
+    // A stored config reaches the component as-is — PageLayoutWidgetContainer
+    // never merges it against defaultConfig — so the missing key has to
+    // resolve here, to the behaviour that widget already had.
+    const { position, ...legacy } = { ...pictureWidgetDefaultConfig, background_url: ART };
+
+    expect(renderPicture(legacy as typeof pictureWidgetDefaultConfig)).toHaveStyle({ backgroundPosition: 'center' });
   });
 
   it('renders no overlay when overlay_opacity is 0', () => {

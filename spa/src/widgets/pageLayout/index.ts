@@ -70,6 +70,12 @@ registerPageLayoutWidget({
   defaultConfig: {},
   defaultWidth: 4,
   defaultHeight: 3,
+  // Layerable so it can be dropped onto a hero (or a picture) — the hero
+  // is meant to read as a card with live figures on it, and layerTarget
+  // on the hero alone wouldn't have achieved that: isValidOverlapLayout
+  // needs BOTH halves of the pair, and only Name/Status carried the
+  // layerable half before this.
+  layerable: true,
 });
 
 registerPageLayoutWidget({
@@ -81,6 +87,8 @@ registerPageLayoutWidget({
   defaultConfig: {},
   defaultWidth: 3,
   defaultHeight: 2,
+  // Same reasoning as server-metrics above.
+  layerable: true,
 });
 
 registerPageLayoutWidget({
@@ -164,6 +172,18 @@ registerPageLayoutWidget({
   // yet is a plain panel, and that panel should still take the theme's
   // widget background.
   chromeless: true,
+  // A hero holds child widgets through the existing overlap system rather
+  // than a containment mechanism of its own: an admin drags Status,
+  // Metrics or Player Count onto it and the container strips their chrome
+  // so they float on the artwork (see registry.ts's layerable/layerTarget
+  // docblock). Considered and rejected: making the hero a Group host, or
+  // a third "children" pattern — both would add a second way to express
+  // "this widget sits on that one" for no capability the shipped,
+  // already-tested overlap mechanism doesn't cover. chromeless is
+  // orthogonal: a layerTarget always paints at zIndex 0 regardless.
+  // Per-instance opt-out via allow_layering on the hero's own config,
+  // read generically by PageLayoutEditor's isLayerTargetWidget.
+  layerTarget: true,
 });
 
 registerPageLayoutWidget({

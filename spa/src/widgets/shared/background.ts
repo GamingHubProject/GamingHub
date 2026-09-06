@@ -13,8 +13,72 @@ import { patternBackground } from './backgroundPattern';
  */
 export type BackgroundType = 'color' | 'pattern' | 'image' | 'gradient';
 
-/** cover/contain carry their usual CSS meaning; `tile` repeats at natural size. */
-export type BackgroundImageFit = 'cover' | 'contain' | 'tile';
+/**
+ * cover/contain carry their usual CSS meaning; `tile` repeats at natural
+ * size; `fill` stretches to the box, ignoring aspect ratio. `fill` moved
+ * here from PictureWidget's own private map when the Hero grew the same
+ * control — two builders that disagreed on what a fit mode means is the
+ * drift this file exists to prevent.
+ */
+export type BackgroundImageFit = 'cover' | 'contain' | 'tile' | 'fill';
+
+/**
+ * Where the artwork sits in its box, as the nine CSS background-position
+ * keyword pairs.
+ *
+ * Presets rather than a free focal point (an x%/y% pair picked by clicking
+ * the image): the presets cover "the subject is on the right, put the text
+ * left of it", which is what this is actually for, and they drop into the
+ * existing Listbox with no new picker component. A focal point stays open
+ * as a later refinement — it would be a superset of these values, so a
+ * stored preset would still resolve.
+ *
+ * Written horizontal-then-vertical ('right top', not 'top right').
+ * Browsers accept either keyword order; jsdom's CSS parser only accepts
+ * this one and silently drops the other, so emitting it this way keeps
+ * the rendered value assertable in a test rather than checkable only by
+ * eye.
+ */
+export type BackgroundPosition =
+  | 'left top'
+  | 'center top'
+  | 'right top'
+  | 'left center'
+  | 'center'
+  | 'right center'
+  | 'left bottom'
+  | 'center bottom'
+  | 'right bottom';
+
+/** The default every caller falls back to — and what this builder did
+ *  unconditionally before the setting existed. */
+export const DEFAULT_BACKGROUND_POSITION: BackgroundPosition = 'center';
+
+/** Shared by every form that offers the control, so Picture and Hero can
+ *  never end up with different labels for the same value. */
+export const BACKGROUND_POSITION_OPTIONS: { value: BackgroundPosition; label: string }[] = [
+  { value: 'left top', label: 'Top left' },
+  { value: 'center top', label: 'Top' },
+  { value: 'right top', label: 'Top right' },
+  { value: 'left center', label: 'Left' },
+  { value: 'center', label: 'Centre' },
+  { value: 'right center', label: 'Right' },
+  { value: 'left bottom', label: 'Bottom left' },
+  { value: 'center bottom', label: 'Bottom' },
+  { value: 'right bottom', label: 'Bottom right' },
+];
+
+/**
+ * A fit mode's CSS background-size. Exported because the fit control's
+ * labels and this mapping belong together — 'fill' isn't a real
+ * background-size keyword, so it can only ever be understood through here.
+ */
+export const BACKGROUND_IMAGE_SIZE: Record<BackgroundImageFit, string> = {
+  cover: 'cover',
+  contain: 'contain',
+  tile: 'auto',
+  fill: '100% 100%',
+};
 
 export type GradientKind = 'linear' | 'radial';
 
@@ -45,6 +109,14 @@ export interface BackgroundSpec {
   patternColor: string | undefined;
   imageUrl: string | undefined;
   imageFit: BackgroundImageFit;
+  /**
+   * The one optional field on an otherwise fully-resolved spec. Undefined
+   * means centred, which is the only behaviour that existed before this
+   * field — so the callers that don't offer the control yet (the site
+   * background, a region's, a widget's universal Style background) render
+   * exactly as they did, with no config migration.
+   */
+  imagePosition?: BackgroundPosition;
   gradient: GradientSpec | undefined;
 }
 
@@ -108,9 +180,14 @@ export function backgroundCss(spec: BackgroundSpec): CSSProperties {
     return {
       backgroundColor: base,
       backgroundImage: `url(${spec.imageUrl})`,
-      backgroundSize: spec.imageFit === 'tile' ? 'auto' : spec.imageFit,
+      // Falls back rather than indexing blind: imageFit reaches here from
+      // a stored JSON blob (a region's background, a widget's style), so
+      // a value written by a newer build — or a typo — must degrade to
+      // the default, not to an empty backgroundSize (which CSS reads as
+      // `auto`, i.e. the image at natural size, nothing like a fit mode).
+      backgroundSize: BACKGROUND_IMAGE_SIZE[spec.imageFit] ?? BACKGROUND_IMAGE_SIZE.cover,
       backgroundRepeat: spec.imageFit === 'tile' ? 'repeat' : 'no-repeat',
-      backgroundPosition: 'center',
+      backgroundPosition: spec.imagePosition ?? DEFAULT_BACKGROUND_POSITION,
     };
   }
 

@@ -137,6 +137,34 @@ describe('backgroundCss', () => {
     expect(css.backgroundPosition).toBe('center');
   });
 
+  it('stretches a fill image to the box, ignoring its aspect ratio', () => {
+    const css = backgroundCss(spec({ type: 'image', imageUrl: 'https://x.test/b.png', imageFit: 'fill' }));
+
+    expect(css.backgroundSize).toBe('100% 100%');
+    expect(css.backgroundRepeat).toBe('no-repeat');
+  });
+
+  it('places the image where asked', () => {
+    const css = backgroundCss(
+      spec({ type: 'image', imageUrl: 'https://x.test/b.png', imageFit: 'cover', imagePosition: 'right top' })
+    );
+
+    expect(css.backgroundPosition).toBe('right top');
+  });
+
+  it('falls back to a covering, centred image for a fit value it does not know', () => {
+    // imageFit arrives from stored JSON (a region's background, a widget's
+    // style), so an unknown value has to degrade to the default — an
+    // absent background-size reads as `auto` in CSS, i.e. natural size,
+    // which looks nothing like any fit mode.
+    const css = backgroundCss(
+      spec({ type: 'image', imageUrl: 'https://x.test/b.png', imageFit: 'nonsense' as never })
+    );
+
+    expect(css.backgroundSize).toBe('cover');
+    expect(css.backgroundPosition).toBe('center');
+  });
+
   it('falls back to the base colour when image mode has no image yet', () => {
     expect(backgroundCss(spec({ type: 'image', color: '#0000ff' }))).toEqual({
       backgroundColor: 'rgba(0, 0, 255, 1)',
