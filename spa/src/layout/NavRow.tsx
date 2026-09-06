@@ -32,7 +32,6 @@ export function rowStyle(active: boolean, accent: string): CSSProperties {
     // Full width on every row type, so the highlight is the row and not
     // the text inside it.
     width: '100%',
-    boxSizing: 'border-box',
     minHeight: 38,
     padding: 'var(--space-tight, 6px) var(--space-normal, 12px)',
     borderRadius: 'calc(var(--radius, 8px) / 1.5)',

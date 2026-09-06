@@ -147,12 +147,10 @@ export function Sidebar({
           ...regionCss(region, contained ? 'all' : 'right'),
           width: visible ? (expanded ? WIDTHS[width] ?? WIDTHS.standard : COLLAPSED_WIDTH) : 0,
           flexShrink: 0,
-          // Without this the height calc is content-box, so the sidebar's
-          // own padding and border are added ON TOP of "fill the viewport"
-          // and it overhangs by exactly that much (30px, found during
-          // verification). There's no global box-sizing reset in this app,
-          // so anything doing viewport arithmetic has to say so itself.
-          boxSizing: 'border-box',
+          // The height calc below is viewport arithmetic, so it depends on
+          // the border-box sizing that theme.css sets globally — without
+          // it this padding and border are added on top of "fill the
+          // viewport" and the sidebar overhangs the fold by exactly that.
           overflowX: 'hidden',
           overflowY: 'auto',
           padding: visible ? 'var(--space-normal, 12px) var(--space-tight, 6px)' : 0,

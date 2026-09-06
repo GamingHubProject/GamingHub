@@ -57,7 +57,7 @@ export function AddPageLayoutWidgetModal({
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search widgets…"
             autoFocus
-            style={{ width: '100%', marginBottom: 16, boxSizing: 'border-box' }}
+            style={{ width: '100%', marginBottom: 16 }}
           />
 
           {filtered.length === 0 && <p>No widgets match "{search}".</p>}

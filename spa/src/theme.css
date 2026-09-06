@@ -13,6 +13,23 @@
  * it did before this file existed.
  */
 
+/*
+ * Every element sizes by its border box.
+ *
+ * Without this, `padding` and `border` are added ON TOP of a declared
+ * width or height, so `height: 100%` on a padded box overflows its parent
+ * by exactly its padding. That is not a hypothetical: it is the bug that
+ * left a full-height sidebar hanging 30px below the fold, and the reason
+ * several components had already reached for `boxSizing: 'border-box'`
+ * one at a time. Those local declarations are gone now — this says it
+ * once, for everything.
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 a {
   color: var(--accent, #0645ad);
 }

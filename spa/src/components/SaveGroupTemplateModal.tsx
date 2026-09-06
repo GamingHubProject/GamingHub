@@ -19,7 +19,7 @@ export function SaveGroupTemplateModal({ onClose, onSave }: { onClose: () => voi
             value={name}
             onChange={(event) => setName(event.target.value)}
             autoFocus
-            style={{ width: '100%', boxSizing: 'border-box' }}
+            style={{ width: '100%' }}
           />
         </div>
       </label>

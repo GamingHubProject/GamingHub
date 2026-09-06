@@ -19,7 +19,6 @@ export const cardContainerStyle: CSSProperties = {
   height: '100%',
   width: '100%',
   overflow: 'hidden',
-  boxSizing: 'border-box',
 };
 
 export const cardPaddingStyle: CSSProperties = {

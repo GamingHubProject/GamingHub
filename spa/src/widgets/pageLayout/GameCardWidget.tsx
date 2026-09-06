@@ -71,7 +71,7 @@ export function GameCardWidget({ config }: { config: GameCardWidgetConfig }) {
     // record itself, see the config field's docblock.
     const displayGame = config.icon_url ? { ...singleGame, icon_url: config.icon_url } : singleGame;
     return (
-      <div style={{ padding: 12, maxWidth: 260, height: '100%', boxSizing: 'border-box' }}>
+      <div style={{ padding: 12, maxWidth: 260, height: '100%' }}>
         <GameCard game={displayGame} showIcon={config.show_icon} />
       </div>
     );
