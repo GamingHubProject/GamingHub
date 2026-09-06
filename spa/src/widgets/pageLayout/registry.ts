@@ -130,6 +130,32 @@ export function getPageLayoutWidgetDefinition(type: string): PageLayoutWidgetDef
   return registry.get(type);
 }
 
+/**
+ * Whether a stored widget row may be rendered on the page it's sitting on.
+ *
+ * `validFor` is enforced by the Add Widget picker, but a widget row is not
+ * something only the picker can write: a hand-edited or imported
+ * `page_layout_widgets` row, a restored backup, or a `validFor` narrowed in
+ * a later release while existing layouts still reference the widget can all
+ * put a Server-only widget on a Home page. The renderers built on that
+ * promise dereference `context.server!` unchecked, so an invalid placement
+ * doesn't degrade — it throws, and React Router's error boundary replaces
+ * the entire page with "Unexpected Application Error!". Same conclusion as
+ * ContentStripWidget's missing `items` array: widget placement, like widget
+ * config, is untrusted data at render time (see PageLayoutWidgetContainer,
+ * which skips a widget this returns false for).
+ *
+ * An unregistered type is *not* invalid here — it has no `validFor` to
+ * violate, and the container already has a visible "Unsupported widget
+ * type" fallback for it. 'group' is exactly that case and must keep
+ * rendering.
+ */
+export function isPageLayoutWidgetValidFor(type: string, subjectType: PageLayoutSubjectType): boolean {
+  const definition = registry.get(type);
+  if (!definition) return true;
+  return definition.validFor.includes(subjectType);
+}
+
 export function listPageLayoutWidgetDefinitions(): PageLayoutWidgetDefinition[] {
   return Array.from(registry.values());
 }

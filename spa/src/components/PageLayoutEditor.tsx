@@ -9,7 +9,7 @@ import { AddPageLayoutWidgetModal } from './AddPageLayoutWidgetModal';
 import { PageLayoutWidgetConfigModal } from './PageLayoutWidgetConfigModal';
 import { SaveGroupTemplateModal } from './SaveGroupTemplateModal';
 import { GroupTemplatePickerModal } from './GroupTemplatePickerModal';
-import { getPageLayoutWidgetDefinition } from '../widgets/pageLayout/registry';
+import { getPageLayoutWidgetDefinition, isPageLayoutWidgetValidFor } from '../widgets/pageLayout/registry';
 import type { PageLayoutWidgetContext } from '../widgets/pageLayout/registry';
 import type { AssetFolder, AssetList, GroupWidgetTemplate, PageLayout, PageLayoutWidget } from '../api/types';
 import { Listbox } from './Listbox';
@@ -485,6 +485,18 @@ export function PageLayoutEditor({
 
   if (isLoading || !layout) return null;
 
+  // What the *grid* shows, as opposed to what the layout contains. A
+  // widget that isn't validFor this page type renders as nothing for a
+  // visitor (see PageLayoutWidgetContainer), so leaving it in the grid's
+  // layout would reserve an empty hole where it used to be. Edit mode keeps
+  // every row visible so an admin can see and delete the bad one.
+  // topLevelWidgets itself is deliberately left unfiltered: persistLayout
+  // and nextWidgetPosition reason about the stored layout, not about what's
+  // currently on screen.
+  const renderedWidgets = editMode
+    ? topLevelWidgets
+    : topLevelWidgets.filter((w) => isPageLayoutWidgetValidFor(w.widget_type, context.subjectType));
+
   const childrenByGroupId = new Map<number, PageLayoutWidget[]>();
   for (const widget of layout.widgets) {
     if (widget.group_widget_id === null) continue;
@@ -528,11 +540,11 @@ export function PageLayoutEditor({
       {/* An empty, non-editing layout renders nothing extra — a fresh
           Home/Game page looks exactly as it did before this existed,
           until an admin actually adds a widget. */}
-      {(topLevelWidgets.length > 0 || editMode) && (
+      {(renderedWidgets.length > 0 || editMode) && (
         <ResponsiveGridLayout
           key={gridResetKey}
           className="layout"
-          layout={layoutFor(topLevelWidgets)}
+          layout={layoutFor(renderedWidgets)}
           cols={GRID_COLS}
           rowHeight={ROW_HEIGHT}
           isDraggable={editMode}
@@ -549,8 +561,8 @@ export function PageLayoutEditor({
           onResizeStop={persistLayout}
         >
           {(() => {
-            const layeredIds = layeredWidgetIds(topLevelWidgets);
-            return topLevelWidgets.map((widget) => {
+            const layeredIds = layeredWidgetIds(renderedWidgets);
+            return renderedWidgets.map((widget) => {
               if (widget.widget_type === 'group') {
                 return (
                   <div key={widget.id}>

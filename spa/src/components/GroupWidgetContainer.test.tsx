@@ -189,4 +189,53 @@ describe('GroupWidgetContainer', () => {
     expect(childHandle).not.toBeNull();
     expect(childHandle).not.toHaveClass('widget-drag-handle');
   });
+  // Same untrusted-placement case as the page grid (see
+  // PageLayoutWidgetContainer's tests) — a group's children go through the
+  // same renderer, so they need the same skip, and the grid must not keep
+  // an empty cell where the bad child was.
+  it('skips a child that is not validFor this page type instead of crashing the group', () => {
+    const children: PageLayoutWidget[] = [
+      // server-status is validFor: ['server'] only; this group is on Home.
+      { id: 1, page_layout_id: 1, group_widget_id: 10, widget_type: 'server-status', config: null, position_x: 0, position_y: 0, width: 4, height: 2 },
+      { id: 2, page_layout_id: 1, group_widget_id: 10, widget_type: 'picture', config: null, position_x: 4, position_y: 0, width: 4, height: 2 },
+    ];
+
+    const { container } = renderWithProviders(
+      <GroupWidgetContainer
+        children={children}
+        context={context}
+        editable={false}
+        onRemoveGroup={noop}
+        onRemoveChild={noop}
+        onEditChild={noop}
+        onPersistChildren={noop}
+        onUngroup={noop}
+        onSaveTemplate={noop}
+      />
+    );
+
+    expect(container.querySelectorAll('.react-grid-item')).toHaveLength(1);
+  });
+
+  it('falls back to the empty-group message when every child is invalid for the page', () => {
+    const children: PageLayoutWidget[] = [
+      { id: 1, page_layout_id: 1, group_widget_id: 10, widget_type: 'server-status', config: null, position_x: 0, position_y: 0, width: 4, height: 2 },
+    ];
+
+    renderWithProviders(
+      <GroupWidgetContainer
+        children={children}
+        context={context}
+        editable={false}
+        onRemoveGroup={noop}
+        onRemoveChild={noop}
+        onEditChild={noop}
+        onPersistChildren={noop}
+        onUngroup={noop}
+        onSaveTemplate={noop}
+      />
+    );
+
+    expect(screen.getByText('Empty group.')).toBeInTheDocument();
+  });
 });

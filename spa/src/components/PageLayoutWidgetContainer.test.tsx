@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import { ThemeProvider } from '../providers/ThemeProvider';
 // back to "Unsupported widget type".
 import '../widgets/pageLayout';
 import { PageLayoutWidgetContainer } from './PageLayoutWidgetContainer';
+import { registerPageLayoutWidget } from '../widgets/pageLayout/registry';
 import type { PageLayoutWidgetContext } from '../widgets/pageLayout/registry';
 import type { Server, PageLayoutWidget } from '../api/types';
 
@@ -470,5 +471,142 @@ describe('PageLayoutWidgetContainer', () => {
 
     await waitFor(() => expect(screen.getByText('Running')).toBeInTheDocument());
     expect((container.firstElementChild as HTMLElement).style.getPropertyValue('--card-text-scale')).toBe('1');
+  });
+  // A widget row is not something only the Add Widget picker can write —
+  // a hand-edited or imported page_layout_widgets row, a restored backup,
+  // or a validFor narrowed in a later release all put a widget on a page
+  // its renderer never expected. server-status is validFor: ['server'] and
+  // dereferences context.server unchecked, so on a Home page it throws and
+  // React Router's error boundary takes the whole page down with it.
+  describe('a widget on a page type it is not validFor', () => {
+    const homeContext: PageLayoutWidgetContext = { subjectType: 'home' };
+
+    it('renders nothing at all for a visitor, instead of throwing', () => {
+      const { container } = render(
+        <PageLayoutWidgetContainer widget={widget} context={homeContext} editable={false} onRemove={() => {}} onEdit={() => {}} />
+      );
+
+      expect(container).toBeEmptyDOMElement();
+      expect(screen.queryByText('Running')).not.toBeInTheDocument();
+    });
+
+    it('stays visible as a removable placeholder in edit mode, so an admin can clean it up', () => {
+      let removed = false;
+
+      render(
+        <PageLayoutWidgetContainer widget={widget} context={homeContext} editable={true} onRemove={() => (removed = true)} onEdit={() => {}} />
+      );
+
+      expect(screen.getByText(/can't be shown on this page type/i)).toBeInTheDocument();
+      screen.getByLabelText('Remove widget').click();
+      expect(removed).toBe(true);
+    });
+
+    it('still renders a widget whose validFor does cover the page (no over-eager skipping)', () => {
+      const pictureWidget = { ...widget, widget_type: 'picture', config: null };
+
+      const { container } = render(
+        <PageLayoutWidgetContainer widget={pictureWidget} context={homeContext} editable={false} onRemove={() => {}} onEdit={() => {}} />
+      );
+
+      expect(container).not.toBeEmptyDOMElement();
+    });
+  });
+
+  // The validFor check above covers the one crash we know about; this
+  // covers the ones we don't — any renderer, any field of an untrusted
+  // config blob (see the ContentStripWidget missing-`items` crash).
+  describe('a widget whose renderer throws', () => {
+    registerPageLayoutWidget({
+      type: 'test-throwing',
+      label: 'Throwing test widget',
+      category: 'General',
+      validFor: ['server', 'game', 'home', 'games-list'],
+      component: () => {
+        throw new Error('widget blew up');
+      },
+      defaultConfig: {},
+      defaultWidth: 2,
+      defaultHeight: 2,
+    });
+
+    const throwingWidget = { ...widget, widget_type: 'test-throwing', config: null };
+
+    // React logs every caught error itself, on top of the boundary's own
+    // console.error — muted so a passing run isn't full of red.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    afterEach(() => consoleError.mockClear());
+
+    it('degrades to a placeholder rather than letting the error escape the widget', () => {
+      expect(() =>
+        render(<PageLayoutWidgetContainer widget={throwingWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />)
+      ).not.toThrow();
+
+      expect(screen.getByText('This widget could not be displayed.')).toBeInTheDocument();
+    });
+
+    it('contains the failure to that one widget — a sibling on the same page still renders', () => {
+      render(
+        <>
+          <PageLayoutWidgetContainer widget={throwingWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+          <PageLayoutWidgetContainer widget={widget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+        </>
+      );
+
+      expect(screen.getByText('This widget could not be displayed.')).toBeInTheDocument();
+      expect(screen.getByText('Running')).toBeInTheDocument();
+    });
+
+    it('stays on the fallback across a re-render, rather than retrying itself into a loop', () => {
+      // resetKey is compared by reference. If the object it is given were
+      // rebuilt on every render, a throwing widget would reset, throw,
+      // reset — forever. It is `widget.config` straight off the data
+      // object precisely so that a re-render with the same widget is a
+      // no-op here.
+      const { rerender } = render(
+        <PageLayoutWidgetContainer widget={throwingWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+      );
+
+      expect(screen.getByText('This widget could not be displayed.')).toBeInTheDocument();
+
+      rerender(
+        <PageLayoutWidgetContainer widget={throwingWidget} context={context} editable={false} onRemove={() => {}} onEdit={() => {}} />
+      );
+
+      expect(screen.getByText('This widget could not be displayed.')).toBeInTheDocument();
+    });
+
+    it('tries again when the config actually changes, so a fix in the admin UI takes effect', () => {
+      const { rerender } = render(
+        <PageLayoutWidgetContainer widget={throwingWidget} context={context} editable={true} onRemove={() => {}} onEdit={() => {}} />
+      );
+
+      expect(screen.getByText('This widget could not be displayed.')).toBeInTheDocument();
+
+      // Same id, edited config, and a type that renders: the boundary has
+      // to let go of the fallback or the admin's fix appears not to work.
+      rerender(
+        <PageLayoutWidgetContainer
+          widget={{ ...widget, config: { ...(widget.config ?? {}), edited: true } }}
+          context={context}
+          editable={true}
+          onRemove={() => {}}
+          onEdit={() => {}}
+        />
+      );
+
+      expect(screen.queryByText('This widget could not be displayed.')).not.toBeInTheDocument();
+    });
+
+    it('keeps the widget removable in edit mode', () => {
+      let removed = false;
+
+      render(
+        <PageLayoutWidgetContainer widget={throwingWidget} context={context} editable={true} onRemove={() => (removed = true)} onEdit={() => {}} />
+      );
+
+      screen.getByLabelText('Remove widget').click();
+      expect(removed).toBe(true);
+    });
   });
 });

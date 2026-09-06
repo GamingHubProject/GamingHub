@@ -1,5 +1,6 @@
 import GridLayout, { WidthProvider, type Layout } from 'react-grid-layout';
 import { PageLayoutWidgetContainer } from './PageLayoutWidgetContainer';
+import { isPageLayoutWidgetValidFor } from '../widgets/pageLayout/registry';
 import type { PageLayoutWidgetContext } from '../widgets/pageLayout/registry';
 import type { PageLayoutWidget } from '../api/types';
 
@@ -79,6 +80,15 @@ export function GroupWidgetContainer({
   onUngroup: () => void;
   onSaveTemplate: () => void;
 }) {
+  // Same read-only skip the page grid does (see PageLayoutEditor's
+  // renderedWidgets): a child that isn't validFor this page type renders as
+  // nothing for a visitor, so it's dropped from the inner grid's layout too
+  // rather than left holding an empty cell. `children` stays whole for
+  // persistChildren, which is about stored rows, not what's on screen.
+  const visibleChildren = editable
+    ? children
+    : children.filter((child) => isPageLayoutWidgetValidFor(child.widget_type, context.subjectType));
+
   function persistChildren(rglLayout: Layout[]) {
     const changes: ChildLayoutChange[] = [];
 
@@ -134,12 +144,12 @@ export function GroupWidgetContainer({
       )}
 
       <div style={{ flex: 1, overflow: 'hidden' }}>
-        {children.length === 0 ? (
+        {visibleChildren.length === 0 ? (
           <p style={{ padding: 12, opacity: 0.7, fontSize: '0.85rem' }}>Empty group.</p>
         ) : (
           <ResponsiveGridLayout
             className="layout"
-            layout={layoutFor(children)}
+            layout={layoutFor(visibleChildren)}
             cols={GRID_COLS}
             rowHeight={ROW_HEIGHT}
             isDraggable={editable}
@@ -150,7 +160,7 @@ export function GroupWidgetContainer({
             onDragStop={persistChildren}
             onResizeStop={persistChildren}
           >
-            {children.map((child) => (
+            {visibleChildren.map((child) => (
               <div key={child.id}>
                 <PageLayoutWidgetContainer
                   widget={child}

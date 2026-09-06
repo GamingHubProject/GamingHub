@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
-import { getPageLayoutWidgetDefinition } from '../widgets/pageLayout/registry';
+import { getPageLayoutWidgetDefinition, isPageLayoutWidgetValidFor } from '../widgets/pageLayout/registry';
 import type { PageLayoutWidgetContext } from '../widgets/pageLayout/registry';
+import { WidgetErrorBoundary } from './WidgetErrorBoundary';
 import { useWidgetStyleDefaults } from '../providers/ThemeProvider';
 import { backgroundStyle, resolveWidgetStyle } from '../widgets/shared/widgetStyle';
 import type { PageLayoutWidget } from '../api/types';
@@ -62,6 +63,16 @@ export function PageLayoutWidgetContainer({
   dragHandleClassName?: string;
 }) {
   const definition = getPageLayoutWidgetDefinition(widget.widget_type);
+  // A widget on a page type it isn't validFor renders nothing at all for a
+  // visitor — not an empty card, not a message: the page should look the
+  // way it would if the bad row weren't there. In edit mode it stays
+  // visible as a placeholder instead, because a widget an admin can't see
+  // is a widget they can't delete, and this is exactly the state (imported
+  // row, restored backup, narrowed validFor) they need to clean up. See
+  // isPageLayoutWidgetValidFor; the grids skip these rows outright when not
+  // editing so no empty cell is left behind either.
+  const validForPage = isPageLayoutWidgetValidFor(widget.widget_type, context.subjectType);
+  if (!validForPage && !editable) return null;
   const config = widget.config ?? definition?.defaultConfig ?? {};
   const chromelessFlag = definition?.chromeless;
   // Border only — see registry.ts's chromeless docblock. `layered` skips
@@ -164,8 +175,18 @@ export function PageLayoutWidgetContainer({
           height (flex:1 in a height:100% flex column), which is what
           `size` queries need. */}
       <div style={{ flex: 1, overflow: layered ? 'visible' : 'hidden', containerType: layered ? undefined : 'size' }}>
-        {definition ? (
-          <definition.component context={context} config={config} layered={layered} resolvedStyle={resolvedStyle} />
+        {!validForPage ? (
+          <p style={{ padding: 12 }}>
+            {definition?.label ?? widget.widget_type} can't be shown on this page type — remove it.
+          </p>
+        ) : definition ? (
+          // resetKey is the config, not the id: the container is already
+          // remounted per widget by its parent's key, but an admin editing a
+          // broken widget's config in place needs the boundary to try again
+          // with the new value rather than stay on the fallback.
+          <WidgetErrorBoundary label={definition.label} resetKey={widget.config}>
+            <definition.component context={context} config={config} layered={layered} resolvedStyle={resolvedStyle} />
+          </WidgetErrorBoundary>
         ) : (
           <p style={{ padding: 12 }}>Unsupported widget type: {widget.widget_type}</p>
         )}
