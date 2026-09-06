@@ -255,6 +255,76 @@ class ThemeStorage
     }
 
     /**
+     * Record a file that is already sitting in one of the theme's
+     * subfolders — put there by an import or a registry install rather
+     * than by an upload.
+     *
+     * Without this the file is served perfectly well but is invisible in
+     * the Asset Library, which is where an admin goes to see what a theme
+     * actually contains. `updateOrCreate` rather than `firstOrCreate`
+     * because replacing a theme rewrites files at paths that already have
+     * a row, and that row's size and type are now wrong.
+     */
+    public function registerFile(Theme $theme, string $relative): void
+    {
+        $subfolder = explode('/', $relative)[0];
+        $path = $this->themePath($theme->slug, $relative);
+
+        if (! $this->disk()->exists($path)) {
+            return;
+        }
+
+        $folder = AssetFolder::where('parent_id', $theme->folder_id)->where('slug', $subfolder)->first();
+
+        Asset::updateOrCreate(
+            ['disk_path' => $path],
+            [
+                'url' => $this->disk()->url($path),
+                'mime_type' => $this->mimeFor($path),
+                'size' => $this->disk()->size($path),
+                'folder_id' => $folder?->id,
+            ]
+        );
+    }
+
+    /**
+     * The disk can usually tell us; where it can't (a remote disk, or a
+     * type PHP's map doesn't know) the extension is a better answer than
+     * null, because Asset rows with no mime don't render in the library.
+     */
+    private function mimeFor(string $path): string
+    {
+        $known = [
+            'woff' => 'font/woff', 'woff2' => 'font/woff2',
+            'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+            'webp' => 'image/webp', 'svg' => 'image/svg+xml', 'ico' => 'image/x-icon',
+        ];
+
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+        return $known[$extension] ?? ($this->disk()->mimeType($path) ?: 'application/octet-stream');
+    }
+
+    /**
+     * Empty a theme's folder of everything but theme.json, which the
+     * caller rewrites. Used when an import replaces an existing theme:
+     * files left behind from the previous version are referenced by
+     * nothing and would be shipped by the theme's next export.
+     */
+    public function clearFiles(Theme $theme): void
+    {
+        $root = $this->themePath($theme->slug);
+
+        foreach ($this->disk()->allFiles($root) as $path) {
+            if (basename($path) === 'theme.json') {
+                continue;
+            }
+            $this->disk()->delete($path);
+            Asset::where('disk_path', $path)->delete();
+        }
+    }
+
+    /**
      * A full, independent copy: new folder, every file copied across, and
      * theme.json rewritten under the new identity.
      *

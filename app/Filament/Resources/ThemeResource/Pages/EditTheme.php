@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\ThemeResource\Pages;
 
 use App\Experience\ThemeBundle;
+use App\Experience\ThemePackage;
 use App\Experience\ThemeResolver;
 use App\Experience\ThemeStorage;
 use App\Models\NavigationLink;
@@ -38,6 +39,22 @@ class EditTheme extends EditRecord
                     Notification::make()->title('Re-read from folder')->success()->send();
 
                     return redirect(static::getResource()::getUrl('edit', ['record' => $record]));
+                }),
+            // The same export the themes table offers, on the page an
+            // admin is actually looking at when they decide they want a
+            // copy of what they've just built.
+            Actions\Action::make('export')
+                ->label('Export')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->action(function (Theme $record) {
+                    $packages = app(ThemePackage::class);
+                    $path = $packages->export($record);
+
+                    return response()->streamDownload(function () use ($path) {
+                        readfile($path);
+                        @unlink($path);
+                    }, $packages->filename($record), ['Content-Type' => 'application/zip']);
                 }),
             Actions\DeleteAction::make()
                 ->using(fn (Theme $record) => app(ThemeStorage::class)->deleteTheme($record)),

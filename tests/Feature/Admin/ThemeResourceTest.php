@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Experience\ThemePackage;
 use App\Experience\ThemeStorage;
 use App\Filament\Resources\ThemeResource\Pages\CreateTheme;
 use App\Filament\Resources\ThemeResource\Pages\EditTheme;
@@ -12,6 +13,7 @@ use App\Models\ThemeAssignment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Tests\InteractsWithThemes;
@@ -280,5 +282,105 @@ class ThemeResourceTest extends TestCase
         $this->assertSame('#4f46e5', $copy->bundle()->tokens['accent']);
         // The point of the escape hatch: nothing changes until you Apply.
         $this->assertSame($live->id, ThemeAssignment::where('level', 'platform')->first()?->theme_id);
+    }
+
+    // --- Import and export (Phase C) ---------------------------------
+
+    /** A package on disk, as an admin would have on theirs. */
+    private function packageFile(string $name = 'Shared theme', array $extra = []): \Illuminate\Http\Testing\File
+    {
+        $path = sys_get_temp_dir().'/upload_'.uniqid().'.zip';
+        $zip = new \ZipArchive;
+        $zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('theme.json', json_encode([
+            'schema' => \App\Experience\ThemeBundle::SCHEMA,
+            'id' => 'shared',
+            'name' => $name,
+            'version' => '1.2.0',
+            'tokens' => ['accent' => '#00ff99'],
+        ]));
+        foreach ($extra as $entry => $contents) {
+            $zip->addFromString($entry, $contents);
+        }
+        $zip->close();
+
+        // fake()->createWithContent rather than a bare UploadedFile: the
+        // Livewire test harness reads ->name off the file it is handed,
+        // which only the testing subclass exposes.
+        $file = UploadedFile::fake()->createWithContent('theme-package.zip', file_get_contents($path));
+        @unlink($path);
+
+        return $file;
+    }
+
+    public function test_an_admin_can_import_a_theme_package(): void
+    {
+        Livewire::test(ListThemes::class)
+            ->callAction('import', [
+                'package' => $this->packageFile(),
+                'name' => '',
+                'on_conflict' => 'copy',
+            ])
+            ->assertHasNoActionErrors();
+
+        $imported = Theme::where('name', 'Shared theme')->first();
+        $this->assertNotNull($imported);
+        $this->assertSame('#00ff99', $imported->bundle()->tokens['accent']);
+    }
+
+    public function test_importing_under_a_chosen_name_overrides_the_one_in_the_package(): void
+    {
+        Livewire::test(ListThemes::class)
+            ->callAction('import', [
+                'package' => $this->packageFile(),
+                'name' => 'My own name for it',
+                'on_conflict' => 'copy',
+            ])
+            ->assertHasNoActionErrors();
+
+        $this->assertTrue(Theme::where('name', 'My own name for it')->exists());
+        $this->assertFalse(Theme::where('name', 'Shared theme')->exists());
+    }
+
+    public function test_importing_a_bad_package_reports_it_and_creates_nothing(): void
+    {
+        $before = Theme::count();
+
+        Livewire::test(ListThemes::class)
+            ->callAction('import', [
+                'package' => $this->packageFile('Hostile', ['../../evil.png' => 'PWNED']),
+                'name' => '',
+                'on_conflict' => 'copy',
+            ]);
+
+        // The action reports through a notification rather than throwing,
+        // so the admin gets the reason instead of an error page.
+        $this->assertSame($before, Theme::count());
+    }
+
+    public function test_replacing_from_the_import_form_keeps_the_theme_applied(): void
+    {
+        $existing = $this->makeTheme('Shared theme', [], 'platform');
+
+        Livewire::test(ListThemes::class)
+            ->callAction('import', [
+                'package' => $this->packageFile(),
+                'name' => '',
+                'on_conflict' => 'replace',
+            ])
+            ->assertHasNoActionErrors();
+
+        $this->assertSame(1, Theme::where('name', 'Shared theme')->count());
+        $this->assertTrue(ThemeAssignment::where('theme_id', $existing->id)->exists());
+        $this->assertSame('#00ff99', $existing->refresh()->bundle()->tokens['accent']);
+    }
+
+    public function test_an_admin_can_export_a_theme_from_its_edit_page(): void
+    {
+        $theme = $this->makeTheme('Midnight');
+
+        Livewire::test(EditTheme::class, ['record' => $theme->getRouteKey()])
+            ->callAction('export')
+            ->assertFileDownloaded(app(ThemePackage::class)->filename($theme));
     }
 }

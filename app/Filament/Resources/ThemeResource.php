@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Experience\ThemeBundle;
+use App\Experience\ThemePackage;
 use App\Experience\ThemeStorage;
 use App\Filament\Resources\ThemeResource\Pages;
 use App\Models\Theme;
@@ -508,6 +509,7 @@ class ThemeResource extends Resource
                 Tables\Actions\ActionGroup::make([
                     static::duplicateAction(),
                     static::renameAction(),
+                    static::exportAction(),
                     Tables\Actions\DeleteAction::make()
                         // Deleting the row without its folder would leave
                         // an orphaned /themes/{slug}/ that the next sync
@@ -602,6 +604,34 @@ class ThemeResource extends Resource
                 $copy = app(ThemeStorage::class)->duplicateTheme($record, $data['name']);
 
                 Notification::make()->title("Created {$copy->name}")->success()->send();
+            });
+    }
+
+    /**
+     * Download the theme as a file. Sits in the same menu as Duplicate,
+     * because it answers the same question — "give me another copy of
+     * this" — and only differs in where the copy ends up.
+     *
+     * Nothing site-specific leaves with it: the logo, the site name, the
+     * navigation links and the scopes this theme is applied to all live
+     * outside theme.json by design, so an export is safe to hand to
+     * someone without auditing it first.
+     */
+    public static function exportAction(): Tables\Actions\Action
+    {
+        return Tables\Actions\Action::make('export')
+            ->label('Export')
+            ->icon('heroicon-o-arrow-down-tray')
+            ->action(function (Theme $record) {
+                $packages = app(ThemePackage::class);
+                $path = $packages->export($record);
+
+                return response()->streamDownload(function () use ($path) {
+                    readfile($path);
+                    // The zip is built in the system temp directory and is
+                    // of no use once it has been sent.
+                    @unlink($path);
+                }, $packages->filename($record), ['Content-Type' => 'application/zip']);
             });
     }
 

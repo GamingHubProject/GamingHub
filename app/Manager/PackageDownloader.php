@@ -73,6 +73,8 @@ final class PackageDownloader
         $tmpExtractDir = $zipPath.'_extracted';
         @mkdir($tmpExtractDir, 0755, true);
 
+        $this->assertNoPathEscapes($zip);
+
         $zip->extractTo($tmpExtractDir);
         $zip->close();
 
@@ -84,6 +86,42 @@ final class PackageDownloader
 
         $this->moveContents($sourceRoot, $destinationDir);
         $this->removeDirectory($tmpExtractDir);
+    }
+
+    /**
+     * Refuse an archive that names a file outside the directory it is
+     * being unpacked into.
+     *
+     * extractTo() writes wherever the entry names point, so an entry
+     * called "../../../etc/cron.d/x" writes there — the classic zip-slip.
+     * Checksum verification doesn't help: it proves the archive is the one
+     * the registry published, not that the registry published something
+     * safe, and a registry is exactly the sort of third party this
+     * shouldn't have to trust absolutely.
+     *
+     * Checked before a single byte is written, so a hostile archive
+     * doesn't get to plant half its payload before being noticed.
+     */
+    private function assertNoPathEscapes(ZipArchive $zip): void
+    {
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = (string) $zip->getNameIndex($i);
+
+            // str_starts_with('/') catches an absolute path; the segment
+            // check catches '..' anywhere in the path, including the
+            // 'a/../../b' form that a naive prefix test misses.
+            $escapes = str_starts_with($name, '/')
+                || str_starts_with($name, '\\')
+                || in_array('..', preg_split('#[/\\\\]#', $name), true);
+
+            if ($escapes) {
+                $zip->close();
+
+                throw new RuntimeException(
+                    "Refusing to extract [{$name}]: it points outside the directory the package is being installed into."
+                );
+            }
+        }
     }
 
     /**

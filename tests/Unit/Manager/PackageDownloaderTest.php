@@ -180,6 +180,46 @@ class PackageDownloaderTest extends TestCase
         (new PackageDownloader($http))->install($extension, $version, $destination);
     }
 
+    public function test_refuses_an_archive_whose_entries_point_outside_the_install_directory(): void
+    {
+        // Zip-slip. A verified checksum proves the archive is the one the
+        // registry published; it says nothing about whether what the
+        // registry published is safe to unpack.
+        $extension = $this->coreExtension();
+        $version = '0.1.010';
+        $assetFilename = 'gaming-hub-core-v0.1.010.zip';
+
+        $zipPath = $this->workDir.'/'.$assetFilename;
+        $zip = new ZipArchive;
+        $zip->open($zipPath, ZipArchive::CREATE);
+        $zip->addFromString('gaming-hub-core-0.1.010/composer.json', '{}');
+        $zip->addFromString('gaming-hub-core-0.1.010/../../../escaped.txt', 'PWNED');
+        $zip->close();
+
+        $http = new FakeHttpClient;
+        $http->respond(
+            "https://github.com/GamingHubProject/Core/releases/download/v{$version}/{$assetFilename}",
+            file_get_contents($zipPath)
+        );
+        $http->respond(
+            "https://github.com/GamingHubProject/Core/releases/download/v{$version}/SHA256SUMS",
+            hash_file('sha256', $zipPath)."  {$assetFilename}\n"
+        );
+
+        $destination = $this->workDir.'/installed';
+
+        try {
+            (new PackageDownloader($http))->install($extension, $version, $destination);
+            $this->fail('A package that escapes its install directory should not install.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('points outside', $e->getMessage());
+        }
+
+        // Refused before extraction, so nothing was written anywhere.
+        $this->assertFileDoesNotExist($this->workDir.'/escaped.txt');
+        $this->assertFileDoesNotExist($destination.'/composer.json');
+    }
+
     private function coreExtension(): ExtensionDefinition
     {
         return ExtensionDefinition::fromArray([
