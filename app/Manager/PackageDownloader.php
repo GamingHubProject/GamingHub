@@ -40,26 +40,45 @@ final class PackageDownloader
      */
     public function install(ExtensionDefinition $extension, string $version, string $destinationDir): void
     {
+        $tmpZip = $this->fetchVerified($extension, $version);
+
+        try {
+            $this->extract($tmpZip, $destinationDir);
+        } finally {
+            @unlink($tmpZip);
+        }
+    }
+
+    /**
+     * Download a release and check it against its published checksum,
+     * returning the path to the verified zip. The caller owns the file and
+     * must delete it.
+     *
+     * Split out of install() because a theme package doesn't get extracted
+     * to a directory at all — it goes to ThemePackage, which validates the
+     * archive far more strictly than a filesystem walk can and writes only
+     * to paths it builds itself. Both callers still get the same
+     * non-negotiable step first: nothing unverified is ever opened.
+     */
+    public function fetchVerified(ExtensionDefinition $extension, string $version): string
+    {
         $assetFilename = $this->resolveAssetFilename($extension, $version);
 
         $zipBytes = $this->http->get($this->releaseUrl($extension, $version, $assetFilename));
         $checksumManifest = $this->http->get($this->checksumUrl($extension, $version));
 
         $tmpZip = tempnam(sys_get_temp_dir(), 'ghm_');
+        file_put_contents($tmpZip, $zipBytes);
 
-        try {
-            file_put_contents($tmpZip, $zipBytes);
-
-            if (! $this->checksums->verifyAgainstManifest($tmpZip, $checksumManifest, $assetFilename)) {
-                throw new RuntimeException(
-                    "Checksum verification failed for [{$assetFilename}] — refusing to install a package that doesn't match its published checksum."
-                );
-            }
-
-            $this->extract($tmpZip, $destinationDir);
-        } finally {
+        if (! $this->checksums->verifyAgainstManifest($tmpZip, $checksumManifest, $assetFilename)) {
             @unlink($tmpZip);
+
+            throw new RuntimeException(
+                "Checksum verification failed for [{$assetFilename}] — refusing to install a package that doesn't match its published checksum."
+            );
         }
+
+        return $tmpZip;
     }
 
     private function extract(string $zipPath, string $destinationDir): void

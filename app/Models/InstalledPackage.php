@@ -15,12 +15,26 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class InstalledPackage extends Model
 {
+    /** Loadable code, unpacked into storage/app/packages. */
+    public const KIND_EXTENSION = 'extension';
+
+    /** A theme, unpacked onto the assets disk — see App\Manager\ThemeInstaller. */
+    public const KIND_THEME = 'theme';
+
+    /**
+     * What a theme package's row carries instead of enabled/disabled.
+     * A theme has no on/off state: it is applied through a ThemeAssignment
+     * or it isn't, and that lives on the theme, not here.
+     */
+    public const STATUS_INSTALLED = 'installed';
+
     /** @use HasFactory<\Database\Factories\InstalledPackageFactory> */
     use HasFactory;
 
     protected $fillable = [
         'game_id',
         'slug',
+        'kind',
         'name',
         'version',
         'status',

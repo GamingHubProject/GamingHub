@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\InstalledPackageResource\Pages;
 use App\Models\InstalledPackage;
+use App\Models\Theme;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -48,6 +49,11 @@ class InstalledPackageResource extends Resource
                             ->options([
                                 'enabled' => 'Enabled',
                                 'disabled' => 'Disabled',
+                                // Themes have no on/off state — see the
+                                // kind column and InstalledPackage's
+                                // STATUS_INSTALLED. Listed so editing a
+                                // theme's row doesn't blank its status.
+                                InstalledPackage::STATUS_INSTALLED => 'Installed',
                             ])
                             ->required()
                             ->default('disabled'),
@@ -75,6 +81,9 @@ class InstalledPackageResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('slug')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('kind')
+                    ->badge()
+                    ->color(fn (string $state): string => $state === InstalledPackage::KIND_THEME ? 'info' : 'gray'),
                 Tables\Columns\TextColumn::make('version'),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
@@ -96,15 +105,34 @@ class InstalledPackageResource extends Resource
                     ->options([
                         'enabled' => 'Enabled',
                         'disabled' => 'Disabled',
+                        InstalledPackage::STATUS_INSTALLED => 'Installed',
+                    ]),
+                Tables\Filters\SelectFilter::make('kind')
+                    ->options([
+                        InstalledPackage::KIND_EXTENSION => 'Extension',
+                        InstalledPackage::KIND_THEME => 'Theme',
                     ]),
             ])
             ->actions([
                 Tables\Actions\Action::make('toggle')
                     ->label(fn (InstalledPackage $record) => $record->status === 'enabled' ? 'Disable' : 'Enable')
                     ->icon('heroicon-o-power')
+                    // A theme is applied through a ThemeAssignment, not
+                    // switched on here. Offering a toggle that changes a
+                    // string nothing reads would be a lie.
+                    ->visible(fn (InstalledPackage $record) => $record->kind !== InstalledPackage::KIND_THEME)
                     ->action(fn (InstalledPackage $record) => $record->update([
                         'status' => $record->status === 'enabled' ? 'disabled' : 'enabled',
                     ])),
+                Tables\Actions\Action::make('manageTheme')
+                    ->label('Manage theme')
+                    ->icon('heroicon-o-swatch')
+                    ->color('gray')
+                    // Only once the theme it installed still exists — an
+                    // admin can delete a theme without touching this row.
+                    ->visible(fn (InstalledPackage $record) => $record->kind === InstalledPackage::KIND_THEME
+                        && static::themeFor($record) !== null)
+                    ->url(fn (InstalledPackage $record) => ThemeResource::getUrl('edit', ['record' => static::themeFor($record)])),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
@@ -129,5 +157,19 @@ class InstalledPackageResource extends Resource
             'create' => Pages\CreateInstalledPackage::route('/create'),
             'edit' => Pages\EditInstalledPackage::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * The theme a package row installed, if it is still there.
+     *
+     * The slug is recorded at install time (see ThemeInstaller) rather
+     * than matched by name, because an admin may rename either one
+     * afterwards and the row still needs to point at the right theme.
+     */
+    protected static function themeFor(InstalledPackage $record): ?Theme
+    {
+        $slug = $record->manifest['theme_slug'] ?? null;
+
+        return $slug ? Theme::where('slug', $slug)->first() : null;
     }
 }

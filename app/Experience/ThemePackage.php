@@ -145,8 +145,11 @@ class ThemePackage
      *
      * Keeping the slug on replace also keeps every URL to the theme's
      * files valid, which a re-slugged copy would not.
+     *
+     * `$into` overrides the whole conflict question by naming the theme to
+     * overwrite outright — see the note at its use below.
      */
-    public function import(string $zipPath, ?string $name = null, string $onConflict = 'copy'): Theme
+    public function import(string $zipPath, ?string $name = null, string $onConflict = 'copy', ?Theme $into = null): Theme
     {
         $zip = $this->open($zipPath);
 
@@ -156,7 +159,13 @@ class ThemePackage
             $entries = $this->entries($zip, $prefix);
 
             $name = trim((string) ($name ?: $bundle->name)) ?: 'Imported theme';
-            $existing = $onConflict === 'replace' ? $this->conflictFor($name) : null;
+
+            // `$into` names the exact theme to overwrite, which a registry
+            // update needs: it knows which theme it created last time and
+            // must land on that one even if an admin has since renamed it.
+            // Matching by name would quietly install a second copy instead
+            // of updating, and leave the old one applied.
+            $existing = $into ?? ($onConflict === 'replace' ? $this->conflictFor($name) : null);
 
             $theme = $existing ?? $this->storage->createTheme($name);
 

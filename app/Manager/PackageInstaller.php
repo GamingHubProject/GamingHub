@@ -16,6 +16,7 @@ class PackageInstaller
         protected HttpClientContract $http,
         protected PackageDownloader $downloader,
         protected VersionResolver $resolver,
+        protected ThemeInstaller $themes,
     ) {}
 
     /**
@@ -29,6 +30,21 @@ class PackageInstaller
 
         if (! $extension) {
             return $this->failure("Package [{$packageId}] was not found in this registry.");
+        }
+
+        /*
+         * A theme is not code and does not get installed like code — it
+         * goes onto the assets disk as a theme folder, not into
+         * storage/app/packages. The branch is here, at the one entry point
+         * the UI calls, so callers keep asking the same question ("install
+         * this package") and don't have to know which kind they're holding.
+         *
+         * It branches on `kind`, a declared field, rather than on
+         * `category`, which is a free-text label an author can rename
+         * without meaning to change any behaviour.
+         */
+        if ($extension->isTheme()) {
+            return $this->themes->install($extension, $version);
         }
 
         $destination = storage_path('app/packages/'.$extension->id);
