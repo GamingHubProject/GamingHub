@@ -97,22 +97,23 @@ class UserAndRoleResourceTest extends TestCase
     }
 
     /**
-     * Bios became sanitised HTML in v0.1.024.00, so this field stopped
-     * stripping every tag and started allowing the ones the editor can
-     * produce — through the same sanitiser the API uses. A script is
-     * dropped along with its contents, and a tag outside the allowlist
-     * loses the tag while keeping the words.
+     * Bios are Markdown from v0.1.024.01, stored exactly as typed. Nothing
+     * is stripped on the way in because nothing renders raw HTML on the
+     * way out — see App\Profiles\RichText. Storing the source is what
+     * makes the round trip lossless, including markup somebody quoted on
+     * purpose.
      */
-    public function test_the_bio_field_stores_only_what_the_sanitiser_allows(): void
+    public function test_the_bio_field_stores_markdown_as_it_was_typed(): void
     {
         $user = User::factory()->create();
+        $markdown = "## Heading\n\nHello **there**\n\n- one\n- two";
 
         Livewire::test(EditUser::class, ['record' => $user->id])
-            ->fillForm(['bio' => '<script>alert(1)</script>Hello <b>there</b>'])
+            ->fillForm(['bio' => $markdown])
             ->call('save')
             ->assertHasNoFormErrors();
 
-        $this->assertSame('Hello there', $user->fresh()->bio);
+        $this->assertSame($markdown, $user->fresh()->bio);
     }
 
     public function test_a_password_set_in_the_form_is_hashed_exactly_once(): void
@@ -145,16 +146,19 @@ class UserAndRoleResourceTest extends TestCase
 
     // --- Profile fields on the admin form ---
 
-    public function test_the_form_writes_a_bio_through_the_same_sanitiser_as_the_api(): void
+    /** The admin form and the person's own editor go through one
+     *  normaliser, so a row cannot end up in a shape only one of them
+     *  produces. */
+    public function test_the_form_normalises_a_bio_the_same_way_the_api_does(): void
     {
         $user = User::factory()->create();
 
         Livewire::test(EditUser::class, ['record' => $user->id])
-            ->fillForm(['bio' => '<p>Hello <strong>there</strong></p><script>alert(1)</script>'])
+            ->fillForm(['bio' => "   Hello **there**   \n  "])
             ->call('save')
             ->assertHasNoFormErrors();
 
-        $this->assertSame('<p>Hello <strong>there</strong></p>', $user->fresh()->bio);
+        $this->assertSame('Hello **there**', $user->fresh()->bio);
     }
 
     public function test_the_form_refuses_a_display_name_that_differs_only_in_case(): void

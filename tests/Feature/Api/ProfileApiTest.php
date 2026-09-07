@@ -194,15 +194,30 @@ class ProfileApiTest extends TestCase
         $this->assertFalse($user->profile_public);
     }
 
-    public function test_a_bio_is_sanitised_on_the_way_in(): void
+    /**
+     * Markdown is stored as typed — no sanitiser stands between what
+     * somebody wrote and what comes back to their editor. What makes that
+     * safe is that neither renderer will run raw HTML; see RichTextTest.
+     */
+    public function test_a_bio_is_stored_exactly_as_it_was_written(): void
     {
         $user = User::factory()->create();
+        $markdown = "## About me\n\nI play **Ark**. Here is my config:\n\n```\n<script>alert(1)</script>\n```";
 
         $this->actingAs($user)
-            ->patchJson('/api/v1/user/profile', ['bio' => '<p>Hi</p><script>alert(1)</script><img src=x onerror=y>'])
+            ->patchJson('/api/v1/user/profile', ['bio' => $markdown])
             ->assertOk();
 
-        $this->assertSame('<p>Hi</p>', $user->refresh()->bio);
+        $this->assertSame($markdown, $user->refresh()->bio);
+    }
+
+    public function test_an_emptied_bio_comes_back_as_null_rather_than_whitespace(): void
+    {
+        $user = User::factory()->create(['bio' => 'something']);
+
+        $this->actingAs($user)->patchJson('/api/v1/user/profile', ['bio' => "  \n "])->assertOk();
+
+        $this->assertNull($user->refresh()->bio);
     }
 
     public function test_a_display_name_cannot_be_taken_twice_even_in_a_different_case(): void

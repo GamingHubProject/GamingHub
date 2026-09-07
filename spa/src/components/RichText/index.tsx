@@ -1,34 +1,64 @@
 import { Suspense, lazy } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { HEADING_FOLD, RICH_TEXT_ELEMENTS } from './schema';
 
 /**
- * Tiptap pulls in a lot of ProseMirror, and the vast majority of visits to
- * a profile are people reading one. So the editor is split into its own
- * chunk and only fetched on an edit surface; RichTextContent below, which
- * is what a reader actually needs, is a few lines and ships in the main
- * bundle.
+ * EasyMDE brings CodeMirror with it, and the overwhelming majority of
+ * visits to a profile are people reading one — so the editor is its own
+ * chunk, fetched only on an edit surface. The renderer below is what a
+ * reader actually needs.
  */
-const RichTextEditor = lazy(() => import('./RichTextEditor'));
+const MarkdownEditor = lazy(() => import('./MarkdownEditor'));
 
-export function RichTextField(props: { value: string; onChange: (html: string) => void; placeholder?: string }) {
+export function MarkdownField(props: { value: string; onChange: (markdown: string) => void; placeholder?: string }) {
   return (
     <Suspense fallback={<p>Loading the editor…</p>}>
-      <RichTextEditor {...props} />
+      <MarkdownEditor {...props} />
     </Suspense>
   );
 }
 
 /**
- * Renders stored rich text.
+ * Renders stored Markdown.
  *
- * dangerouslySetInnerHTML is correct here and nowhere else: this value was
- * sanitised on the way into the database by App\Profiles\RichText, which
- * is the single write path for every rich-text field. Sanitising on write
- * rather than on render is what makes rendering a plain insertion — but it
- * also means this component must never be pointed at a string that did not
- * come from that column.
+ * No `dangerouslySetInnerHTML` anywhere: react-markdown builds React
+ * elements straight from the Markdown AST, so at no point does an HTML
+ * string produced from somebody's bio get inserted into the page. Raw HTML
+ * embedded in the source is dropped rather than parsed (`skipHtml`), and
+ * link URLs go through react-markdown's own transform, which refuses
+ * javascript: and friends.
+ *
+ * That is why storing Markdown rather than sanitised HTML is the safer of
+ * the two: the value is inert text until something renders it, and the
+ * thing that renders it here cannot execute markup at all.
  */
-export function RichTextContent({ html, className }: { html: string | null; className?: string }) {
-  if (!html) return null;
+export function Markdown({ markdown, className }: { markdown: string | null; className?: string }) {
+  if (!markdown) return null;
 
-  return <div className={className} style={{ overflowWrap: 'anywhere' }} dangerouslySetInnerHTML={{ __html: html }} />;
+  return (
+    <div className={className} style={{ overflowWrap: 'anywhere' }}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        skipHtml
+        // Anything outside the allowlist loses its tag and keeps its text,
+        // rather than taking the text down with it.
+        allowedElements={[...RICH_TEXT_ELEMENTS, ...Object.keys(HEADING_FOLD)]}
+        unwrapDisallowed
+        components={{
+          ...HEADING_FOLD,
+          // Rich text can link anywhere, so every link is treated as
+          // hostile: a new context, and no referrer or window handle
+          // handed over. The server-side renderer forces the same pair.
+          a: ({ children, ...props }) => (
+            <a {...props} rel="noreferrer noopener" target="_blank">
+              {children}
+            </a>
+          ),
+        }}
+      >
+        {markdown}
+      </ReactMarkdown>
+    </div>
+  );
 }

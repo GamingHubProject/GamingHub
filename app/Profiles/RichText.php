@@ -2,34 +2,43 @@
 
 namespace App\Profiles;
 
+use Illuminate\Support\Str;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 
 /**
- * The one definition of what rich text may contain, and the only way it
- * ever gets stored.
+ * Rich text is **Markdown**, stored exactly as its author typed it.
  *
- * ELEMENTS below is the single allowlist: it configures the sanitiser
- * here, and the SPA's Tiptap editor is built from the same list
- * (spa/src/components/RichText/schema.ts) so the editor cannot emit a tag
- * the server then strips. A test asserts the two agree — without it they
- * drift, and the symptom is an editor that silently loses formatting on
- * save.
+ * It was sanitised HTML in v0.1.024.00, and that was the wrong storage
+ * format for the editing behaviour people expect. A WYSIWYG editor over an
+ * HTML document model toggles a list by rewriting whole blocks, so
+ * switching a list off reflows text that was already written — the
+ * complaint that produced this release. A Markdown source editor cannot do
+ * that: a list is a line prefix, and toggling one edits the selected lines
+ * and nothing else.
  *
- * Sanitising happens on write, not on render: the stored value is always
- * safe, so rendering is a plain insertion and nothing downstream has to
- * remember to escape. That means every write path has to come through
- * here — the API, and Filament's UserResource, which is why this is a
- * standalone class rather than a method on a controller.
+ * Storing the source rather than the rendered output also means the round
+ * trip is lossless: what somebody typed is what comes back to the editor,
+ * with no sanitiser standing between the two rewriting their document.
  *
- * No images. Images in a bio mean upload quotas, moderation and
- * hotlinking policy, which is a release of its own.
+ * **Nothing renders raw HTML.** The SPA renders Markdown to React elements
+ * (see spa/src/components/RichText), which never inserts an HTML string at
+ * all, and toHtml() below — the path any *server-side* consumer takes —
+ * strips HTML at the parser and then runs the result through the same
+ * element allowlist as before. Both refuse it; neither depends on the
+ * other having done so.
  */
 class RichText
 {
     /**
-     * Tag => attributes it may carry. Order is meaningless; the list is
-     * the contract.
+     * The elements a rendered document may contain.
+     *
+     * Mirrored by the SPA renderer's own allowlist
+     * (spa/src/components/RichText/schema.ts), and `RichTextAllowlistTest`
+     * fails when the two stop matching. The list is unchanged from when
+     * this was an HTML store: Markdown that produces anything outside it
+     * (a table, an image) renders as nothing rather than as something the
+     * other half of the app would refuse.
      *
      * @var array<string, list<string>>
      */
@@ -38,7 +47,11 @@ class RichText
         'br' => [],
         'strong' => [],
         'em' => [],
-        's' => [],
+        // GFM strikethrough renders as <del>, not <s> — the allowlist
+        // describes rendered output, so it has to name the element the
+        // renderers actually produce or the toolbar's strikethrough button
+        // would silently do nothing.
+        'del' => [],
         'code' => [],
         'pre' => [],
         'blockquote' => [],
@@ -50,72 +63,97 @@ class RichText
         'a' => ['href'],
     ];
 
-    /**
-     * Tags that are removed while their text is kept.
-     *
-     * Symfony's sanitiser drops an unlisted element *together with its
-     * children*, which is the right default for a <script> and badly wrong
-     * for a <div>: somebody pasting formatted text out of a document
-     * would watch their whole bio disappear on save. These are the
-     * wrappers that carry no meaning we store, unwrapped rather than
-     * dropped so the words survive.
-     *
-     * Not part of ELEMENTS on purpose — that list is the exact contract
-     * with the editor, "what may be stored and therefore what Tiptap may
-     * emit". This one is only about not destroying text on the way in, so
-     * b/i/u lose their emphasis here rather than widening the stored
-     * vocabulary; Tiptap already normalises those to strong/em when it
-     * handles the paste itself.
-     *
-     * @var list<string>
-     */
-    public const UNWRAPPED = [
-        'div', 'span', 'section', 'article', 'main', 'header', 'footer', 'aside',
-        'h1', 'h4', 'h5', 'h6', 'b', 'i', 'u', 'small', 'font', 'label',
-        'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'figure', 'figcaption',
-    ];
-
-    /** How many characters of HTML a single rich-text field may hold. */
+    /** How many characters of Markdown a single rich-text field may hold. */
     public const MAX_LENGTH = 20000;
 
-    public static function sanitize(?string $html): ?string
+    /**
+     * What gets stored: the author's own Markdown, trimmed, or null when
+     * there is nothing left.
+     *
+     * Deliberately not a sanitiser. Markdown is inert text — it becomes
+     * dangerous only when something renders it, and both renderers refuse
+     * raw HTML on their own. Stripping tags here instead would corrupt the
+     * legitimate case of a fenced code block containing markup, which is
+     * exactly the kind of thing people put in a bio on a game server site.
+     */
+    public static function normalize(?string $markdown): ?string
     {
-        if ($html === null) {
+        if ($markdown === null) {
             return null;
         }
 
+        $clean = trim(str_replace("\r\n", "\n", $markdown));
+
+        return $clean === '' ? null : $clean;
+    }
+
+    /**
+     * Markdown to safe HTML, for a server-side consumer.
+     *
+     * The SPA does not use this — it renders Markdown to React elements
+     * directly, so no HTML string is ever inserted into a page. This is
+     * here for everything that cannot do that (a future feed, a
+     * notification email, a server-rendered page), and for the down()
+     * path of the migration that converted stored HTML into Markdown.
+     *
+     * Two independent guards: the parser is told to strip embedded HTML
+     * rather than pass it through, and the result then goes through the
+     * element allowlist anyway.
+     */
+    public static function toHtml(?string $markdown): ?string
+    {
+        if ($markdown === null) {
+            return null;
+        }
+
+        $html = self::foldHeadings(Str::markdown($markdown, [
+            'html_input' => 'strip',
+            'allow_unsafe_links' => false,
+        ]));
+
         $clean = trim(self::sanitizer()->sanitize($html));
 
-        // An editor that has been emptied still emits its container tags,
-        // and which ones depends on how it was emptied — "<p></p>",
-        // "<p><br /></p>", an empty list. Matching those as strings misses
-        // the next variant, so ask the real question instead: is there any
-        // text left? Nothing this allowlist keeps carries meaning without
-        // text (images are dropped outright), so no text means no bio, and
-        // storing markup for it would make every "has a bio" check true
-        // forever.
         return trim(strip_tags($clean)) === '' ? null : $clean;
+    }
+
+    /**
+     * Every heading becomes an h2 or an h3.
+     *
+     * The allowlist has only ever had those two, because rich text sits
+     * inside a page that already owns the h1 and letting people mint their
+     * own breaks the outline of every page their bio appears on. Under the
+     * old HTML store that was fine — the editor offered exactly two
+     * heading buttons. In Markdown, '#' is the obvious thing to type, and
+     * an unlisted element is dropped *with its text*: somebody's heading
+     * would silently disappear. Folding instead keeps every word and still
+     * keeps the outline. The SPA renderer maps the same levels the same
+     * way.
+     *
+     * A regex over our own generator's output rather than a parse — these
+     * tags come from CommonMark, not from a person, and the sanitiser runs
+     * over the result afterwards either way.
+     */
+    private static function foldHeadings(string $html): string
+    {
+        return preg_replace(
+            ['~<(/?)h1>~i', '~<(/?)h[456]>~i'],
+            ['<$1h2>', '<$1h3>'],
+            $html
+        );
     }
 
     private static function sanitizer(): HtmlSanitizer
     {
         $config = (new HtmlSanitizerConfig())
-            // Everything not named below is dropped along with its
-            // content — see UNWRAPPED for the tags that get their text
-            // kept instead.
             ->allowLinkSchemes(['http', 'https', 'mailto'])
-            // Forced on every link this stores, so a bio cannot hand a
+            // Forced onto every link, so rendered rich text cannot hand a
             // reader's referrer or window handle to whatever it links to.
             ->forceAttribute('a', 'rel', 'noreferrer noopener')
             ->forceAttribute('a', 'target', '_blank')
-            ->withMaxInputLength(self::MAX_LENGTH);
+            ->withMaxInputLength(self::MAX_LENGTH * 4);
 
         foreach (self::ELEMENTS as $element => $attributes) {
             $config = $config->allowElement($element, $attributes);
-        }
-
-        foreach (self::UNWRAPPED as $element) {
-            $config = $config->blockElement($element);
         }
 
         return new HtmlSanitizer($config);

@@ -5,7 +5,7 @@ import { useApi } from '../providers/ApiClientProvider';
 import { useAuth } from '../providers/AuthProvider';
 import { ApiError } from '../api/client';
 import { AvatarPicker } from '../components/AvatarPicker';
-import { RichTextField } from '../components/RichText';
+import { MarkdownField } from '../components/RichText';
 import { useAccountPlacementPreference } from '../layout/useAccountPlacement';
 import type { User } from '../api/types';
 
@@ -122,7 +122,7 @@ export function ProfileEdit() {
         <label>
           <div>About you</div>
           <div style={{ marginTop: 6 }}>
-            <RichTextField
+            <MarkdownField
               value={bio}
               onChange={(html) => {
                 setBio(html);

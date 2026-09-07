@@ -28,6 +28,8 @@ class ProfileResource extends JsonResource
             'id' => $this->id,
             'display_name' => $this->profileName(),
             'avatar_url' => $this->avatarUrl(),
+            // Markdown, rendered by the client — no HTML string produced
+            // from somebody's bio is ever inserted into a page.
             'bio' => $this->bio,
             'profile_public' => (bool) $this->profile_public,
             'can_edit' => $this->profileEditableBy($viewer),

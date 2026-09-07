@@ -111,3 +111,63 @@ body {
   background: var(--background, #fff);
   color: var(--text, #111);
 }
+
+/* EasyMDE ships its own light chrome — white editor body, white toolbar,
+   grey borders — which reads as a broken hole in a dark install. It has no
+   theme system of its own, so the surfaces are repainted here from the same
+   tokens every other control uses. Only colour is touched: the editor's
+   own layout, spacing and syntax highlighting are left exactly as the
+   library draws them. */
+.EasyMDEContainer .CodeMirror,
+.EasyMDEContainer .editor-toolbar,
+.EasyMDEContainer .editor-preview,
+.EasyMDEContainer .editor-preview-side,
+.EasyMDEContainer .editor-statusbar {
+  background: var(--surface, #fff);
+  color: var(--text, #111);
+  border-color: var(--border, #ddd);
+}
+
+.EasyMDEContainer .CodeMirror-cursor {
+  border-left-color: var(--text, #111);
+}
+
+.EasyMDEContainer .CodeMirror-selected,
+.EasyMDEContainer .CodeMirror-line::selection,
+.EasyMDEContainer .CodeMirror-line > span::selection {
+  background: var(--surface-muted, #d7d4f0);
+}
+
+.EasyMDEContainer .editor-toolbar button {
+  color: var(--text, #111);
+}
+
+.EasyMDEContainer .editor-toolbar button:hover,
+.EasyMDEContainer .editor-toolbar button.active {
+  background: var(--surface-muted, #f0f0f0);
+  border-color: var(--border, #ddd);
+}
+
+/* Toolbar buttons carry text labels rather than icon glyphs (see
+   MarkdownEditor), so they need room for a word instead of a square. */
+.EasyMDEContainer .editor-toolbar button.easymde-label {
+  width: auto;
+  padding: 0 8px;
+}
+
+/* Markdown syntax the editor highlights: the defaults are tuned for a
+   white page and vanish on a dark one. */
+.EasyMDEContainer .cm-s-easymde .cm-header,
+.EasyMDEContainer .cm-s-easymde .cm-strong {
+  color: var(--text, #111);
+}
+
+.EasyMDEContainer .cm-s-easymde .cm-link,
+.EasyMDEContainer .cm-s-easymde .cm-url {
+  color: var(--accent, #0645ad);
+}
+
+.EasyMDEContainer .cm-s-easymde .cm-comment {
+  background: var(--surface-muted, rgba(127, 127, 127, 0.12));
+  color: var(--text, #111);
+}

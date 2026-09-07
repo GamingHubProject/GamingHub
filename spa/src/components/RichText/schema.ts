@@ -1,23 +1,24 @@
 /**
- * The one list of tags rich text may contain.
+ * The elements a rendered rich-text document may contain.
  *
  * This is the frontend half of a contract whose other half is
- * App\Profiles\RichText::ELEMENTS. The server sanitises every rich-text
- * write against that list, so anything the editor can emit but the server
- * does not allow is formatting a person applies and then watches vanish on
- * save. `RichTextAllowlistTest` reads this file and fails if the two
- * lists stop matching, because nothing else would notice until somebody's
- * bio quietly lost its headings.
+ * App\Profiles\RichText::ELEMENTS, which is what a *server-side* render
+ * allows. `RichTextTest` reads this file and fails when the two stop
+ * matching, so the two renderers can never disagree about what a stored
+ * document turns into.
  *
- * Adding a tag means: add it here, add it (with its allowed attributes) in
- * PHP, and enable whatever Tiptap extension emits it below.
+ * Rich text is stored as Markdown. Anything Markdown can produce that
+ * isn't listed here (a table, an image) is simply not rendered — the
+ * renderer drops the element and keeps its text, so no words are ever
+ * lost to the allowlist.
  */
 export const RICH_TEXT_ELEMENTS = [
   'p',
   'br',
   'strong',
   'em',
-  's',
+  // GFM strikethrough renders as <del>, not <s>.
+  'del',
   'code',
   'pre',
   'blockquote',
@@ -29,7 +30,14 @@ export const RICH_TEXT_ELEMENTS = [
   'a',
 ] as const;
 
-/** Headings are deliberately h2/h3 only: a bio sits inside a page that
- *  already has an h1, and letting people mint their own h1 breaks the
- *  document outline of every page their profile appears on. */
-export const RICH_TEXT_HEADING_LEVELS = [2, 3] as const;
+/**
+ * Every heading level Markdown can express, folded onto the two the
+ * allowlist keeps.
+ *
+ * Rich text sits inside a page that already owns the h1, so people minting
+ * their own would break the outline of every page their bio appears on.
+ * Dropping them instead would drop the words with them — '#' is the
+ * obvious thing to type in Markdown. RichText::foldHeadings() does the
+ * same on the server.
+ */
+export const HEADING_FOLD = { h1: 'h2', h4: 'h3', h5: 'h3', h6: 'h3' } as const;

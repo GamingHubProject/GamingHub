@@ -19,6 +19,7 @@
         "laravel/framework": "^11.31",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^2.9",
+        "league/html-to-markdown": "^5.1",
         "maxmind-db/reader": "^1.13",
         "spatie/laravel-permission": "^6.25",
         "symfony/html-sanitizer": "^7.0"

@@ -56,8 +56,8 @@ describe('ProfileAvatarWidget', () => {
 });
 
 describe('ProfileBioWidget', () => {
-  it('renders the stored html', () => {
-    render(<ProfileBioWidget context={contextFor({ bio: '<p>Hello <strong>there</strong></p>' })} />);
+  it('renders the stored markdown', () => {
+    render(<ProfileBioWidget context={contextFor({ bio: 'Hello **there**' })} />);
 
     expect(screen.getByText('there')).toBeInTheDocument();
   });
@@ -119,14 +119,14 @@ describe('ProfileStatsWidget', () => {
 });
 
 describe('TextWidget', () => {
-  it('renders its html', () => {
-    render(<TextWidget config={{ html: '<p>Welcome to the server</p>' }} />);
+  it('renders its markdown', () => {
+    render(<TextWidget config={{ markdown: 'Welcome to the server' }} />);
 
     expect(screen.getByText('Welcome to the server')).toBeInTheDocument();
   });
 
   it('tells an admin how to fill it rather than rendering nothing', () => {
-    render(<TextWidget config={{ html: '' }} />);
+    render(<TextWidget config={{ markdown: '' }} />);
 
     expect(screen.getByText(/open the settings/i)).toBeInTheDocument();
   });

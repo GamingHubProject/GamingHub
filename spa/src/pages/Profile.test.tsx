@@ -29,7 +29,7 @@ const profile: ProfileData = {
   id: 7,
   display_name: 'Rose',
   avatar_url: null,
-  bio: '<p>Hello there</p>',
+  bio: 'Hello there',
   profile_public: true,
   can_edit: false,
   allowed_widget_types: ['profile-avatar', 'profile-bio'],

@@ -1,4 +1,4 @@
-import { RichTextContent } from '../../components/RichText';
+import { Markdown } from '../../components/RichText';
 import type { PageLayoutWidgetContext } from './registry';
 
 /**
@@ -18,5 +18,5 @@ export function ProfileBioWidget({ context }: { context: PageLayoutWidgetContext
     );
   }
 
-  return <RichTextContent html={profile.bio} />;
+  return <Markdown markdown={profile.bio} />;
 }

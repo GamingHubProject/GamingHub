@@ -100,7 +100,7 @@ export interface Profile {
   /** Already resolved: display_name, or the account name when unset. */
   display_name: string;
   avatar_url: string | null;
-  /** Sanitised HTML — see components/RichText. */
+  /** Markdown — see components/RichText. */
   bio: string | null;
   profile_public: boolean;
   can_edit: boolean;

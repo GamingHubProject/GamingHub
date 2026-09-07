@@ -10,17 +10,16 @@ import { ProfileEdit } from './ProfileEdit';
 import type { User } from '../api/types';
 
 /**
- * The editor itself is a lazily-loaded ProseMirror bundle, and none of
- * what this file is testing is about it — the form's own behaviour is.
- * Stubbing it keeps these tests about the page (and fast); the real
- * component's contract with the server is covered by the rich-text
- * allowlist test on the PHP side.
+ * The editor itself is a lazily-loaded CodeMirror bundle, and none of what
+ * this file is testing is about it — the form's own behaviour is. Stubbing
+ * it keeps these tests about the page (and fast); the editor's own
+ * behaviour belongs to EasyMDE, and the renderer has its own tests.
  */
 vi.mock('../components/RichText', () => ({
-  RichTextField: ({ value, onChange }: { value: string; onChange: (html: string) => void }) => (
+  MarkdownField: ({ value, onChange }: { value: string; onChange: (markdown: string) => void }) => (
     <textarea aria-label="About you" value={value} onChange={(event) => onChange(event.target.value)} />
   ),
-  RichTextContent: ({ html }: { html: string | null }) => <div>{html}</div>,
+  Markdown: ({ markdown }: { markdown: string | null }) => <div>{markdown}</div>,
 }));
 
 const user: User = {
@@ -73,10 +72,10 @@ function renderEditor({
 
 describe('ProfileEdit', () => {
   it('fills itself from the signed-in account', async () => {
-    renderEditor({ currentUser: { ...user, display_name: 'Rose', bio: '<p>Hi</p>', profile_public: false } });
+    renderEditor({ currentUser: { ...user, display_name: 'Rose', bio: 'Hi **there**', profile_public: false } });
 
     expect(await screen.findByDisplayValue('Rose')).toBeInTheDocument();
-    expect(screen.getByLabelText('About you')).toHaveValue('<p>Hi</p>');
+    expect(screen.getByLabelText('About you')).toHaveValue('Hi **there**');
     expect(screen.getByRole('checkbox', { name: /anyone can see my profile/i })).not.toBeChecked();
   });
 

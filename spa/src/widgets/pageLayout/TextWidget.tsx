@@ -1,15 +1,14 @@
-import { RichTextContent, RichTextField } from '../../components/RichText';
+import { Markdown, MarkdownField } from '../../components/RichText';
 import type { PageLayoutWidgetConfigFormProps } from './registry';
 
 export interface TextWidgetConfig {
-  /** Sanitised HTML, produced by the shared editor and sanitised again on
-   *  the way into the database (App\Profiles\RichText) — the same
-   *  round-trip a bio takes. Never render this anywhere that hasn't been
-   *  through that. */
-  html: string;
+  /** Markdown, exactly as its author typed it — the same storage a bio
+   *  uses. Rendering happens here rather than on write, so what comes back
+   *  to the editor is what was written. */
+  markdown: string;
 }
 
-export const textWidgetDefaultConfig: TextWidgetConfig = { html: '' };
+export const textWidgetDefaultConfig: TextWidgetConfig = { markdown: '' };
 
 /**
  * Free rich text, on any page. The first widget whose content is authored
@@ -17,11 +16,11 @@ export const textWidgetDefaultConfig: TextWidgetConfig = { html: '' };
  * everywhere — a profile is only its first use, not its purpose.
  */
 export function TextWidget({ config }: { config: TextWidgetConfig }) {
-  if (!config.html) {
+  if (!config.markdown) {
     return <p style={{ color: 'var(--muted, #888)', margin: 0 }}>Empty — open the settings to write something.</p>;
   }
 
-  return <RichTextContent html={config.html} />;
+  return <Markdown markdown={config.markdown} />;
 }
 
 export function TextWidgetConfigForm({ config, onChange }: PageLayoutWidgetConfigFormProps<TextWidgetConfig>) {
@@ -29,7 +28,7 @@ export function TextWidgetConfigForm({ config, onChange }: PageLayoutWidgetConfi
     <label style={{ display: 'block' }}>
       Text
       <div style={{ marginTop: 4 }}>
-        <RichTextField value={config.html ?? ''} onChange={(html) => onChange({ ...config, html })} />
+        <MarkdownField value={config.markdown ?? ''} onChange={(markdown) => onChange({ ...config, markdown })} />
       </div>
     </label>
   );

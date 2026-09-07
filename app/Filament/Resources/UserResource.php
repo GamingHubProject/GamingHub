@@ -96,14 +96,13 @@ class UserResource extends Resource
                 Forms\Components\Toggle::make('profile_public')
                     ->label('Public profile')
                     ->helperText('Off means only they and admins can see it.'),
-                // Bios are sanitised HTML now. This field writes through
-                // exactly the same sanitiser as the API — an admin form is
-                // not a reason to trust markup that lands on a page other
-                // people load, and a second path around RichText is how
-                // the two drift.
+                // Markdown, stored as typed — the same value the person's
+                // own editor writes, through the same normaliser. Nothing
+                // is sanitised on the way in because nothing renders raw
+                // HTML on the way out; see App\Profiles\RichText.
                 Forms\Components\Textarea::make('bio')
-                    ->helperText('Rich text, sanitised on save. Tags kept: '.implode(', ', array_keys(RichText::ELEMENTS)).'. Everything else is stripped.')
-                    ->dehydrateStateUsing(fn (?string $state): ?string => RichText::sanitize($state))
+                    ->helperText('Markdown. Headings, bold, italic, strikethrough, lists, quotes, code and links render; anything else is ignored.')
+                    ->dehydrateStateUsing(fn (?string $state): ?string => RichText::normalize($state))
                     ->rows(6)
                     ->columnSpanFull(),
                 // One field per allowed preference, built from the same

@@ -89,8 +89,11 @@ class ProfileController extends Controller
             abort_if($taken, 422, 'That display name is already taken.');
         }
 
+        // Stored as typed. Markdown is inert text — see RichText — so
+        // this normalises rather than sanitises, and what comes back to
+        // the editor is what the person wrote.
         if (array_key_exists('bio', $data)) {
-            $data['bio'] = RichText::sanitize($data['bio']);
+            $data['bio'] = RichText::normalize($data['bio']);
         }
 
         // An avatar has to be an image somebody could actually render, and
