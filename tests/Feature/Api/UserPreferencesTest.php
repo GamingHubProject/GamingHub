@@ -36,7 +36,23 @@ class UserPreferencesTest extends TestCase
     public function test_it_merges_rather_than_replacing_what_is_already_there(): void
     {
         // A client that knows about one preference must not wipe the ones
-        // it has never heard of.
+        // it has never heard of — a request that mentions no key at all
+        // leaves every stored key standing.
+        $user = User::factory()->create(['preferences' => ['account_placement' => 'sidebar']]);
+
+        $this->actingAs($user)
+            ->patchJson('/api/v1/user/preferences', [])
+            ->assertOk();
+
+        $this->assertSame('sidebar', $user->refresh()->preferences['account_placement']);
+    }
+
+    public function test_a_key_left_behind_from_outside_the_allowlist_is_dropped_on_the_next_write(): void
+    {
+        // Only reachable on a row written before the allowlist existed, or
+        // through Filament's raw key/value editor, which this release
+        // removed. The merge deliberately does not carry it forward: the
+        // allowlist is a property of the column, not of one endpoint.
         $user = User::factory()->create(['preferences' => ['something_else' => 'kept']]);
 
         $this->actingAs($user)
@@ -44,7 +60,7 @@ class UserPreferencesTest extends TestCase
             ->assertOk();
 
         $preferences = $user->refresh()->preferences;
-        $this->assertSame('kept', $preferences['something_else']);
+        $this->assertArrayNotHasKey('something_else', $preferences);
         $this->assertSame('header', $preferences['account_placement']);
     }
 

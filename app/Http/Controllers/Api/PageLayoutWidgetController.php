@@ -14,19 +14,24 @@ use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Every mutating action here is Admin-role gated, not ownership gated —
- * same as before the page_layouts generalization. Subject-agnostic: a
- * widget row already points at its PageLayout via page_layout_id, so
- * store() is the only method that needs a subject at all, and even that's
- * just "which layout" — never "which kind of subject". The frontend
- * always fetches the layout (PageLayoutController) before adding a widget,
- * so it already has the real layout id by the time it calls this.
+ * Every mutating action here authorises against the layout being written
+ * to, via PageLayout::canBeEditedBy() — not against a bare Admin role, as
+ * it did while every layout was a site page an admin owned.
+ *
+ * That makes the two widget-id endpoints resolve widget -> layout before
+ * they decide anything: a widget id alone can no longer answer "may this
+ * person write here", because the answer now depends on which page the
+ * widget sits on. They stay subject-agnostic in every other respect — the
+ * question they ask is "may you edit this layout", never "what kind of
+ * subject is it". The frontend still always fetches the layout
+ * (PageLayoutController) before adding a widget, so it already has the
+ * real layout id by the time it calls store().
  */
 class PageLayoutWidgetController extends Controller
 {
     public function store(Request $request, PageLayout $layout): JsonResponse
     {
-        abort_unless($request->user()->hasRole('Admin'), 403);
+        abort_unless($layout->canBeEditedBy($request->user()), 403);
 
         $data = $request->validate([
             'widget_type' => ['required', 'string', 'max:255'],
@@ -52,7 +57,7 @@ class PageLayoutWidgetController extends Controller
 
     public function update(Request $request, PageLayoutWidget $widget): PageLayoutWidgetResource
     {
-        abort_unless($request->user()->hasRole('Admin'), 403);
+        abort_unless($widget->layout->canBeEditedBy($request->user()), 403);
 
         $data = $request->validate([
             'widget_type' => ['sometimes', 'string', 'max:255'],
@@ -78,7 +83,7 @@ class PageLayoutWidgetController extends Controller
 
     public function destroy(Request $request, PageLayoutWidget $widget): Response
     {
-        abort_unless($request->user()->hasRole('Admin'), 403);
+        abort_unless($widget->layout->canBeEditedBy($request->user()), 403);
 
         $groupId = $widget->group_widget_id;
 

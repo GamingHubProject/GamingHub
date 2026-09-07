@@ -17,8 +17,16 @@ use Illuminate\Validation\Rule;
 /**
  * Admin-only, editor-only — templates are a layout-building convenience,
  * never rendered to a visitor directly (unlike Asset Library folders,
- * which a non-admin can browse read-only). Every method here is gated the
- * same way PageLayoutWidgetController's writes are.
+ * which a non-admin can browse read-only).
+ *
+ * Every method here keeps a bare hasRole('Admin') rather than following
+ * PageLayoutWidgetController onto PageLayout::canBeEditedBy(). That is a
+ * deliberate difference, not an oversight: canBeEditedBy() answers "may
+ * you write to this one layout", and place() also reads from the shared
+ * template library, which is admin-owned. Someone who may edit their own
+ * profile layout has no business stamping site templates onto it. The
+ * Admin role is strictly narrower than canBeEditedBy() here, so this
+ * grants nothing the layout rule would deny.
  */
 class GroupWidgetTemplateController extends Controller
 {

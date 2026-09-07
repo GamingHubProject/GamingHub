@@ -4,6 +4,7 @@ namespace App\Filament\Resources\UserResource\Pages;
 
 use App\Filament\Resources\UserResource;
 use App\Models\AdminAudit;
+use App\Models\User;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
@@ -29,6 +30,22 @@ class EditUser extends EditRecord
         return [
             Actions\DeleteAction::make(),
         ];
+    }
+
+    /**
+     * The preferences fields are one Select per allowed key, so what
+     * arrives here is already shaped by the allowlist — this is the second
+     * lock: it also drops whatever unlisted keys the row happens to be
+     * carrying from before the raw KeyValue editor was removed.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $data['preferences'] = User::sanitizePreferences($data['preferences'] ?? []);
+
+        return $data;
     }
 
     protected function beforeSave(): void

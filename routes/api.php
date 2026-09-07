@@ -83,15 +83,16 @@ Route::prefix('v1')->group(function () {
         Route::post('/dashboard/widgets', [DashboardWidgetController::class, 'store']);
         Route::patch('/dashboard/widgets/{widget}', [DashboardWidgetController::class, 'update']);
 
-        // Admin-gated inline in the controller (hasRole('Admin')), not by
-        // route middleware — no 'role:' middleware alias is registered in
-        // this app; every other per-request authorization check in this
-        // codebase (e.g. DashboardWidgetController's ownership check) is
-        // likewise done inline rather than via middleware.
-        // Subject-agnostic — see PageLayoutWidgetController's docblock.
-        // The frontend always fetches the layout first (one of the
-        // subject-specific GET routes above), so it already has the real
-        // layout id by the time it adds a widget.
+        // Authorized inline in the controllers, not by route middleware —
+        // no 'role:' middleware alias is registered in this app; every
+        // other per-request authorization check in this codebase (e.g.
+        // DashboardWidgetController's ownership check) is likewise done
+        // inline rather than via middleware. Each of these asks
+        // PageLayout::canBeEditedBy(), resolving widget -> layout first
+        // where the route only carries a widget id — so a widget id alone
+        // never decides who may write. The frontend always fetches the
+        // layout first (one of the subject-specific GET routes above), so
+        // it already has the real layout id by the time it adds a widget.
         Route::post('/page-layouts/{layout}/widgets', [PageLayoutWidgetController::class, 'store']);
         Route::patch('/page-layouts/{layout}', [PageLayoutController::class, 'update']);
         Route::patch('/page-layout-widgets/{widget}', [PageLayoutWidgetController::class, 'update']);
@@ -99,7 +100,11 @@ Route::prefix('v1')->group(function () {
 
         // Admin-only, editor-only — see GroupWidgetTemplateController's
         // docblock. No public browse endpoint; a template is never
-        // rendered to a visitor, only used while editing a layout.
+        // rendered to a visitor, only used while editing a layout. These
+        // deliberately keep a bare Admin gate rather than moving to
+        // canBeEditedBy(): templates are an admin's layout-building tool,
+        // and nothing about a person owning one layout should hand them
+        // the shared template library.
         Route::get('/group-widget-templates', [GroupWidgetTemplateController::class, 'index']);
         Route::post('/group-widget-templates', [GroupWidgetTemplateController::class, 'store']);
         Route::delete('/group-widget-templates/{template}', [GroupWidgetTemplateController::class, 'destroy']);

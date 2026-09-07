@@ -12,15 +12,20 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 /**
- * Public — same visibility as the subject page itself. One thin,
- * route-model-bound method per subject type (mirroring how this worked
- * for Server alone before the page_layouts generalization) rather than a
- * single generic "resolve any subject by string type" endpoint: each
- * already has its real subject in hand via route binding (a Server, a
+ * Reads are public — same visibility as the subject page itself. The one
+ * write here (update(), the per-page font override) authorises through
+ * PageLayout::canBeEditedBy(), which is now the single authority on who
+ * may write to a layout.
+ *
+ * One thin, route-model-bound method per subject type (mirroring how this
+ * worked for Server alone before the page_layouts generalization) rather
+ * than a single generic "resolve any subject by string type" endpoint:
+ * each already has its real subject in hand via route binding (a Server, a
  * Game, or nothing for Home/the games list), so there's nothing generic
  * left to do beyond the shared firstOrCreate below. Widget writes
- * (PageLayoutWidgetController) don't need any of this — a widget row
- * already points at its layout, so those stay subject-agnostic.
+ * (PageLayoutWidgetController) still need none of that resolution — a
+ * widget row already points at its layout, and the layout answers the
+ * authorization question on its own.
  */
 class PageLayoutController extends Controller
 {
@@ -71,7 +76,7 @@ class PageLayoutController extends Controller
      */
     public function update(Request $request, PageLayout $layout): PageLayoutResource
     {
-        abort_unless($request->user()->hasRole('Admin'), 403);
+        abort_unless($layout->canBeEditedBy($request->user()), 403);
 
         $data = $request->validate([
             'font_asset_id' => ['sometimes', 'nullable', 'integer', Rule::exists('assets', 'id')],
