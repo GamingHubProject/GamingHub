@@ -6,7 +6,11 @@ import { AuthProvider } from '../providers/AuthProvider';
 import { Dashboard } from './Dashboard';
 import type { DashboardPage, User } from '../api/types';
 
-const user: User = { id: 1, name: 'Rose', email: 'rose@example.com', avatar: null, bio: null, preferences: null, is_admin: false };
+const user: User = { id: 1, name: 'Rose', email: 'rose@example.com', display_name: null,
+  avatar: null,
+  avatar_asset_id: null,
+  avatar_url: null, bio: null,
+  profile_public: true, preferences: null, is_admin: false };
 
 function renderDashboard(client: { get: (path: string) => Promise<unknown>; post: (path: string, body?: unknown) => Promise<unknown> }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

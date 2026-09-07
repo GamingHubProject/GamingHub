@@ -79,10 +79,53 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  /** The raw column — null means "no display name set", which resolves to
+   *  `name` everywhere a profile is shown. The edit form needs to tell
+   *  those apart, which is why this isn't pre-resolved like
+   *  Profile.display_name. */
+  display_name: string | null;
   avatar: string | null;
+  avatar_asset_id: number | null;
+  avatar_url: string | null;
   bio: string | null;
+  profile_public: boolean;
   preferences: Record<string, unknown> | null;
   is_admin: boolean;
+}
+
+/** Someone else's profile as a reader sees it — deliberately narrower than
+ *  User: no email, no roles. */
+export interface Profile {
+  id: number;
+  /** Already resolved: display_name, or the account name when unset. */
+  display_name: string;
+  avatar_url: string | null;
+  /** Sanitised HTML — see components/RichText. */
+  bio: string | null;
+  profile_public: boolean;
+  can_edit: boolean;
+  /** Which widget types the site's admin permits on profiles, already
+   *  intersected with what the server knows about. The picker intersects
+   *  it again with the frontend registry, which is the capability half. */
+  allowed_widget_types: string[];
+  stats?: ProfileStat[];
+  achievements?: ProfileAchievement[];
+}
+
+export interface ProfileStat {
+  source: string;
+  subject_type: string | null;
+  subject_id: number | null;
+  key: string;
+  value: number;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface ProfileAchievement {
+  source: string;
+  achievement_key: string;
+  earned_at: string | null;
+  metadata: Record<string, unknown> | null;
 }
 
 export interface DashboardWidget {

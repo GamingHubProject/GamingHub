@@ -35,6 +35,7 @@ export function GameDetail() {
         layoutUrl={`/api/v1/games/${slug}/layout`}
         queryKey={['page-layout', 'game', slug]}
         context={{ subjectType: 'game', game }}
+        canEdit={user?.is_admin ?? false}
         isAdmin={user?.is_admin ?? false}
       />
 

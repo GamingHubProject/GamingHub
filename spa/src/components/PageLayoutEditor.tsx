@@ -182,14 +182,27 @@ export function PageLayoutEditor({
   layoutUrl,
   queryKey,
   context,
+  canEdit,
   isAdmin,
+  allowedWidgetTypes,
 }: {
   layoutUrl: string;
   /** react-query cache key for this page's layout — callers pass their own
    *  so e.g. a Server's and a Game's layouts never collide in the cache. */
   queryKey: unknown[];
   context: PageLayoutWidgetContext;
+  /** Whether this visitor may edit *this* layout — the mirror of
+   *  PageLayout::canBeEditedBy() on the server, which is the authority.
+   *  Every site page passes `user.is_admin`; a profile passes whether the
+   *  viewer owns it. */
+  canEdit: boolean;
+  /** Group widget templates are a site-wide, admin-owned library, so those
+   *  two buttons stay admin-only even on a layout somebody else may edit —
+   *  the server refuses them for anyone else regardless (see
+   *  GroupWidgetTemplateController). */
   isAdmin: boolean;
+  /** Passed through to the Add Widget picker; see its `allowedTypes`. */
+  allowedWidgetTypes?: string[];
 }) {
   const api = useApi();
   const queryClient = useQueryClient();
@@ -495,7 +508,16 @@ export function PageLayoutEditor({
   // currently on screen.
   const renderedWidgets = editMode
     ? topLevelWidgets
-    : topLevelWidgets.filter((w) => isPageLayoutWidgetValidFor(w.widget_type, context.subjectType));
+    : topLevelWidgets.filter(
+        (w) =>
+          isPageLayoutWidgetValidFor(w.widget_type, context.subjectType) &&
+          // An admin withdrawing a widget type means "not on profiles",
+          // not "not on new profiles" — so one already placed stops
+          // rendering too. Nothing is deleted: re-enabling the type brings
+          // every placement back, and edit mode keeps showing it so the
+          // owner can see what went quiet and move or remove it.
+          (allowedWidgetTypes === undefined || allowedWidgetTypes.includes(w.widget_type))
+      );
 
   const childrenByGroupId = new Map<number, PageLayoutWidget[]>();
   for (const widget of layout.widgets) {
@@ -516,7 +538,7 @@ export function PageLayoutEditor({
 
   return (
     <div>
-      {isAdmin && (
+      {canEdit && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <PageFontControl layout={layout} queryKey={queryKey} />
           {editMode && selectedWidgetIds.size >= 2 && (
@@ -524,7 +546,7 @@ export function PageLayoutEditor({
               Group selected ({selectedWidgetIds.size})
             </button>
           )}
-          {editMode && <button onClick={() => setAddingGroupFromTemplate(true)}>+ Add group from template</button>}
+          {editMode && isAdmin && <button onClick={() => setAddingGroupFromTemplate(true)}>+ Add group from template</button>}
           {editMode && <button onClick={() => setAddingWidget(true)}>+ Add widget</button>}
           <button
             onClick={() => {
@@ -608,6 +630,7 @@ export function PageLayoutEditor({
       {addingWidget && (
         <AddPageLayoutWidgetModal
           subjectType={context.subjectType}
+          allowedTypes={allowedWidgetTypes}
           onClose={() => setAddingWidget(false)}
           onAdd={(type) => addWidgetMutation.mutate(type)}
         />

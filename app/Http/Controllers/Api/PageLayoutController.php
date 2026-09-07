@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\PageLayoutResource;
 use App\Models\PageLayout;
+use App\Models\User;
 use GamingHub\Core\Models\Game;
 use GamingHub\Core\Models\Server;
 use Illuminate\Http\JsonResponse;
@@ -44,6 +45,14 @@ class PageLayoutController extends Controller
         'games-list' => [
             ['widget_type' => 'game-card', 'config' => ['mode' => 'all', 'game_id' => null, 'game_slug' => null], 'width' => 12, 'height' => 4],
         ],
+        // A profile nobody has arranged yet shows their picture and what
+        // they wrote about themselves, rather than an empty grid that
+        // reads as broken. Both widgets render their own empty state, so
+        // this is also what a brand-new account's profile looks like.
+        PageLayout::SUBJECT_USER_PROFILE => [
+            ['widget_type' => 'profile-avatar', 'config' => [], 'width' => 3, 'height' => 3],
+            ['widget_type' => 'profile-bio', 'config' => [], 'width' => 9, 'height' => 3],
+        ],
     ];
 
     public function showForServer(Server $server): JsonResponse
@@ -66,6 +75,20 @@ class PageLayoutController extends Controller
     public function showForGamesList(): JsonResponse
     {
         return $this->respond($this->resolve('games-list', PageLayout::SINGLETON_SUBJECT_ID));
+    }
+
+    /**
+     * The one layout that isn't a site page. Visibility is the profile's,
+     * not the layout's — a private profile must not serve its widgets to
+     * a stranger any more than it serves its bio, and the layout row is
+     * only created once somebody is actually allowed to look at it, so a
+     * closed profile leaves no trace to enumerate.
+     */
+    public function showForUserProfile(Request $request, User $user): JsonResponse
+    {
+        abort_unless($user->profileVisibleTo($request->user()), 403, 'This profile is private.');
+
+        return $this->respond($this->resolve(PageLayout::SUBJECT_USER_PROFILE, $user->id));
     }
 
     /**
@@ -100,8 +123,14 @@ class PageLayoutController extends Controller
         ]);
 
         if ($layout->wasRecentlyCreated) {
+            $x = 0;
+
             foreach (self::DEFAULT_WIDGETS[$subjectType] ?? [] as $widget) {
-                $layout->widgets()->create($widget + ['position_x' => 0, 'position_y' => 0]);
+                // Laid left to right across the 12-column grid, so a
+                // multi-widget default (a profile's avatar beside its bio)
+                // doesn't seed every widget stacked at 0,0.
+                $layout->widgets()->create($widget + ['position_x' => $x, 'position_y' => 0]);
+                $x += $widget['width'];
             }
         }
 

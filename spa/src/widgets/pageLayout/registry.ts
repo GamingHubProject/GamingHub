@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import type { Game, Server } from '../../api/types';
+import type { Game, Profile, Server } from '../../api/types';
 import type { ResolvedWidgetStyle } from '../shared/widgetStyle';
 
 export interface PageLayoutWidgetConfigFormProps<TConfig> {
@@ -7,10 +7,13 @@ export interface PageLayoutWidgetConfigFormProps<TConfig> {
   onChange: (next: TConfig) => void;
 }
 
-/** Every page type that can hold an admin-editable widget layout — see
- *  PageLayoutEditor. 'home' is the singleton main Portal page, 'games-list'
- *  the singleton /games listing page. */
-export type PageLayoutSubjectType = 'server' | 'game' | 'home' | 'games-list';
+/** Every page type that can hold a widget layout — see PageLayoutEditor.
+ *  'home' is the singleton main Portal page, 'games-list' the singleton
+ *  /games listing page. 'user_profile' is the only one that isn't an
+ *  admin-owned site page: its subject edits it (PageLayout::canBeEditedBy
+ *  on the server), which is why the editor takes a `canEdit` rather than
+ *  an `isAdmin`. */
+export type PageLayoutSubjectType = 'server' | 'game' | 'home' | 'games-list' | 'user_profile';
 
 /**
  * What a widget component actually has to work with, beyond its own
@@ -24,6 +27,7 @@ export interface PageLayoutWidgetContext {
   subjectType: PageLayoutSubjectType;
   server?: Server;
   game?: Game;
+  profile?: Profile;
 }
 
 /**
@@ -38,7 +42,7 @@ export interface PageLayoutWidgetDefinition<TConfig = Record<string, unknown>> {
   label: string;
   /** Grouping for the Add Widget picker (see AddPageLayoutWidgetModal) —
    *  purely a UI label, not used for anything else. */
-  category: 'Server' | 'Game' | 'General';
+  category: 'Server' | 'Game' | 'General' | 'Profile';
   /** Which page types this widget can be added to. Enforced by the Add
    *  Widget picker (it filters the list to the current page's subject
    *  type) — not re-checked server-side, same trust boundary the backend

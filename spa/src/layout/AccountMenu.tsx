@@ -42,7 +42,9 @@ export function AccountMenu({
   canRelocate?: boolean;
 }) {
   const api = useApi();
-  const { refetch } = useAuth();
+  // `name`/`isAdmin` arrive as props (the shell already has them), but the
+  // profile link needs the id, which only the user row carries.
+  const { user, refetch } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [moving, setMoving] = useState(false);
@@ -149,10 +151,11 @@ export function AccountMenu({
               Admin
             </MenuLink>
           )}
-          {/* No profile page built yet — placeholder only. */}
-          <button type="button" disabled style={{ ...itemStyle, color: 'var(--muted, #999)', cursor: 'not-allowed' }}>
-            Profile
-          </button>
+          {user && (
+            <MenuLink to={`/users/${user.id}`} onNavigate={() => setOpen(false)}>
+              Profile
+            </MenuLink>
+          )}
           {canRelocate && placement && (
             <button type="button" onClick={handleMove} disabled={moving} style={{ ...itemStyle, color: 'var(--muted, #666)', fontSize: '0.9em' }}>
               {placement === 'sidebar' ? 'Move to the top bar' : 'Move to the sidebar'}

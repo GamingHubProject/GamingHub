@@ -31,6 +31,7 @@ function renderEditor(
           layoutUrl="/api/v1/home/layout"
           queryKey={['page-layout', 'home']}
           context={{ subjectType: 'home' }}
+          canEdit={props.isAdmin}
           isAdmin={props.isAdmin}
         />
       </ApiClientProvider>

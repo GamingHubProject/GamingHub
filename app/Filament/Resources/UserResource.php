@@ -4,7 +4,10 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
 use App\Filament\Resources\UserResource\RelationManagers;
+use App\Models\Asset;
 use App\Models\User;
+use App\Profiles\RichText;
+use Closure;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -31,6 +34,33 @@ class UserResource extends Resource
                 Forms\Components\TextInput::make('name')
                     ->required()
                     ->maxLength(255),
+                // Public presentation, separate from the login identity
+                // above. Uniqueness is case-insensitive in the database
+                // (a functional index over lower(display_name), so "Rose"
+                // and "rose" cannot both exist); Filament's own rule is
+                // case-sensitive, hence the explicit callback — without it
+                // a collision differing only in case reaches Postgres and
+                // comes back as a 500 instead of a form error.
+                Forms\Components\TextInput::make('display_name')
+                    ->label('Display name')
+                    ->helperText('What their profile is titled with, and their /@name link. Blank falls back to the account name.')
+                    ->maxLength(50)
+                    ->rules([
+                        fn (?User $record) => function (string $attribute, $value, Closure $fail) use ($record) {
+                            if (blank($value)) {
+                                return;
+                            }
+
+                            $taken = User::query()
+                                ->whereRaw('lower(display_name) = lower(?)', [$value])
+                                ->when($record, fn ($query) => $query->whereKeyNot($record->getKey()))
+                                ->exists();
+
+                            if ($taken) {
+                                $fail('That display name is already taken.');
+                            }
+                        },
+                    ]),
                 Forms\Components\TextInput::make('email')
                     ->email()
                     ->required()
@@ -51,17 +81,30 @@ class UserResource extends Resource
                     ->relationship('roles', 'name')
                     ->multiple()
                     ->preload(),
-                Forms\Components\TextInput::make('avatar')
-                    ->maxLength(255),
-                // Stored as plain text, and kept that way here on purpose.
-                // A textarea an admin can put markup into writes straight
-                // onto a page other people load; when bios become rich text
-                // this dehydrate step becomes the same server-side
-                // sanitiser that endpoint will use, rather than a second
-                // path around it.
+                Forms\Components\Select::make('avatar_asset_id')
+                    ->label('Avatar')
+                    ->native(false)
+                    ->helperText('People choose their own in the profile editor; this is here for moderation. Raster images only.')
+                    ->options(fn () => Asset::query()
+                        ->whereIn('mime_type', ['image/png', 'image/jpeg', 'image/webp'])
+                        ->latest()
+                        ->limit(200)
+                        ->get()
+                        ->mapWithKeys(fn (Asset $asset) => [$asset->id => $asset->alt_text ?: basename($asset->disk_path)]))
+                    ->searchable()
+                    ->nullable(),
+                Forms\Components\Toggle::make('profile_public')
+                    ->label('Public profile')
+                    ->helperText('Off means only they and admins can see it.'),
+                // Bios are sanitised HTML now. This field writes through
+                // exactly the same sanitiser as the API — an admin form is
+                // not a reason to trust markup that lands on a page other
+                // people load, and a second path around RichText is how
+                // the two drift.
                 Forms\Components\Textarea::make('bio')
-                    ->helperText('Plain text — any HTML is stripped when saved.')
-                    ->dehydrateStateUsing(fn (?string $state): ?string => self::plainText($state))
+                    ->helperText('Rich text, sanitised on save. Tags kept: '.implode(', ', array_keys(RichText::ELEMENTS)).'. Everything else is stripped.')
+                    ->dehydrateStateUsing(fn (?string $state): ?string => RichText::sanitize($state))
+                    ->rows(6)
                     ->columnSpanFull(),
                 // One field per allowed preference, built from the same
                 // User::PREFERENCES allowlist the API validates against —
@@ -92,22 +135,21 @@ class UserResource extends Resource
             ->all();
     }
 
-    /** Tag-free text, or null when nothing is left worth storing. */
-    private static function plainText(?string $value): ?string
-    {
-        $stripped = trim(strip_tags((string) $value));
-
-        return $stripped === '' ? null : $stripped;
-    }
-
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('display_name')
+                    ->label('Display name')
+                    ->placeholder('—')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('email')
                     ->searchable(),
+                Tables\Columns\IconColumn::make('profile_public')
+                    ->label('Public')
+                    ->boolean(),
                 Tables\Columns\TextColumn::make('roles.name')
                     ->badge()
                     ->label('Roles'),

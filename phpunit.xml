@@ -19,6 +19,14 @@
     </source>
     <php>
         <!--
+            The suite runs in one process, and several tests hold fake
+            uploads and built theme packages in memory at once; PHP's
+            128M default started running out as the suite grew past ~700
+            tests. Raised here rather than in the image so it applies
+            wherever the tests run, CI included.
+        -->
+        <ini name="memory_limit" value="512M"/>
+        <!--
             Both <env force="true"> AND matching <server> entries are required
             here, not just one. docker-compose.yml's app/scheduler services now
             use env_file: .env (see APP_KEY fix), so real .env values

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\GroupWidgetTemplateController;
 use App\Http\Controllers\Api\PageController;
 use App\Http\Controllers\Api\PageLayoutController;
 use App\Http\Controllers\Api\PageLayoutWidgetController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ServerController;
 use App\Http\Controllers\Api\ServerGroupController;
 use App\Http\Controllers\Api\NavigationController;
@@ -47,6 +48,14 @@ Route::prefix('v1')->group(function () {
     Route::get('/games/{slug}/layout', [PageLayoutController::class, 'showForGame']);
     Route::get('/home/layout', [PageLayoutController::class, 'showForHome']);
     Route::get('/games-list/layout', [PageLayoutController::class, 'showForGamesList']);
+    // Public profiles. /users/{user} is canonical and survives a rename;
+    // /profiles/by-name/{name} is what the SPA's /@{name} route resolves
+    // through, rendering the same page rather than redirecting. Both are
+    // public because a profile is (unless its owner has closed it, which
+    // the controller enforces per-request rather than per-route).
+    Route::get('/users/{user}/profile', [ProfileController::class, 'show']);
+    Route::get('/profiles/by-name/{name}', [ProfileController::class, 'showByName']);
+    Route::get('/users/{user}/layout', [PageLayoutController::class, 'showForUserProfile']);
     Route::get('/theme', [ThemeController::class, 'show']);
     // Public: it's what every visitor's header and sidebar render from.
     Route::get('/navigation', [NavigationController::class, 'index']);
@@ -76,6 +85,10 @@ Route::prefix('v1')->group(function () {
         // A user changing their own preferences — no admin gate, because
         // the only row it can ever touch is the requester's own.
         Route::patch('/user/preferences', [UserController::class, 'updatePreferences']);
+        // Same reasoning as preferences above: the only row it can ever
+        // touch is the requester's own. An admin editing somebody else's
+        // profile does it in Filament.
+        Route::patch('/user/profile', [ProfileController::class, 'update']);
 
         Route::get('/dashboard/pages', [DashboardPageController::class, 'index']);
         Route::post('/dashboard/pages', [DashboardPageController::class, 'store']);
@@ -110,6 +123,8 @@ Route::prefix('v1')->group(function () {
         Route::delete('/group-widget-templates/{template}', [GroupWidgetTemplateController::class, 'destroy']);
         Route::post('/page-layouts/{layout}/group-widgets/from-template/{template}', [GroupWidgetTemplateController::class, 'place']);
 
+        // Admin-only except for one narrow case — a person uploading
+        // their own avatar; see AssetController::isOwnAvatarUpload().
         Route::post('/assets', [AssetController::class, 'store']);
         Route::patch('/assets/{asset}', [AssetController::class, 'update']);
         Route::delete('/assets/{asset}', [AssetController::class, 'destroy']);
@@ -127,6 +142,10 @@ Route::prefix('v1')->group(function () {
         // method's docblock).
         Route::get('/asset-folders/fonts', [AssetFolderController::class, 'fonts']);
         Route::get('/asset-folders/icons', [AssetFolderController::class, 'icons']);
+        // Not admin-gated like the two above: an ordinary visitor needs
+        // this folder's id before they can upload their own avatar into
+        // it (see AssetController::isOwnAvatarUpload).
+        Route::get('/asset-folders/avatars', [AssetFolderController::class, 'avatars']);
         Route::post('/asset-folders', [AssetFolderController::class, 'store']);
         Route::patch('/asset-folders/{folder}', [AssetFolderController::class, 'update']);
         Route::delete('/asset-folders/{folder}', [AssetFolderController::class, 'destroy']);

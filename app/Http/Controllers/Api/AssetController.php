@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\AssetResource;
 use App\Models\Asset;
 use App\Models\AssetFolder;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -79,14 +80,24 @@ class AssetController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        abort_unless($request->user()->hasRole('Admin'), 403);
+        // Uploading is admin-only with exactly one exception: a person
+        // putting a picture of themselves on their own profile. See
+        // isOwnAvatarUpload() for what that exception actually requires —
+        // it is narrow on purpose, because this is the only endpoint in
+        // the app where a non-admin writes a file to disk.
+        $isAvatarUpload = ! $request->user()->hasRole('Admin') && $this->isOwnAvatarUpload($request);
+        abort_unless($request->user()->hasRole('Admin') || $isAvatarUpload, 403);
 
         $data = $request->validate([
             'file' => [
                 'required',
                 'file',
-                'mimes:'.implode(',', config('assets.allowed_mimes')),
-                'max:'.config('assets.max_size_kb'),
+                // An avatar is a raster image and nothing else. SVG is an
+                // image the browser will happily execute script from, and
+                // these files are served from the app's own origin, so it
+                // stays an admin-only format.
+                'mimes:'.implode(',', $isAvatarUpload ? config('assets.avatar_mimes') : config('assets.allowed_mimes')),
+                'max:'.($isAvatarUpload ? config('assets.avatar_max_size_kb') : config('assets.max_size_kb')),
             ],
             'owner_type' => ['sometimes', 'nullable', 'string', 'max:255'],
             'owner_id' => ['sometimes', 'nullable', 'integer'],
@@ -138,6 +149,10 @@ class AssetController extends Controller
             $asset->tags()->sync($data['tag_ids']);
         }
 
+        if ($isAvatarUpload) {
+            $this->pruneSupersededAvatars($request->user(), keep: $asset);
+        }
+
         return (new AssetResource($asset->load('tags')))->response()->setStatusCode(201);
     }
 
@@ -181,6 +196,73 @@ class AssetController extends Controller
         $asset->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * The one shape of upload a non-admin may perform: their own avatar,
+     * owned by them, into the shared public Avatars folder.
+     *
+     * Every clause matters. Without the ownership check a person could
+     * upload an asset attributed to somebody else; without the folder
+     * check they could write into the admin-only Fonts or Icons folders,
+     * or into a themed folder whose contents the site renders; without the
+     * tag check they could attach curation tags an admin owns. The folder
+     * has to already exist — the client fetches it from
+     * /asset-folders/avatars first — so this can never create one as a
+     * side effect of an upload.
+     */
+    private function isOwnAvatarUpload(Request $request): bool
+    {
+        if ($request->filled('tag_ids')) {
+            return false;
+        }
+
+        if ((string) $request->input('owner_type') !== 'User') {
+            return false;
+        }
+
+        if ($request->integer('owner_id') !== $request->user()->id) {
+            return false;
+        }
+
+        $avatars = AssetFolder::query()->whereNull('parent_id')->where('slug', 'avatars')->first();
+
+        return $avatars !== null && $request->integer('folder_id') === $avatars->id;
+    }
+
+    /**
+     * Keeps a person's avatar uploads bounded without ever telling them
+     * they have run out of room.
+     *
+     * A non-admin cannot delete assets, so a cap with an error message
+     * would strand them with no way to clear space. Pruning instead: on
+     * each upload, everything they previously uploaded here goes, except
+     * the file just created and the one their profile currently points at
+     * — which is still the old avatar at this moment, since the profile
+     * is only repointed after the upload returns. So the steady state is
+     * two files per person, and the one being looked at is never the one
+     * removed.
+     */
+    private function pruneSupersededAvatars(User $user, Asset $keep): void
+    {
+        $superseded = Asset::query()
+            ->where('owner_type', 'User')
+            ->where('owner_id', $user->id)
+            ->where('folder_id', $keep->folder_id)
+            ->whereNotIn('id', array_filter([$keep->id, $user->avatar_asset_id]))
+            ->get();
+
+        $disk = Storage::disk(config('assets.disk'));
+
+        foreach ($superseded as $asset) {
+            $disk->delete($asset->disk_path);
+
+            if ($asset->hasThumbnail()) {
+                $disk->delete($asset->thumbnailPath());
+            }
+
+            $asset->delete();
+        }
     }
 
     /**

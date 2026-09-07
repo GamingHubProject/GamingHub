@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Resources\ThemeResource;
 use App\Models\SiteOption;
+use App\Profiles\ProfileWidgets;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -37,7 +38,16 @@ class SiteOptions extends Page implements HasForms
 
     public function mount(): void
     {
-        $this->form->fill(SiteOption::current()->values);
+        $values = SiteOption::current()->values;
+
+        // A site that has never opened this page has no stored list, and
+        // an unset CheckboxList fills as "nothing checked" — which would
+        // then save as "no widgets allowed" the first time somebody
+        // touches an unrelated setting. Seeding the starter set here keeps
+        // the form showing what the site is actually doing.
+        $values[ProfileWidgets::OPTION_KEY] ??= ProfileWidgets::DEFAULT_ENABLED;
+
+        $this->form->fill($values);
     }
 
     public function form(Form $form): Form
@@ -83,6 +93,17 @@ class SiteOptions extends Page implements HasForms
                 Forms\Components\TextInput::make('discord_webhook')
                     ->label('Discord webhook')
                     ->helperText('Optional — for future news/alerts. Not validated or tested here.'),
+                // Policy, not capability: a widget only appears here if it
+                // can actually render on a profile (see
+                // App\Profiles\ProfileWidgets), and unchecking one takes it
+                // out of what people may add — it can never add a widget
+                // profiles cannot show.
+                Forms\Components\CheckboxList::make(ProfileWidgets::OPTION_KEY)
+                    ->label('Widgets people may put on their profile')
+                    ->helperText('Unchecking one hides it from the profile editor. Widgets already placed stop rendering.')
+                    ->options(ProfileWidgets::CAPABLE)
+                    ->default(ProfileWidgets::DEFAULT_ENABLED)
+                    ->columns(2),
                 Forms\Components\Placeholder::make('appearance_moved')
                     ->label('Appearance')
                     ->content(new HtmlString(

@@ -34,6 +34,63 @@ describe('AddPageLayoutWidgetModal', () => {
     expect(screen.queryByText('No widget types are available on this page yet.')).not.toBeInTheDocument();
   });
 
+  it('offers a profile only the widgets built for one, plus Text', () => {
+    render(<AddPageLayoutWidgetModal subjectType="user_profile" onClose={() => {}} onAdd={() => {}} />);
+
+    expect(screen.getByText('Avatar')).toBeInTheDocument();
+    expect(screen.getByText('Bio')).toBeInTheDocument();
+    expect(screen.getByText('Stats')).toBeInTheDocument();
+    expect(screen.getByText('Text')).toBeInTheDocument();
+    // Everything built to read a Server or a Game has no subject here.
+    expect(screen.queryByText('Picture')).not.toBeInTheDocument();
+    expect(screen.queryByText('Game Card')).not.toBeInTheDocument();
+    expect(screen.queryByText('Server Card')).not.toBeInTheDocument();
+  });
+
+  it("narrows the profile list to what the site's admin has permitted", () => {
+    render(
+      <AddPageLayoutWidgetModal
+        subjectType="user_profile"
+        allowedTypes={['profile-avatar', 'profile-bio']}
+        onClose={() => {}}
+        onAdd={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Avatar')).toBeInTheDocument();
+    expect(screen.getByText('Bio')).toBeInTheDocument();
+    expect(screen.queryByText('Stats')).not.toBeInTheDocument();
+    expect(screen.queryByText('Text')).not.toBeInTheDocument();
+  });
+
+  /**
+   * The two questions are not the same one: an admin's list is policy, and
+   * policy can never grant a capability. Enabling a Server widget on
+   * profiles has to stay impossible, because that placement is exactly the
+   * crash the containment guard exists to catch.
+   */
+  it("cannot be made to offer a widget the page can't render, however the allowlist is set", () => {
+    render(
+      <AddPageLayoutWidgetModal
+        subjectType="user_profile"
+        allowedTypes={['server-status', 'game-card', 'profile-bio']}
+        onClose={() => {}}
+        onAdd={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Bio')).toBeInTheDocument();
+    expect(screen.queryByText('Status')).not.toBeInTheDocument();
+    expect(screen.queryByText('Game Card')).not.toBeInTheDocument();
+  });
+
+  it('leaves every other page type untouched when no allowlist is given', () => {
+    render(<AddPageLayoutWidgetModal subjectType="home" allowedTypes={undefined} onClose={() => {}} onAdd={() => {}} />);
+
+    expect(screen.getByText('Game Card')).toBeInTheDocument();
+    expect(screen.getByText('Picture')).toBeInTheDocument();
+  });
+
   it('shows nothing to add on a page type with no valid widgets at all', () => {
     render(<AddPageLayoutWidgetModal subjectType={'unknown-page-type' as any} onClose={() => {}} onAdd={() => {}} />);
 

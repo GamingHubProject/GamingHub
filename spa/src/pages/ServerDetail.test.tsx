@@ -9,7 +9,11 @@ import '../widgets/pageLayout';
 import { ServerDetail } from './ServerDetail';
 import type { PageLayout, Server, User } from '../api/types';
 
-const playerUser: User = { id: 2, name: 'Player', email: 'player@example.com', avatar: null, bio: null, preferences: null, is_admin: false };
+const playerUser: User = { id: 2, name: 'Player', email: 'player@example.com', display_name: null,
+  avatar: null,
+  avatar_asset_id: null,
+  avatar_url: null, bio: null,
+  profile_public: true, preferences: null, is_admin: false };
 
 const server: Server = {
   id: 2,

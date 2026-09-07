@@ -33,8 +33,16 @@ function renderHeader(user: User | null) {
   );
 }
 
-const admin: User = { id: 1, name: 'Rose', email: 'rose@example.com', avatar: null, bio: null, preferences: null, is_admin: true };
-const player: User = { id: 2, name: 'Player', email: 'player@example.com', avatar: null, bio: null, preferences: null, is_admin: false };
+const admin: User = { id: 1, name: 'Rose', email: 'rose@example.com', display_name: null,
+  avatar: null,
+  avatar_asset_id: null,
+  avatar_url: null, bio: null,
+  profile_public: true, preferences: null, is_admin: true };
+const player: User = { id: 2, name: 'Player', email: 'player@example.com', display_name: null,
+  avatar: null,
+  avatar_asset_id: null,
+  avatar_url: null, bio: null,
+  profile_public: true, preferences: null, is_admin: false };
 
 describe('Header', () => {
   it('does not show Assets as a top-level nav link for an admin', async () => {

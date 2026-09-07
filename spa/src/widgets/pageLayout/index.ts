@@ -10,8 +10,21 @@ import { HeroWidget, HeroWidgetConfigForm, heroWidgetDefaultConfig } from './Her
 import { ContentStripWidget, ContentStripWidgetConfigForm, contentStripWidgetDefaultConfig } from './ContentStripWidget';
 import { ServerCardWidget, ServerCardWidgetConfigForm, serverCardWidgetDefaultConfig } from './ServerCardWidget';
 import { ServerGroupCardWidget, ServerGroupCardWidgetConfigForm, serverGroupCardWidgetDefaultConfig } from './ServerGroupCardWidget';
+import { TextWidget, TextWidgetConfigForm, textWidgetDefaultConfig } from './TextWidget';
+import { ProfileAvatarWidget, ProfileAvatarWidgetConfigForm, profileAvatarWidgetDefaultConfig } from './ProfileAvatarWidget';
+import { ProfileBioWidget } from './ProfileBioWidget';
+import { ProfileStatsWidget, ProfileStatsWidgetConfigForm, profileStatsWidgetDefaultConfig } from './ProfileStatsWidget';
 
+// Every *site* page. Deliberately not including 'user_profile': a widget
+// built to read a Server or a Game has nothing to render on somebody's
+// profile, and validFor is the capability half of profile widget curation
+// (the policy half is the admin's list — see App\Profiles\ProfileWidgets).
 const ALL_PAGES = ['home', 'games-list', 'game', 'server'] as const;
+
+/** The profile-capable set. Mirrored in PHP as ProfileWidgets::CAPABLE, so
+ *  an admin has checkboxes to curate; a frontend test asserts the two
+ *  lists match. */
+const PROFILE_ONLY = ['user_profile'] as const;
 
 registerPageLayoutWidget({
   type: 'picture',
@@ -199,6 +212,55 @@ registerPageLayoutWidget({
   // Its cards draw their own borders, exactly like game-card's grid — the
   // container's would double-box every one of them.
   chromeless: true,
+});
+
+registerPageLayoutWidget({
+  type: 'text',
+  label: 'Text',
+  category: 'General',
+  // Valid everywhere, profiles included — free rich text is useful well
+  // beyond a bio, and this is the widget news posts will reuse.
+  validFor: [...ALL_PAGES, ...PROFILE_ONLY],
+  component: TextWidget,
+  configForm: TextWidgetConfigForm,
+  defaultConfig: textWidgetDefaultConfig,
+  defaultWidth: 6,
+  defaultHeight: 3,
+});
+
+registerPageLayoutWidget({
+  type: 'profile-avatar',
+  label: 'Avatar',
+  category: 'Profile',
+  validFor: [...PROFILE_ONLY],
+  component: ProfileAvatarWidget,
+  configForm: ProfileAvatarWidgetConfigForm,
+  defaultConfig: profileAvatarWidgetDefaultConfig,
+  defaultWidth: 3,
+  defaultHeight: 3,
+});
+
+registerPageLayoutWidget({
+  type: 'profile-bio',
+  label: 'Bio',
+  category: 'Profile',
+  validFor: [...PROFILE_ONLY],
+  component: ProfileBioWidget,
+  defaultConfig: {},
+  defaultWidth: 9,
+  defaultHeight: 3,
+});
+
+registerPageLayoutWidget({
+  type: 'profile-stats',
+  label: 'Stats',
+  category: 'Profile',
+  validFor: [...PROFILE_ONLY],
+  component: ProfileStatsWidget,
+  configForm: ProfileStatsWidgetConfigForm,
+  defaultConfig: profileStatsWidgetDefaultConfig,
+  defaultWidth: 4,
+  defaultHeight: 3,
 });
 
 export {

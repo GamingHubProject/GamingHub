@@ -52,6 +52,32 @@ class AssetFolderController extends Controller
     }
 
     /**
+     * Where every avatar goes. Unlike fonts()/icons() this one is public
+     * and reachable by any signed-in visitor, both deliberately: an avatar
+     * is served to anonymous readers of a public profile, so a
+     * `user_private` folder — which governs who may *browse* the library,
+     * not who may fetch a file — would make it unreadable to exactly the
+     * people it exists for.
+     *
+     * One shared folder rather than one per user. Ownership is already
+     * carried by the asset row (owner_type 'User' + owner_id, set by
+     * AssetController::store), and a folder per account would put a
+     * thousand folders in the library tree to express a fact the row
+     * already states.
+     */
+    public function avatars(Request $request): JsonResponse
+    {
+        abort_unless($request->user() !== null, 403);
+
+        $folder = AssetFolder::firstOrCreate(
+            ['parent_id' => null, 'slug' => 'avatars'],
+            ['name' => 'Avatars', 'visibility' => 'public', 'path' => AssetFolder::buildPath(null, 'avatars'), 'created_by' => $request->user()->id]
+        );
+
+        return (new AssetFolderResource($folder))->response()->setStatusCode(200);
+    }
+
+    /**
      * A root-level, admin-only folder the Theme system reserves for one
      * kind of asset. Shared by fonts()/icons() so "reserved folder" has a
      * single definition — the visibility, the parent, and the recreate-on-

@@ -9,7 +9,9 @@ import { Login } from '../pages/Login';
 import { AdminPlaceholder } from '../pages/AdminPlaceholder';
 import { AssetLibrary } from '../pages/AssetLibrary';
 import { NavigationEditor } from '../pages/NavigationEditor';
-import { WebTreePage } from '../pages/WebTreePage';
+import { Profile } from '../pages/Profile';
+import { ProfileEdit } from '../pages/ProfileEdit';
+import { CatchAll } from '../pages/CatchAll';
 
 export const router = createBrowserRouter(
   [
@@ -22,6 +24,11 @@ export const router = createBrowserRouter(
         { path: 'games/:slug', element: <GameDetail /> },
         { path: 'games/:slug/servers/:id', element: <ServerDetail /> },
         { path: 'dashboard', element: <Dashboard /> },
+        // The canonical profile URL — stable across every rename. The
+        // pretty /@{name} door is served from the catch-all below; see
+        // CatchAll for why it can't be a route of its own.
+        { path: 'users/:id', element: <Profile /> },
+        { path: 'profile/edit', element: <ProfileEdit /> },
         { path: 'login', element: <Login /> },
         // The full admin panel is Filament, at /admin/system (a separate
         // app outside the SPA) — this is just a placeholder until React
@@ -33,8 +40,9 @@ export const router = createBrowserRouter(
         // paths Web Tree pages have always used (e.g. "games/ark/ragnarok"),
         // matching the old server-side Blade catch-all this route replaced.
         // react-router ranks static routes above a splat automatically, so
-        // this only catches what nothing above it matched.
-        { path: '*', element: <WebTreePage /> },
+        // this only catches what nothing above it matched. It also serves
+        // /@{name} — see CatchAll.
+        { path: '*', element: <CatchAll /> },
       ],
     },
   ],

@@ -96,7 +96,14 @@ class UserAndRoleResourceTest extends TestCase
         $this->assertSame([], $user->fresh()->preferences);
     }
 
-    public function test_the_bio_field_stores_no_markup(): void
+    /**
+     * Bios became sanitised HTML in v0.1.024.00, so this field stopped
+     * stripping every tag and started allowing the ones the editor can
+     * produce — through the same sanitiser the API uses. A script is
+     * dropped along with its contents, and a tag outside the allowlist
+     * loses the tag while keeping the words.
+     */
+    public function test_the_bio_field_stores_only_what_the_sanitiser_allows(): void
     {
         $user = User::factory()->create();
 
@@ -105,7 +112,7 @@ class UserAndRoleResourceTest extends TestCase
             ->call('save')
             ->assertHasNoFormErrors();
 
-        $this->assertSame('alert(1)Hello there', $user->fresh()->bio);
+        $this->assertSame('Hello there', $user->fresh()->bio);
     }
 
     public function test_a_password_set_in_the_form_is_hashed_exactly_once(): void
@@ -134,6 +141,57 @@ class UserAndRoleResourceTest extends TestCase
         $created = User::where('email', 'rae@example.test')->firstOrFail();
         $this->assertSame([], $created->preferences);
         $this->assertTrue(Hash::check('correct-horse-battery', $created->password));
+    }
+
+    // --- Profile fields on the admin form ---
+
+    public function test_the_form_writes_a_bio_through_the_same_sanitiser_as_the_api(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::test(EditUser::class, ['record' => $user->id])
+            ->fillForm(['bio' => '<p>Hello <strong>there</strong></p><script>alert(1)</script>'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('<p>Hello <strong>there</strong></p>', $user->fresh()->bio);
+    }
+
+    public function test_the_form_refuses_a_display_name_that_differs_only_in_case(): void
+    {
+        User::factory()->create(['display_name' => 'Rose']);
+        $other = User::factory()->create();
+
+        Livewire::test(EditUser::class, ['record' => $other->id])
+            ->fillForm(['display_name' => 'rose'])
+            ->call('save')
+            ->assertHasFormErrors(['display_name']);
+
+        $this->assertNull($other->fresh()->display_name);
+    }
+
+    public function test_the_form_lets_somebody_keep_their_own_display_name(): void
+    {
+        $user = User::factory()->create(['display_name' => 'Rose']);
+
+        Livewire::test(EditUser::class, ['record' => $user->id])
+            ->fillForm(['display_name' => 'Rose'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('Rose', $user->fresh()->display_name);
+    }
+
+    public function test_an_admin_can_close_somebody_elses_profile(): void
+    {
+        $user = User::factory()->create(['profile_public' => true]);
+
+        Livewire::test(EditUser::class, ['record' => $user->id])
+            ->fillForm(['profile_public' => false])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertFalse($user->fresh()->profile_public);
     }
 
     public function test_can_list_roles(): void

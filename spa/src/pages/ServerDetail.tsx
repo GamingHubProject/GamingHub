@@ -30,6 +30,7 @@ export function ServerDetail() {
       layoutUrl={`/api/v1/servers/${id}/layout`}
       queryKey={['page-layout', 'server', id]}
       context={{ subjectType: 'server', server }}
+      canEdit={isAdmin}
       isAdmin={isAdmin}
     />
   );

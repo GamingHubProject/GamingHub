@@ -7,6 +7,7 @@ use App\Experience\ThemeBundle;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -50,8 +51,11 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
+        'display_name',
         'avatar',
+        'avatar_asset_id',
         'bio',
+        'profile_public',
         'preferences',
     ];
 
@@ -99,6 +103,63 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(DashboardPage::class)->orderBy('order');
     }
 
+    public function avatarAsset(): BelongsTo
+    {
+        return $this->belongsTo(Asset::class, 'avatar_asset_id');
+    }
+
+    public function stats(): HasMany
+    {
+        return $this->hasMany(UserStat::class);
+    }
+
+    public function achievements(): HasMany
+    {
+        return $this->hasMany(UserAchievement::class)->orderByDesc('earned_at');
+    }
+
+    /**
+     * What a profile is titled with. `display_name` is optional and falls
+     * back to the account name, so an account that has never set one still
+     * has something to be called rather than rendering blank.
+     */
+    public function profileName(): string
+    {
+        return $this->display_name ?: $this->name;
+    }
+
+    /**
+     * The avatar to render, preferring the Asset Library reference over
+     * the legacy `avatar` URL column. Nothing has ever written that
+     * column, but it is kept as a fallback rather than dropped — see the
+     * profile identity migration.
+     */
+    public function avatarUrl(): ?string
+    {
+        return $this->avatarAsset?->url ?: $this->avatar ?: null;
+    }
+
+    /**
+     * Whether $viewer may see this profile at all. A private profile is
+     * visible to its owner and to admins, and to nobody else — including
+     * anonymous visitors, which is why this takes a nullable user.
+     */
+    public function profileVisibleTo(?self $viewer): bool
+    {
+        if ($this->profile_public) {
+            return true;
+        }
+
+        return $viewer !== null && ($viewer->id === $this->id || $viewer->hasRole('Admin'));
+    }
+
+    /** Whether $editor may change this profile's own fields. Same shape as
+     *  PageLayout::canBeEditedBy(), which governs the profile's layout. */
+    public function profileEditableBy(?self $editor): bool
+    {
+        return $editor !== null && ($editor->id === $this->id || $editor->hasRole('Admin'));
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -120,6 +181,7 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'preferences' => 'array',
+            'profile_public' => 'boolean',
         ];
     }
 }

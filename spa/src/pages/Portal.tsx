@@ -22,6 +22,7 @@ export function Portal() {
         layoutUrl="/api/v1/home/layout"
         queryKey={['page-layout', 'home']}
         context={{ subjectType: 'home' }}
+        canEdit={user?.is_admin ?? false}
         isAdmin={user?.is_admin ?? false}
       />
     </div>

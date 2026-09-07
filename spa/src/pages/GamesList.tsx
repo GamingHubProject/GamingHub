@@ -19,6 +19,7 @@ export function GamesList() {
         layoutUrl="/api/v1/games-list/layout"
         queryKey={['page-layout', 'games-list']}
         context={{ subjectType: 'games-list' }}
+        canEdit={user?.is_admin ?? false}
         isAdmin={user?.is_admin ?? false}
       />
     </div>

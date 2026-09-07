@@ -37,7 +37,11 @@ function wrapper(user: User | null, site: Record<string, unknown>) {
   );
 }
 
-const base: User = { id: 1, name: 'Rose', email: 'r@example.com', avatar: null, bio: null, preferences: null, is_admin: false };
+const base: User = { id: 1, name: 'Rose', email: 'r@example.com', display_name: null,
+  avatar: null,
+  avatar_asset_id: null,
+  avatar_url: null, bio: null,
+  profile_public: true, preferences: null, is_admin: false };
 
 describe('useAccountPlacement', () => {
   it('falls back to the header when nothing says otherwise', () => {

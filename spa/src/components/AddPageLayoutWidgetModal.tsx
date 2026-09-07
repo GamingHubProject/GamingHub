@@ -3,7 +3,7 @@ import { Modal } from './Modal';
 import { listPageLayoutWidgetDefinitions } from '../widgets/pageLayout/registry';
 import type { PageLayoutSubjectType } from '../widgets/pageLayout/registry';
 
-const CATEGORY_ORDER = ['Server', 'Game', 'General'] as const;
+const CATEGORY_ORDER = ['Profile', 'Server', 'Game', 'General'] as const;
 
 /**
  * Search + category-grouped picker, same pattern as AssetPicker's browse
@@ -15,18 +15,34 @@ const CATEGORY_ORDER = ['Server', 'Game', 'General'] as const;
  */
 export function AddPageLayoutWidgetModal({
   subjectType,
+  allowedTypes,
   onClose,
   onAdd,
 }: {
   subjectType: PageLayoutSubjectType;
+  /** The admin's curated list, when the page has one — profiles do (see
+   *  App\Profiles\ProfileWidgets), site pages don't. Left undefined it
+   *  imposes nothing, which is what keeps every existing page's picker
+   *  exactly as it was. */
+  allowedTypes?: string[];
   onClose: () => void;
   onAdd: (type: string) => void;
 }) {
   const [search, setSearch] = useState('');
 
+  // The intersection of two different questions: `validFor` is what this
+  // widget is *capable* of rendering on, `allowedTypes` is what an admin
+  // has *permitted* here. Conflating them would let an admin's list add a
+  // widget that cannot render on the page — which is the crash the widget
+  // containment guard exists to catch, and not something a picker should
+  // be able to cause in the first place.
   const validDefinitions = useMemo(
-    () => listPageLayoutWidgetDefinitions().filter((definition) => definition.validFor.includes(subjectType)),
-    [subjectType]
+    () =>
+      listPageLayoutWidgetDefinitions().filter(
+        (definition) =>
+          definition.validFor.includes(subjectType) && (allowedTypes === undefined || allowedTypes.includes(definition.type))
+      ),
+    [subjectType, allowedTypes]
   );
 
   const filtered = useMemo(() => {
