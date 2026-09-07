@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useApi } from '../providers/ApiClientProvider';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { useSiteChrome } from '../providers/ThemeProvider';
+import { AccountMenu } from './AccountMenu';
 import { NavLeaf } from './NavRow';
 import { SiteBranding } from './SiteBranding';
 import { regionAccent, regionCss } from './regionStyle';
@@ -13,6 +13,8 @@ export function Header({
   showNavLinks = true,
   showBranding,
   onToggleSidebar,
+  showAccount = true,
+  canRelocateAccount = false,
 }: {
   /** False in sidebar-only mode, where a top bar of links would just
    *  duplicate the sidebar. The account controls always stay. */
@@ -22,6 +24,10 @@ export function Header({
   showBranding?: boolean;
   /** Provided only when the sidebar is actually hideable. */
   onToggleSidebar?: () => void;
+  /** False when the sidebar is hosting the account menu instead. */
+  showAccount?: boolean;
+  /** True when a sidebar exists that could host the account menu instead. */
+  canRelocateAccount?: boolean;
 } = {}) {
   const { user, isLoading } = useAuth();
   const chrome = useSiteChrome();
@@ -87,80 +93,27 @@ export function Header({
           ))}
       </nav>
       <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexShrink: 0, whiteSpace: 'nowrap' }}>
-        {/* /admin is the SPA's own (in-progress) admin area and is now the
-            primary entry point; Filament at /admin/system is reached via a
-            button inside React Admin, not directly from this header.
-            Gated on is_admin, not just being logged in — a non-admin user
-            has nothing to do there. */}
-        {user?.is_admin && <Link to="/admin">Admin</Link>}
-        {user && <Link to="/dashboard">Dashboard</Link>}
-        {!isLoading && (user ? <UserMenu name={user.name} /> : <Link to="/login">Log in</Link>)}
+        {/* Dashboard and Admin used to sit loose here, competing with the
+            site's own navigation for the same strip of header. They live
+            in the account menu now — see AccountMenu. `showAccount` is
+            false when the sidebar is hosting that menu instead; the Log in
+            link stays regardless, because a signed-out visitor has no
+            account menu to find it in. */}
+        {!isLoading &&
+          (user ? (
+            showAccount && (
+              <AccountMenu
+                name={user.name}
+                isAdmin={!!user.is_admin}
+                placement="header"
+                canRelocate={canRelocateAccount}
+              />
+            )
+          ) : (
+            <Link to="/login">Log in</Link>
+          ))}
       </div>
     </header>
-  );
-}
-
-function UserMenu({ name }: { name: string }) {
-  const api = useApi();
-  const { refetch } = useAuth();
-  const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open]);
-
-  async function handleLogout() {
-    setOpen(false);
-    try {
-      await api.post('/logout');
-    } catch {
-      // Even if the request itself errors, refetch below reflects the
-      // real server-side auth state either way.
-    }
-    await refetch();
-    navigate('/');
-  }
-
-  return (
-    <div ref={menuRef} style={{ position: 'relative' }}>
-      <button type="button" onClick={() => setOpen((value) => !value)} style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', color: 'inherit' }}>
-        {name} ▾
-      </button>
-      {open && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '100%',
-            right: 0,
-            marginTop: 4,
-            background: 'var(--background, #fff)',
-            border: '1px solid var(--border, #ddd)',
-            borderRadius: 'calc(var(--radius, 8px) / 2)',
-            minWidth: 140,
-            zIndex: 10,
-          }}
-        >
-          {/* No profile page built yet — placeholder only. */}
-          <button type="button" disabled style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--muted, #999)', cursor: 'not-allowed' }}>
-            Profile
-          </button>
-          <button type="button" onClick={handleLogout} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', color: 'inherit' }}>
-            Logout
-          </button>
-        </div>
-      )}
-    </div>
   );
 }
 

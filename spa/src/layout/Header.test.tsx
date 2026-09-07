@@ -40,17 +40,48 @@ describe('Header', () => {
   it('does not show Assets as a top-level nav link for an admin', async () => {
     renderHeader(admin);
 
-    await waitFor(() => expect(screen.getByText('Rose ▾')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: /Rose/ })).toBeInTheDocument());
     expect(screen.queryByRole('link', { name: 'Assets' })).not.toBeInTheDocument();
   });
 
-  it('no longer offers Assets in the dropdown — the admin page has a card for it', async () => {
-    // Two routes to the same page, one of them hidden behind an avatar, is
-    // one more than the admin needs.
+  it('keeps Dashboard and Admin out of the header itself', async () => {
+    // They used to sit loose here, competing with the site's own
+    // navigation for the same strip of header. They are things this
+    // visitor can do, not places the site goes.
     renderHeader(admin);
 
-    await waitFor(() => expect(screen.getByText('Rose ▾')).toBeInTheDocument());
-    screen.getByText('Rose ▾').click();
+    await waitFor(() => expect(screen.getByRole('button', { name: /Rose/ })).toBeInTheDocument());
+    expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
+  });
+
+  it('offers Dashboard and Admin inside the account menu for an admin', async () => {
+    renderHeader(admin);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Rose/ })).toBeInTheDocument());
+    screen.getByRole('button', { name: /Rose/ }).click();
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument());
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument();
+  });
+
+  it('gives a non-admin the menu without Admin in it', async () => {
+    renderHeader(player);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Player/ })).toBeInTheDocument());
+    screen.getByRole('button', { name: /Player/ }).click();
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument());
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
+  });
+
+  it('no longer offers Assets in the dropdown — the admin page has a card for it', async () => {
+    renderHeader(admin);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Rose/ })).toBeInTheDocument());
+    screen.getByRole('button', { name: /Rose/ }).click();
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument());
     expect(screen.queryByRole('link', { name: 'Assets' })).not.toBeInTheDocument();
@@ -59,8 +90,8 @@ describe('Header', () => {
   it('still offers logout to a non-admin', async () => {
     renderHeader(player);
 
-    await waitFor(() => expect(screen.getByText('Player ▾')).toBeInTheDocument());
-    screen.getByText('Player ▾').click();
+    await waitFor(() => expect(screen.getByRole('button', { name: /Player/ })).toBeInTheDocument());
+    screen.getByRole('button', { name: /Player/ }).click();
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument());
   });

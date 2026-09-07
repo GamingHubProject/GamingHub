@@ -83,6 +83,7 @@ class EditTheme extends EditRecord
             'nav_enabled' => $bundle->navEnabled,
             'nav_position' => $bundle->navPosition,
             'nav_mirror' => $bundle->navMirror,
+            'account_placement' => $bundle->accountPlacement,
             'header' => static::regionToFormState($bundle->header),
             'sidebar' => static::regionToFormState($bundle->sidebar),
         ];
@@ -109,6 +110,7 @@ class EditTheme extends EditRecord
             navEnabled: (bool) ($state['nav_enabled'] ?? true),
             navPosition: $state['nav_position'] ?? 'top',
             navMirror: $state['nav_mirror'] ?? 'sidebar_follows_header',
+            accountPlacement: $state['account_placement'] ?? 'header',
         );
     }
 

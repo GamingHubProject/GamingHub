@@ -16,42 +16,63 @@ interface AdminDestination {
   href: string;
   /** True for Filament, which is a separate app outside this SPA. */
   external?: boolean;
+  category: AdminCategory;
 }
+
+/**
+ * The groups, in the order they appear.
+ *
+ * Ordered by how often an admin needs them rather than alphabetically:
+ * appearance is what this admin area was built for and what gets tuned
+ * repeatedly, content changes occasionally, and system is where you go
+ * when something specific is wrong. A flat grid of six cards was already
+ * at the point where finding one meant reading all of them, and the list
+ * only grows from here.
+ */
+const CATEGORIES = ['Appearance', 'Content', 'System'] as const;
+
+type AdminCategory = (typeof CATEGORIES)[number];
 
 const DESTINATIONS: AdminDestination[] = [
   {
     title: 'Navigation',
     description: 'The links in the top bar and the sidebar, and how they are nested.',
     href: '/admin/navigation',
+    category: 'Appearance',
   },
   {
     title: 'Assets',
     description: 'Images, fonts and icons — everything the site and its themes draw from.',
     href: '/admin/assets',
+    category: 'Content',
   },
   {
     title: 'Themes',
     description: 'Colours, fonts, backgrounds and the styling of the header and sidebar.',
     href: '/admin/system/themes',
     external: true,
+    category: 'Appearance',
   },
   {
     title: 'Site Options',
     description: 'The site\'s name, tagline, logo and other details that are not part of a theme.',
     href: '/admin/system/site-options',
     external: true,
+    category: 'Appearance',
   },
   {
     title: 'Games',
     description: 'The games this site is about, and the servers under each of them.',
     href: '/admin/system/games',
     external: true,
+    category: 'Content',
   },
   {
     title: 'Full admin panel',
     description: 'Users, roles, packages, the audit log and everything else.',
     href: '/admin/system',
     external: true,
+    category: 'System',
   },
 ];
 
@@ -64,18 +85,31 @@ export function AdminPlaceholder() {
         <ExternalMark /> open the full admin panel, which is a separate app.
       </p>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-          gap: 'var(--space-loose, 16px)',
-          marginTop: 'var(--space-section, 24px)',
-        }}
-      >
-        {DESTINATIONS.map((destination) => (
-          <AdminCard key={destination.title} destination={destination} />
-        ))}
-      </div>
+      {CATEGORIES.map((category) => {
+        const inCategory = DESTINATIONS.filter((d) => d.category === category);
+        // A heading over nothing is worse than no heading — a category
+        // empties out the moment a destination moves or is removed.
+        if (inCategory.length === 0) return null;
+
+        return (
+          <section key={category} style={{ marginTop: 'var(--space-section, 24px)' }}>
+            <h2 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted, #666)', margin: '0 0 var(--space-normal, 12px)' }}>
+              {category}
+            </h2>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                gap: 'var(--space-loose, 16px)',
+              }}
+            >
+              {inCategory.map((destination) => (
+                <AdminCard key={destination.title} destination={destination} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }

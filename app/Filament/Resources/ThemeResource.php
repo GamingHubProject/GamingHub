@@ -158,6 +158,17 @@ class ThemeResource extends Resource
                         // the theme — a theme handed to another install
                         // must not carry someone else's games.
                         ->helperText('Edit the links themselves under Admin → Navigation.'),
+                    Forms\Components\Select::make('account_placement')
+                        ->label('Account controls')
+                        ->native(false)
+                        ->options([
+                            'header' => 'In the top bar',
+                            'sidebar' => 'At the bottom of the sidebar',
+                        ])
+                        ->default('header')
+                        ->helperText('Where a signed-in visitor finds their own name, dashboard and sign-out. Each person can override this for themselves.')
+                        ->visible(fn (Get $get) => $get('nav_position') !== 'top'),
+
                     Forms\Components\Select::make('nav_mirror')
                         ->label('Do both surfaces show the same links?')
                         ->native(false)
@@ -202,6 +213,7 @@ class ThemeResource extends Resource
                             'always' => 'Always visible',
                             'toggle' => 'Hidden until the menu icon is clicked',
                             'auto-hide' => 'Collapsed to icons, expands on hover',
+                            'icons' => 'Icons only, always',
                         ])
                         ->default('always')
                         ->helperText('Narrow screens always use the menu-icon behaviour, whatever this says.'),

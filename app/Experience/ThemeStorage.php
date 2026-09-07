@@ -126,6 +126,7 @@ class ThemeStorage
                 'nav_enabled' => $bundle->navEnabled,
                 'nav_position' => $bundle->navPosition,
                 'nav_mirror' => $bundle->navMirror,
+                'account_placement' => $bundle->accountPlacement,
                 // A region's background can reference a file in the
                 // theme's own folder, so it needs the same relative-path
                 // resolution the page background gets.

@@ -7,7 +7,7 @@ import { SiteBranding } from './SiteBranding';
 import { regionAccent, regionCss } from './regionStyle';
 import type { RegionStyle } from './regionStyle';
 
-export type SidebarBehavior = 'always' | 'toggle' | 'auto-hide';
+export type SidebarBehavior = 'always' | 'toggle' | 'auto-hide' | 'icons';
 export type SidebarWidth = 'compact' | 'standard' | 'wide';
 export type SidebarHeight = 'auto' | 'full' | 'fixed';
 export type NavAlign = 'top' | 'center' | 'bottom';
@@ -69,6 +69,7 @@ export function Sidebar({
   region,
   open,
   onOpenChange,
+  accountSlot,
 }: {
   behavior: SidebarBehavior;
   width?: SidebarWidth;
@@ -77,6 +78,8 @@ export function Sidebar({
   /** Controlled by Layout, which also owns the header's menu button. */
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The account menu, when this visitor keeps it here instead of the header. */
+  accountSlot?: React.ReactNode;
 }) {
   const { nodes } = useNavigation('sidebar');
   const { pathname } = useLocation();
@@ -91,7 +94,21 @@ export function Sidebar({
   }, [pathname, narrow]);
 
   const effective: SidebarBehavior = narrow ? 'toggle' : behavior;
-  const expanded = effective === 'always' || (effective === 'auto-hide' ? hovered : open);
+  /*
+   * `icons` is the always-on form of the rail auto-hide shows while
+   * un-hovered, so it is never expanded and never hides. Spelled out as a
+   * chain rather than folded into the old boolean because that expression
+   * fell through to `open` for any behaviour it didn't name — which would
+   * have made an icons-only sidebar expand the moment anything toggled it.
+   */
+  const expanded =
+    effective === 'always'
+      ? true
+      : effective === 'icons'
+        ? false
+        : effective === 'auto-hide'
+          ? hovered
+          : open;
   // auto-hide keeps a rail of icons on screen; toggle takes the whole
   // column away, so the main content can use the space.
   const visible = effective !== 'toggle' || open;
@@ -125,7 +142,7 @@ export function Sidebar({
   // Unlike before, an empty navigation no longer hides the whole sidebar —
   // the branding block is reason enough for it to exist.
   const showBranding = region?.show_branding !== false;
-  if (nodes.length === 0 && !showBranding) return null;
+  if (nodes.length === 0 && !showBranding && !accountSlot) return null;
 
   return (
     <>
@@ -201,6 +218,18 @@ export function Sidebar({
             <SidebarNode key={node.id} node={node} pathname={pathname} expanded={expanded} accent={accent} />
           ))}
         </ul>
+
+        {/* Pinned to the bottom, below whatever height the links take.
+            marginTop:auto rather than a fixed position so it sits under
+            the nav in a short sidebar and at the foot of a full-height
+            one. Layout only passes this when the sidebar is permanently
+            visible and expanded — see useAccountPlacement's caller. */}
+        {accountSlot && visible && expanded && (
+          <div style={{ marginTop: 'auto', width: '100%', paddingTop: 'var(--space-normal, 12px)' }}>
+            <hr style={{ border: 0, borderTop: '1px solid var(--border, #ddd)', opacity: 0.5, margin: '0 0 var(--space-tight, 6px)', width: '100%' }} />
+            {accountSlot}
+          </div>
+        )}
       </nav>
     </>
   );

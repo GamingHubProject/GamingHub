@@ -73,6 +73,9 @@ Route::prefix('v1')->group(function () {
     */
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/user', [UserController::class, 'show']);
+        // A user changing their own preferences — no admin gate, because
+        // the only row it can ever touch is the requester's own.
+        Route::patch('/user/preferences', [UserController::class, 'updatePreferences']);
 
         Route::get('/dashboard/pages', [DashboardPageController::class, 'index']);
         Route::post('/dashboard/pages', [DashboardPageController::class, 'store']);

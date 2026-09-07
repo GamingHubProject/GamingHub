@@ -5,6 +5,9 @@ import { Breadcrumbs } from './Breadcrumbs';
 import { Sidebar, useIsNarrowViewport } from './Sidebar';
 import type { SidebarBehavior, SidebarWidth } from './Sidebar';
 import { useSiteChrome } from '../providers/ThemeProvider';
+import { useAuth } from '../providers/AuthProvider';
+import { AccountMenu } from './AccountMenu';
+import { useAccountPlacement } from './useAccountPlacement';
 
 /**
  * The shell: an optional sidebar column beside the main column.
@@ -19,6 +22,7 @@ import { useSiteChrome } from '../providers/ThemeProvider';
  */
 export function Layout() {
   const chrome = useSiteChrome();
+  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const narrow = useIsNarrowViewport();
 
@@ -54,6 +58,24 @@ export function Layout() {
    */
   const canToggleSidebar = showSidebar && (narrow || chrome.sidebar?.behavior === 'toggle');
 
+  /*
+   * The account menu may move to the sidebar, but only when the sidebar is
+   * permanently there and permanently expanded.
+   *
+   * Every other behaviour can take it away: `toggle` hides the whole
+   * column, `auto-hide` and `icons` shrink it to a 64px rail with no room
+   * for a name, and a narrow screen turns it into a drawer. Hosting the
+   * menu in any of those would mean a visitor whose sidebar is shut has no
+   * way to reach their own sign-out — so those all keep it in the header,
+   * where it is always reachable. That floor is enforced here rather than
+   * inside the hook because it is a fact about this layout, not about the
+   * preference.
+   */
+  const sidebarCanHostAccount =
+    showSidebar && !narrow && (chrome.sidebar?.behavior ?? 'always') === 'always';
+  const accountPlacement = useAccountPlacement(sidebarCanHostAccount);
+  const accountInSidebar = !!user && accountPlacement === 'sidebar';
+
   const sidebar = showSidebar ? (
     <Sidebar
       behavior={(chrome.sidebar?.behavior ?? 'always') as SidebarBehavior}
@@ -61,6 +83,18 @@ export function Layout() {
       region={chrome.sidebar}
       open={sidebarOpen}
       onOpenChange={setSidebarOpen}
+      accountSlot={
+        accountInSidebar && user ? (
+          <AccountMenu
+            name={user.name}
+            isAdmin={!!user.is_admin}
+            direction="up"
+            full
+            placement="sidebar"
+            canRelocate
+          />
+        ) : undefined
+      }
     />
   ) : null;
 
@@ -69,6 +103,8 @@ export function Layout() {
       showNavLinks={showTopNav}
       showBranding={headerShowsBranding}
       onToggleSidebar={canToggleSidebar ? () => setSidebarOpen((o) => !o) : undefined}
+      showAccount={!accountInSidebar}
+      canRelocateAccount={sidebarCanHostAccount}
     />
   );
 

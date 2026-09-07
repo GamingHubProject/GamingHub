@@ -160,6 +160,25 @@ class ThemeBundle
         'nav_align' => 'top',
     ];
 
+    /**
+     * How the sidebar behaves at rest.
+     *
+     * `icons` is the always-on version of what `auto-hide` shows while
+     * un-hovered: the same 64px rail, permanently. It belongs on this axis
+     * rather than on `width` because it is a question of what the sidebar
+     * shows, not how wide it is — and because the rail's width is set by
+     * the icon, so it was never a preference to begin with.
+     */
+    public const SIDEBAR_BEHAVIORS = ['always', 'toggle', 'auto-hide', 'icons'];
+
+    /**
+     * Where the signed-in account block sits. A theme sets the default;
+     * an individual can override it for themselves (users.preferences),
+     * because which side of the screen someone wants their own account
+     * controls on is a preference, not a design decision.
+     */
+    public const ACCOUNT_PLACEMENTS = ['header', 'sidebar'];
+
     public const SIDEBAR_HEIGHTS = ['auto', 'full', 'fixed'];
 
     public const NAV_ALIGNMENTS = ['top', 'center', 'bottom'];
@@ -269,6 +288,8 @@ class ThemeBundle
          * @var 'none'|'sidebar_follows_header'|'header_follows_sidebar'
          */
         public string $navMirror = 'sidebar_follows_header',
+        /** @see ACCOUNT_PLACEMENTS — the theme's default, overridable per user. */
+        public string $accountPlacement = 'header',
     ) {
     }
 
@@ -305,6 +326,9 @@ class ThemeBundle
                 ? $data['site']['nav_mirror']
                 : 'sidebar_follows_header',
             navEnabled: (bool) ($data['site']['nav_enabled'] ?? true),
+            accountPlacement: in_array($data['site']['account_placement'] ?? null, self::ACCOUNT_PLACEMENTS, true)
+                ? $data['site']['account_placement']
+                : 'header',
         );
     }
 
@@ -331,6 +355,7 @@ class ThemeBundle
                 'nav_enabled' => $this->navEnabled,
                 'nav_position' => $this->navPosition,
                 'nav_mirror' => $this->navMirror,
+                'account_placement' => $this->accountPlacement,
                 'header' => (object) self::serializeRegion($this->header),
                 'sidebar' => (object) self::serializeRegion($this->sidebar),
             ],

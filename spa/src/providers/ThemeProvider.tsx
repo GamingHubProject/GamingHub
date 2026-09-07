@@ -44,6 +44,8 @@ export interface SiteChrome {
   nav_enabled: boolean;
   nav_position: 'top' | 'sidebar' | 'both';
   nav_mirror: 'none' | 'sidebar_follows_header' | 'header_follows_sidebar';
+  /** Theme default for where the account controls sit; a user may override it. */
+  account_placement?: 'header' | 'sidebar';
   /** The two surfaces, styled independently — see layout/regionStyle. */
   header: RegionStyle & { show_tagline?: boolean; spans_full_width?: boolean };
   sidebar: SidebarRegion;
@@ -68,6 +70,7 @@ const EMPTY_SITE_CHROME: SiteChrome = {
   nav_enabled: true,
   nav_position: 'top',
   nav_mirror: 'sidebar_follows_header',
+  account_placement: 'header',
   header: {},
   sidebar: {},
 };

@@ -130,6 +130,10 @@ class ThemeResolver
             'nav_enabled' => (bool) ($site['nav_enabled'] ?? true),
             'nav_position' => $site['nav_position'] ?? 'top',
             'nav_mirror' => $site['nav_mirror'] ?? 'sidebar_follows_header',
+            // The theme's default for where a signed-in visitor's account
+            // controls sit. A user's own preference overrides this on the
+            // client — see the SPA's useAccountPlacement.
+            'account_placement' => $site['account_placement'] ?? 'header',
             // No (object) cast here, unlike `background`: a region always
             // has keys, so it can never serialize as [] — and casting made
             // it awkward to read on the PHP side for no gain.
