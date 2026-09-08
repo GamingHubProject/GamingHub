@@ -112,62 +112,53 @@ body {
   color: var(--text, #111);
 }
 
-/* EasyMDE ships its own light chrome — white editor body, white toolbar,
-   grey borders — which reads as a broken hole in a dark install. It has no
-   theme system of its own, so the surfaces are repainted here from the same
-   tokens every other control uses. Only colour is touched: the editor's
-   own layout, spacing and syntax highlighting are left exactly as the
-   library draws them. */
-.EasyMDEContainer .CodeMirror,
-.EasyMDEContainer .editor-toolbar,
-.EasyMDEContainer .editor-preview,
-.EasyMDEContainer .editor-preview-side,
-.EasyMDEContainer .editor-statusbar {
-  background: var(--surface, #fff);
-  color: var(--text, #111);
-  border-color: var(--border, #ddd);
+/* MDXEditor theming — the library ships Radix colour tokens on :root for
+   its own light mode.  These are remapped onto the app's CSS tokens here
+   so the editor inherits whatever palette the active theme sets, dark or
+   light, without needing a separate class toggle on the component. */
+.gh-mdxeditor {
+  --baseBg:           var(--surface, #f1f0f3);
+  --baseBgSubtle:     var(--surface, #f8f7fb);
+  --baseBgHover:      var(--surface-muted, #e5e3eb);
+  --baseBgActive:     var(--surface-muted, #d9d7e0);
+  --basePageBg:       var(--background, #fff);
+  --baseBase:         var(--surface, #f1f0f3);
+  --baseText:         var(--text, #1c1b1f);
+  --baseTextContrast: var(--text, #1c1b1f);
+  --baseBorder:       var(--border, #cac7d5);
+  --baseBorderHover:  var(--border, #b4b0c0);
+  --baseLine:         var(--border, #d6d3e0);
+  --baseSolid:        var(--text-muted, #79747e);
+  --baseSolidHover:   var(--text-muted, #68647a);
+  --accentSolid:      var(--accent, #0645ad);
+  --accentSolidHover: var(--accent, #0b5dd7);
+  --accentText:       var(--accent, #0645ad);
+  --accentTextContrast: var(--accent-contrast, #fff);
+  --accentBorder:     var(--accent, #0645ad);
+  --accentBorderHover: var(--accent, #0645ad);
+  --accentBg:         color-mix(in srgb, var(--accent, #0645ad) 10%, transparent);
+  --accentBgHover:    color-mix(in srgb, var(--accent, #0645ad) 16%, transparent);
+  --accentBgActive:   color-mix(in srgb, var(--accent, #0645ad) 22%, transparent);
+  --accentLine:       color-mix(in srgb, var(--accent, #0645ad) 35%, transparent);
 }
 
-.EasyMDEContainer .CodeMirror-cursor {
-  border-left-color: var(--text, #111);
+/* Placeholder overlay — MDXEditor has no native placeholder prop. */
+.gh-mdxeditor-wrapper {
+  position: relative;
 }
 
-.EasyMDEContainer .CodeMirror-selected,
-.EasyMDEContainer .CodeMirror-line::selection,
-.EasyMDEContainer .CodeMirror-line > span::selection {
-  background: var(--surface-muted, #d7d4f0);
+.gh-mdxeditor-placeholder {
+  position: absolute;
+  top: 44px; /* below the toolbar */
+  left: 16px;
+  color: var(--text-muted, #79747e);
+  pointer-events: none;
+  user-select: none;
+  font-size: 1rem;
 }
 
-.EasyMDEContainer .editor-toolbar button {
-  color: var(--text, #111);
-}
-
-.EasyMDEContainer .editor-toolbar button:hover,
-.EasyMDEContainer .editor-toolbar button.active {
-  background: var(--surface-muted, #f0f0f0);
-  border-color: var(--border, #ddd);
-}
-
-/* Toolbar buttons carry text labels rather than icon glyphs (see
-   MarkdownEditor), so they need room for a word instead of a square. */
-.EasyMDEContainer .editor-toolbar button.easymde-label {
-  width: auto;
-  padding: 0 8px;
-}
-
-/* Markdown syntax the editor highlights: the defaults are tuned for a
-   white page and vanish on a dark one. */
-.EasyMDEContainer .cm-s-easymde .cm-header,
-.EasyMDEContainer .cm-s-easymde .cm-strong {
-  color: var(--text, #111);
-}
-
-.EasyMDEContainer .cm-s-easymde .cm-link,
-.EasyMDEContainer .cm-s-easymde .cm-url {
-  color: var(--accent, #0645ad);
-}
-
-.EasyMDEContainer .cm-s-easymde .cm-comment {
-  background: var(--surface-muted, rgba(127, 127, 127, 0.12));
-  color: var(--text, #111);
+/* Ensure the content area has a minimum usable height. */
+.gh-mdxeditor-content {
+  min-height: 100px;
+  padding: 8px 16px;
 }

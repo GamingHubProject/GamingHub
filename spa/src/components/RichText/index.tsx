@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { HEADING_FOLD, RICH_TEXT_ELEMENTS } from './schema';
 
 /**
- * EasyMDE brings CodeMirror with it, and the overwhelming majority of
+ * MDXEditor brings Lexical with it, and the overwhelming majority of
  * visits to a profile are people reading one — so the editor is its own
  * chunk, fetched only on an edit surface. The renderer below is what a
  * reader actually needs.
