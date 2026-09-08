@@ -10,10 +10,10 @@ import { ProfileEdit } from './ProfileEdit';
 import type { User } from '../api/types';
 
 /**
- * The editor itself is a lazily-loaded Lexical bundle, and none of what
+ * The editor is a lazily-loaded textarea+preview component; none of what
  * this file is testing is about it — the form's own behaviour is. Stubbing
  * it keeps these tests about the page (and fast); the editor's own
- * behaviour belongs to MDXEditor, and the renderer has its own tests.
+ * behaviour is exercised separately via the browser.
  */
 vi.mock('../components/RichText', () => ({
   MarkdownField: ({ value, onChange }: { value: string; onChange: (markdown: string) => void }) => (

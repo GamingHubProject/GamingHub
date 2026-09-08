@@ -112,53 +112,89 @@ body {
   color: var(--text, #111);
 }
 
-/* MDXEditor theming — the library ships Radix colour tokens on :root for
-   its own light mode.  These are remapped onto the app's CSS tokens here
-   so the editor inherits whatever palette the active theme sets, dark or
-   light, without needing a separate class toggle on the component. */
-.gh-mdxeditor {
-  --baseBg:           var(--surface, #f1f0f3);
-  --baseBgSubtle:     var(--surface, #f8f7fb);
-  --baseBgHover:      var(--surface-muted, #e5e3eb);
-  --baseBgActive:     var(--surface-muted, #d9d7e0);
-  --basePageBg:       var(--background, #fff);
-  --baseBase:         var(--surface, #f1f0f3);
-  --baseText:         var(--text, #1c1b1f);
-  --baseTextContrast: var(--text, #1c1b1f);
-  --baseBorder:       var(--border, #cac7d5);
-  --baseBorderHover:  var(--border, #b4b0c0);
-  --baseLine:         var(--border, #d6d3e0);
-  --baseSolid:        var(--text-muted, #79747e);
-  --baseSolidHover:   var(--text-muted, #68647a);
-  --accentSolid:      var(--accent, #0645ad);
-  --accentSolidHover: var(--accent, #0b5dd7);
-  --accentText:       var(--accent, #0645ad);
-  --accentTextContrast: var(--accent-contrast, #fff);
-  --accentBorder:     var(--accent, #0645ad);
-  --accentBorderHover: var(--accent, #0645ad);
-  --accentBg:         color-mix(in srgb, var(--accent, #0645ad) 10%, transparent);
-  --accentBgHover:    color-mix(in srgb, var(--accent, #0645ad) 16%, transparent);
-  --accentBgActive:   color-mix(in srgb, var(--accent, #0645ad) 22%, transparent);
-  --accentLine:       color-mix(in srgb, var(--accent, #0645ad) 35%, transparent);
+/* Write/Preview markdown editor — plain textarea + react-markdown.
+   No library owns the selection or intercepts events. */
+.gh-rte {
+  border: 1px solid var(--border, #cac7d5);
+  border-radius: 6px;
+  overflow: hidden;
 }
 
-/* Placeholder overlay — MDXEditor has no native placeholder prop. */
-.gh-mdxeditor-wrapper {
-  position: relative;
+.gh-rte-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border, #cac7d5);
+  background: var(--surface, #f1f0f3);
 }
 
-.gh-mdxeditor-placeholder {
-  position: absolute;
-  top: 44px; /* below the toolbar */
-  left: 16px;
+.gh-rte-tab {
+  padding: 6px 14px;
+  background: none;
+  border: none;
+  color: var(--text, #1c1b1f);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  opacity: 0.6;
+}
+
+.gh-rte-tab:hover {
+  opacity: 0.85;
+}
+
+.gh-rte-tab--active {
+  opacity: 1;
+  border-bottom: 2px solid var(--accent, #0645ad);
+  font-weight: 600;
+}
+
+.gh-rte-textarea {
+  display: block;
+  width: 100%;
+  min-height: 120px;
+  padding: 10px 12px;
+  background: var(--surface, #fff);
+  color: var(--text, #1c1b1f);
+  border: none;
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.gh-rte-textarea:focus {
+  outline: none;
+}
+
+.gh-rte-textarea::placeholder {
   color: var(--text-muted, #79747e);
-  pointer-events: none;
-  user-select: none;
-  font-size: 1rem;
 }
 
-/* Ensure the content area has a minimum usable height. */
-.gh-mdxeditor-content {
-  min-height: 100px;
-  padding: 8px 16px;
+.gh-rte-hints {
+  margin: 0;
+  padding: 5px 12px;
+  background: var(--surface, #f1f0f3);
+  border-top: 1px solid var(--border, #cac7d5);
+  color: var(--text-muted, #79747e);
+  font-size: 0.75rem;
+}
+
+.gh-rte-hints code {
+  background: none;
+  font-family: inherit;
+}
+
+.gh-rte-preview {
+  min-height: 80px;
+  padding: 10px 14px;
+  background: var(--surface, #fff);
+  color: var(--text, #1c1b1f);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.gh-rte-preview-empty {
+  margin: 0;
+  color: var(--text-muted, #79747e);
+  font-style: italic;
 }

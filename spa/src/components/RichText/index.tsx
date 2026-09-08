@@ -4,10 +4,10 @@ import remarkGfm from 'remark-gfm';
 import { HEADING_FOLD, RICH_TEXT_ELEMENTS } from './schema';
 
 /**
- * MDXEditor brings Lexical with it, and the overwhelming majority of
- * visits to a profile are people reading one — so the editor is its own
- * chunk, fetched only on an edit surface. The renderer below is what a
- * reader actually needs.
+ * The editor (MarkdownEditor) is its own lazy chunk — the overwhelming
+ * majority of visits to a profile are people reading one, so there is no
+ * reason to ship editing code to readers.  The renderer below is what they
+ * actually need.
  */
 const MarkdownEditor = lazy(() => import('./MarkdownEditor'));
 

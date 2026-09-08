@@ -1,42 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
-import {
-  MDXEditor,
-  type MDXEditorMethods,
-  headingsPlugin,
-  listsPlugin,
-  quotePlugin,
-  linkPlugin,
-  linkDialogPlugin,
-  markdownShortcutPlugin,
-  toolbarPlugin,
-  BoldItalicUnderlineToggles,
-  StrikeThroughSupSubToggles,
-  CodeToggle,
-  ListsToggle,
-  BlockTypeSelect,
-  CreateLink,
-  Separator,
-} from '@mdxeditor/editor';
-import '@mdxeditor/editor/style.css';
+import { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { HEADING_FOLD, RICH_TEXT_ELEMENTS } from './schema';
 
 /**
- * MDXEditor wrapping the same interface the previous EasyMDE component
- * exposed, so index.tsx's lazy import and MarkdownField's props are
- * unchanged.
+ * Plain-textarea markdown editor with a Write / Preview toggle.
  *
- * **Why MDXEditor over EasyMDE.**  EasyMDE fires toolbar actions via
- * onclick, which runs after mousedown has already moved focus off the
- * editor.  In CodeMirror 5 that collapses the anchor point, so by the
- * time _toggleLine reads getCursor('start')/getCursor('end') the
- * selection is gone — every list/heading/ordered-list operation targets
- * the whole document instead of the selected lines.  The bold rendering
- * lag is a separate CodeMirror 5 artefact (gutter redraws before inline
- * content on a programmatic replaceSelection).  Neither is fixable without
- * patching EasyMDE itself.
+ * No library owns the selection, intercepts keyboard events, or manages
+ * focus. The browser's native textarea handles all of that. Dark theme is
+ * plain CSS on a textarea. Users already know **bold**, *italic*, - list
+ * from Discord / Reddit / GitHub — no toolbar required.
  *
- * MDXEditor fires all transforms on Lexical's own selection, which never
- * moves when you click inside the editor's toolbar, so every operation is
- * range-scoped to exactly what is selected.
+ * The Preview tab reuses the same react-markdown + remark-gfm pipeline
+ * already used by the Markdown renderer in index.tsx, so what the editor
+ * shows is exactly what readers see.
  */
 export default function MarkdownEditor({
   value,
@@ -47,76 +24,85 @@ export default function MarkdownEditor({
   onChange: (markdown: string) => void;
   placeholder?: string;
 }) {
-  const editorRef = useRef<MDXEditorMethods>(null);
-  // Kept in a ref so onChange never goes stale without teardown.
-  const notify = useRef(onChange);
-  notify.current = onChange;
+  const [tab, setTab] = useState<'write' | 'preview'>('write');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Placeholder: MDXEditor has no native placeholder prop, so we track
-  // whether the content is empty to show an overlay.
-  const [isEmpty, setIsEmpty] = useState(() => !value.trim());
-
-  // A value replaced from outside (form reset, record loading after first
-  // paint) must reach the editor — but only when it really differs from
-  // what the editor already holds, or every keystroke would rewrite the
-  // document beneath the caret.
   useEffect(() => {
-    const instance = editorRef.current;
-    if (!instance) return;
-    if (value !== instance.getMarkdown()) {
-      instance.setMarkdown(value);
-      setIsEmpty(!value.trim());
-    }
-  }, [value]);
+    if (tab === 'write') textareaRef.current?.focus();
+  }, [tab]);
 
   return (
-    <div className="gh-mdxeditor-wrapper">
-      {isEmpty && placeholder && (
-        <span className="gh-mdxeditor-placeholder" aria-hidden>
-          {placeholder}
-        </span>
+    <div className="gh-rte">
+      <div className="gh-rte-tabs" role="tablist">
+        <button
+          role="tab"
+          aria-selected={tab === 'write'}
+          className={'gh-rte-tab' + (tab === 'write' ? ' gh-rte-tab--active' : '')}
+          onClick={() => setTab('write')}
+          type="button"
+        >
+          Write
+        </button>
+        <button
+          role="tab"
+          aria-selected={tab === 'preview'}
+          className={'gh-rte-tab' + (tab === 'preview' ? ' gh-rte-tab--active' : '')}
+          onClick={() => setTab('preview')}
+          type="button"
+        >
+          Preview
+        </button>
+      </div>
+
+      {tab === 'write' ? (
+        <div className="gh-rte-write">
+          <textarea
+            ref={textareaRef}
+            className="gh-rte-textarea"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            rows={6}
+            spellCheck={false}
+          />
+          <p className="gh-rte-hints">
+            <code>**bold**</code>
+            {' · '}
+            <code>*italic*</code>
+            {' · '}
+            <code>~~strike~~</code>
+            {' · '}
+            <code>## Heading</code>
+            {' · '}
+            <code>- list</code>
+            {' · '}
+            <code>[link](url)</code>
+          </p>
+        </div>
+      ) : (
+        <div className="gh-rte-preview">
+          {value.trim() ? (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              skipHtml
+              allowedElements={[...RICH_TEXT_ELEMENTS, ...Object.keys(HEADING_FOLD)]}
+              unwrapDisallowed
+              components={{
+                ...HEADING_FOLD,
+                a: ({ children, ...props }) => (
+                  <a {...props} rel="noreferrer noopener" target="_blank">
+                    {children}
+                  </a>
+                ),
+              }}
+            >
+              {value}
+            </ReactMarkdown>
+          ) : (
+            <p className="gh-rte-preview-empty">Nothing to preview.</p>
+          )}
+        </div>
       )}
-      <MDXEditor
-        ref={editorRef}
-        markdown={value}
-        // initialMarkdownNormalize=true fires when MDXEditor normalises
-        // the initial value on mount (e.g. bullet symbol differences).
-        // Skipping those prevents a mount-time loop:
-        //   setMarkdown → onChange(norm, true) → parent state → value →
-        //   useEffect → setMarkdown → repeat.
-        onChange={(markdown, isNormalize) => {
-          if (!isNormalize) {
-            setIsEmpty(!markdown.trim());
-            notify.current(markdown);
-          }
-        }}
-        className="gh-mdxeditor"
-        contentEditableClassName="gh-mdxeditor-content"
-        spellCheck={false}
-        plugins={[
-          headingsPlugin({ allowedHeadingLevels: [2, 3] }),
-          listsPlugin(),
-          quotePlugin(),
-          linkPlugin(),
-          linkDialogPlugin(),
-          markdownShortcutPlugin(),
-          toolbarPlugin({
-            toolbarContents: () => (
-              <>
-                <BlockTypeSelect />
-                <Separator />
-                <BoldItalicUnderlineToggles options={['Bold', 'Italic']} />
-                <StrikeThroughSupSubToggles options={['Strikethrough']} />
-                <CodeToggle />
-                <Separator />
-                <ListsToggle />
-                <Separator />
-                <CreateLink />
-              </>
-            ),
-          }),
-        ]}
-      />
     </div>
   );
 }
