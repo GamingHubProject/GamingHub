@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Experience\ThemeResolver;
 use App\Http\Controllers\Controller;
 use App\Models\PageLayout;
+use App\Models\User;
 use GamingHub\Core\Models\Game;
 use GamingHub\Core\Models\Server;
 use Illuminate\Http\Request;
@@ -34,15 +35,14 @@ class ThemeController extends Controller
                 ->first()
             : null;
 
-        // One theme now supplies tokens, font, widget style defaults and
-        // site chrome together, so they're all resolved from the same
-        // scope rather than each having its own lookup. The response shape
-        // is unchanged — the SPA doesn't need to know where any of it
-        // came from.
+        $profileUser = (string) $request->string('subject_type') === 'user_profile' && $request->filled('subject_id')
+            ? User::find($request->integer('subject_id'))
+            : null;
+
         $theme = $resolver->effectiveTheme($game, $server);
 
         return response()->json([
-            'tokens' => $resolver->resolve($game, $server),
+            'tokens' => $resolver->resolve($game, $server, $profileUser),
             'font' => $resolver->resolveFont($layout, $theme),
             'widgetStyle' => $resolver->widgetStyleDefaults($theme),
             'site' => $resolver->siteChrome($theme),

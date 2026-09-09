@@ -30,14 +30,12 @@ export function ProfileEdit() {
   const [isPublic, setIsPublic] = useState(true);
   const [avatarAssetId, setAvatarAssetId] = useState<number | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [profileTheme, setProfileTheme] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   const placement = useAccountPlacementPreference();
 
-  // Seeded once the signed-in user actually arrives — this page can render
-  // before AuthProvider's query resolves, and initialising state from a
-  // user that isn't there yet would leave every field permanently blank.
   useEffect(() => {
     if (!user) return;
     setDisplayName(user.display_name ?? '');
@@ -45,6 +43,7 @@ export function ProfileEdit() {
     setIsPublic(user.profile_public);
     setAvatarAssetId(user.avatar_asset_id);
     setAvatarUrl(user.avatar_url);
+    setProfileTheme(user.profile_theme ?? {});
   }, [user]);
 
   const save = useMutation({
@@ -54,6 +53,7 @@ export function ProfileEdit() {
         bio: bio.trim() === '' ? null : bio,
         profile_public: isPublic,
         avatar_asset_id: avatarAssetId,
+        profile_theme: Object.keys(profileTheme).length > 0 ? profileTheme : null,
       }),
     onSuccess: async () => {
       setError(null);
@@ -148,6 +148,50 @@ export function ProfileEdit() {
           Anyone can see my profile
         </label>
 
+        {user.profile_themes_enabled && (
+          <fieldset style={{ border: '1px solid var(--border, #ddd)', borderRadius: 6, padding: 12 }}>
+            <legend>Profile colours</legend>
+            <small style={{ color: 'var(--muted, #888)', display: 'block', marginBottom: 12 }}>
+              Customise the colours visitors see on your profile page. Leave a colour blank to inherit the site theme.
+            </small>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+              {THEME_TOKEN_LABELS.map(([token, label]) => (
+                <label key={token} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={{ fontSize: '0.85em' }}>{label}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <input
+                      type="color"
+                      value={profileTheme[token] ?? '#000000'}
+                      onChange={(e) => {
+                        setProfileTheme((prev) => ({ ...prev, [token]: e.target.value }));
+                        setSaved(false);
+                      }}
+                      style={{ width: 32, height: 32, padding: 0, border: '1px solid var(--border, #ddd)', borderRadius: 4, cursor: 'pointer' }}
+                    />
+                    {profileTheme[token] && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileTheme((prev) => {
+                            const next = { ...prev };
+                            delete next[token];
+                            return next;
+                          });
+                          setSaved(false);
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted, #888)', fontSize: '0.8em', padding: 0 }}
+                        title="Reset to site theme"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
         <fieldset style={{ border: '1px solid var(--border, #ddd)', borderRadius: 6, padding: 12 }}>
           <legend>Account menu</legend>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -179,3 +223,11 @@ export function ProfileEdit() {
     </div>
   );
 }
+
+const THEME_TOKEN_LABELS: [string, string][] = [
+  ['background', 'Background'],
+  ['surface', 'Surface'],
+  ['text', 'Text'],
+  ['accent', 'Accent'],
+  ['accent-contrast', 'On accent'],
+];

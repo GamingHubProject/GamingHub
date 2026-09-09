@@ -10,7 +10,7 @@ const user: User = { id: 1, name: 'Rose', email: 'rose@example.com', display_nam
   avatar: null,
   avatar_asset_id: null,
   avatar_url: null, bio: null,
-  profile_public: true, preferences: null, is_admin: false };
+  profile_public: true, preferences: null, profile_theme: null, profile_themes_enabled: true, is_admin: false };
 
 function renderDashboard(client: { get: (path: string) => Promise<unknown>; post: (path: string, body?: unknown) => Promise<unknown> }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

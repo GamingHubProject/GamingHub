@@ -42,6 +42,14 @@ class User extends Authenticatable implements FilamentUser
         'account_placement' => ThemeBundle::ACCOUNT_PLACEMENTS,
     ];
 
+    public const PROFILE_THEME_TOKENS = [
+        'background',
+        'surface',
+        'text',
+        'accent',
+        'accent-contrast',
+    ];
+
     /**
      * The attributes that are mass assignable.
      *
@@ -56,6 +64,7 @@ class User extends Authenticatable implements FilamentUser
         'avatar_asset_id',
         'bio',
         'profile_public',
+        'profile_theme',
         'preferences',
     ];
 
@@ -187,6 +196,7 @@ class User extends Authenticatable implements FilamentUser
             'password' => 'hashed',
             'preferences' => 'array',
             'profile_public' => 'boolean',
+            'profile_theme' => 'array',
         ];
     }
 }

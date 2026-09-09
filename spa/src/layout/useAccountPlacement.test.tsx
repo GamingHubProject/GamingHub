@@ -41,7 +41,7 @@ const base: User = { id: 1, name: 'Rose', email: 'r@example.com', display_name: 
   avatar: null,
   avatar_asset_id: null,
   avatar_url: null, bio: null,
-  profile_public: true, preferences: null, is_admin: false };
+  profile_public: true, preferences: null, profile_theme: null, profile_themes_enabled: true, is_admin: false };
 
 describe('useAccountPlacement', () => {
   it('falls back to the header when nothing says otherwise', () => {

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\ProfileResource;
 use App\Http\Resources\Api\UserResource;
 use App\Models\Asset;
+use App\Models\SiteOption;
 use App\Models\User;
 use App\Profiles\RichText;
 use Illuminate\Http\Request;
@@ -75,7 +76,16 @@ class ProfileController extends Controller
             'avatar_asset_id' => ['sometimes', 'nullable', 'integer', Rule::exists('assets', 'id')],
             'bio' => ['sometimes', 'nullable', 'string', 'max:'.RichText::MAX_LENGTH],
             'profile_public' => ['sometimes', 'boolean'],
+            'profile_theme' => ['sometimes', 'nullable', 'array'],
+            'profile_theme.*' => ['string', 'regex:/^#[0-9a-fA-F]{6}$/'],
         ]);
+
+        if (array_key_exists('profile_theme', $data) && is_array($data['profile_theme'])) {
+            $data['profile_theme'] = array_intersect_key(
+                $data['profile_theme'],
+                array_flip(User::PROFILE_THEME_TOKENS)
+            ) ?: null;
+        }
 
         // Uniqueness above is case-sensitive (Rule::unique compares
         // exactly); the index is not. Checking here as well turns what

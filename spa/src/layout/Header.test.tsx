@@ -37,12 +37,12 @@ const admin: User = { id: 1, name: 'Rose', email: 'rose@example.com', display_na
   avatar: null,
   avatar_asset_id: null,
   avatar_url: null, bio: null,
-  profile_public: true, preferences: null, is_admin: true };
+  profile_public: true, preferences: null, profile_theme: null, profile_themes_enabled: true, is_admin: true };
 const player: User = { id: 2, name: 'Player', email: 'player@example.com', display_name: null,
   avatar: null,
   avatar_asset_id: null,
   avatar_url: null, bio: null,
-  profile_public: true, preferences: null, is_admin: false };
+  profile_public: true, preferences: null, profile_theme: null, profile_themes_enabled: true, is_admin: false };
 
 describe('Header', () => {
   it('does not show Assets as a top-level nav link for an admin', async () => {

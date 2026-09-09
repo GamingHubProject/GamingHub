@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api;
 
+use App\Experience\ThemeResolver;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -25,6 +26,8 @@ class UserResource extends JsonResource
             'avatar_url' => $this->avatarUrl(),
             'bio' => $this->bio,
             'profile_public' => (bool) $this->profile_public,
+            'profile_theme' => $this->profile_theme,
+            'profile_themes_enabled' => ThemeResolver::profileThemesEnabled(),
             'preferences' => $this->preferences,
             'is_admin' => $this->hasRole('Admin'),
         ];

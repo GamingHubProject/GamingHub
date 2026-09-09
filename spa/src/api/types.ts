@@ -89,6 +89,8 @@ export interface User {
   avatar_url: string | null;
   bio: string | null;
   profile_public: boolean;
+  profile_theme: Record<string, string> | null;
+  profile_themes_enabled: boolean;
   preferences: Record<string, unknown> | null;
   is_admin: boolean;
 }
@@ -147,7 +149,7 @@ export interface DashboardPage {
   widgets: DashboardWidget[];
 }
 
-export type PageLayoutSubjectType = 'server' | 'game' | 'home' | 'games-list';
+export type PageLayoutSubjectType = 'server' | 'game' | 'home' | 'games-list' | 'user_profile';
 
 export interface PageLayoutWidget {
   id: number;

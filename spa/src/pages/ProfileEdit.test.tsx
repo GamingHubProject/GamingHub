@@ -32,6 +32,8 @@ const user: User = {
   avatar_url: null,
   bio: null,
   profile_public: true,
+  profile_theme: null,
+  profile_themes_enabled: true,
   preferences: null,
   is_admin: false,
 };
@@ -93,6 +95,7 @@ describe('ProfileEdit', () => {
         bio: null,
         profile_public: false,
         avatar_asset_id: null,
+        profile_theme: null,
       })
     );
   });

@@ -2,6 +2,7 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '../providers/ApiClientProvider';
 import { useAuth } from '../providers/AuthProvider';
+import { useThemeScope } from '../providers/ThemeProvider';
 import { ApiError } from '../api/client';
 import { PageLayoutEditor } from '../components/PageLayoutEditor';
 import type { Profile as ProfileData } from '../api/types';
@@ -20,7 +21,6 @@ import type { Profile as ProfileData } from '../api/types';
 export function Profile({ handle }: { handle?: string }) {
   const params = useParams<{ id: string }>();
   const api = useApi();
-  const { user } = useAuth();
 
   const byName = handle !== undefined;
   const param = params.id ?? '';
@@ -71,6 +71,14 @@ export function Profile({ handle }: { handle?: string }) {
   if (isNumericId) {
     return <Navigate to={`/users/${encodeURIComponent(profile.display_name)}`} replace />;
   }
+
+  return <ProfileContent profile={profile} />;
+}
+
+function ProfileContent({ profile }: { profile: ProfileData }) {
+  const { user } = useAuth();
+
+  useThemeScope({ subjectType: 'user_profile', subjectId: profile.id });
 
   const isOwner = user?.id === profile.id;
 

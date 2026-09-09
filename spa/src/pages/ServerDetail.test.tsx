@@ -13,7 +13,7 @@ const playerUser: User = { id: 2, name: 'Player', email: 'player@example.com', d
   avatar: null,
   avatar_asset_id: null,
   avatar_url: null, bio: null,
-  profile_public: true, preferences: null, is_admin: false };
+  profile_public: true, preferences: null, profile_theme: null, profile_themes_enabled: true, is_admin: false };
 
 const server: Server = {
   id: 2,

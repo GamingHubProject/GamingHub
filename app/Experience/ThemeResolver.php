@@ -7,6 +7,7 @@ use App\Models\PageLayout;
 use App\Models\SiteOption;
 use App\Models\Theme;
 use App\Models\ThemeAssignment;
+use App\Models\User;
 use GamingHub\Core\Models\Game;
 use GamingHub\Core\Models\Server;
 
@@ -25,12 +26,16 @@ use GamingHub\Core\Models\Server;
 class ThemeResolver
 {
     /** @return array<string, string> */
-    public function resolve(?Game $game = null, ?Server $server = null): array
+    public function resolve(?Game $game = null, ?Server $server = null, ?User $profileUser = null): array
     {
         $tokens = [];
 
         foreach ($this->cascade($game, $server) as $theme) {
             $tokens = array_merge($tokens, $theme->payload['tokens'] ?? []);
+        }
+
+        if ($profileUser && self::profileThemesEnabled()) {
+            $tokens = array_merge($tokens, $this->profileOverlay($profileUser));
         }
 
         return $tokens;
@@ -150,6 +155,29 @@ class ThemeResolver
     public function platformFavicon(): ?string
     {
         return $this->themeFor(ThemeAssignment::LEVEL_PLATFORM)?->payload['favicon_url'] ?? null;
+    }
+
+    /**
+     * The per-user colour overlay. Returns only the allowed tokens the
+     * user has actually set, so merging it over the cascade replaces only
+     * those keys and leaves everything else inherited.
+     *
+     * @return array<string, string>
+     */
+    public function profileOverlay(User $user): array
+    {
+        $theme = $user->profile_theme;
+
+        if (! is_array($theme)) {
+            return [];
+        }
+
+        return array_intersect_key($theme, array_flip(User::PROFILE_THEME_TOKENS));
+    }
+
+    public static function profileThemesEnabled(): bool
+    {
+        return (bool) SiteOption::value('profile_themes_enabled', true);
     }
 
     /**
