@@ -86,8 +86,9 @@ export function Layout() {
       accountSlot={
         accountInSidebar && user ? (
           <AccountMenu
-            name={user.name}
+            name={user.display_name || user.name}
             isAdmin={!!user.is_admin}
+            avatarUrl={user.avatar_url}
             direction="up"
             full
             placement="sidebar"

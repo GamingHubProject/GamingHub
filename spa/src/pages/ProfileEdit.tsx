@@ -169,7 +169,7 @@ export function ProfileEdit() {
           <button type="submit" disabled={save.isPending}>
             {save.isPending ? 'Saving…' : 'Save'}
           </button>
-          <button type="button" onClick={() => navigate(`/users/${user.id}`)}>
+          <button type="button" onClick={() => navigate(`/users/${encodeURIComponent(displayName.trim() || user.name)}`)}>
             View my profile
           </button>
           {saved && <span style={{ color: 'var(--muted, #888)' }}>Saved.</span>}

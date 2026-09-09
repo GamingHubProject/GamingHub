@@ -21,6 +21,7 @@ import { useAuth } from '../providers/AuthProvider';
 export function AccountMenu({
   name,
   isAdmin,
+  avatarUrl,
   direction = 'down',
   full = false,
   placement,
@@ -28,6 +29,7 @@ export function AccountMenu({
 }: {
   name: string;
   isAdmin: boolean;
+  avatarUrl?: string | null;
   /** Which way the panel opens. Up when anchored to the bottom of a sidebar. */
   direction?: 'up' | 'down';
   /** Fill the available width, as the sidebar wants and the header does not. */
@@ -111,12 +113,14 @@ export function AccountMenu({
           color: 'inherit',
           width: full ? '100%' : undefined,
           textAlign: full ? 'left' : undefined,
-          display: full ? 'flex' : undefined,
+          display: 'flex',
           justifyContent: full ? 'space-between' : undefined,
+          flexDirection: placement === 'sidebar' ? 'row-reverse' : 'row',
           alignItems: 'center',
           gap: 'var(--space-tight, 6px)',
         }}
       >
+        <AccountAvatar url={avatarUrl} name={name} />
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
         <span aria-hidden="true" style={{ fontSize: '0.7em', opacity: 0.7 }}>
           {direction === 'up' ? '▴' : '▾'}
@@ -152,7 +156,7 @@ export function AccountMenu({
             </MenuLink>
           )}
           {user && (
-            <MenuLink to={`/users/${user.id}`} onNavigate={() => setOpen(false)}>
+            <MenuLink to={`/users/${encodeURIComponent(user.display_name || user.name)}`} onNavigate={() => setOpen(false)}>
               Profile
             </MenuLink>
           )}
@@ -190,5 +194,49 @@ function MenuLink({ to, onNavigate, children }: { to: string; onNavigate: () => 
     <Link to={to} onClick={onNavigate} style={itemStyle}>
       {children}
     </Link>
+  );
+}
+
+const avatarSize = 28;
+
+function AccountAvatar({ url, name }: { url?: string | null; name: string }) {
+  const initials = name.charAt(0).toUpperCase();
+
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt=""
+        style={{
+          width: avatarSize,
+          height: avatarSize,
+          borderRadius: '50%',
+          objectFit: 'cover',
+          flexShrink: 0,
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: avatarSize,
+        height: avatarSize,
+        borderRadius: '50%',
+        background: 'var(--accent, #0645ad)',
+        color: 'var(--accent-contrast, #fff)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '0.75rem',
+        fontWeight: 600,
+        flexShrink: 0,
+        lineHeight: 1,
+      }}
+    >
+      {initials}
+    </span>
   );
 }

@@ -88,14 +88,24 @@ function renderAt(
 }
 
 describe('Profile', () => {
-  it('renders somebody profile at its canonical url, widgets and all', async () => {
-    renderAt('/users/7', {
-      '/api/v1/users/7/profile': profile,
+  it('renders somebody profile at its canonical display-name url', async () => {
+    renderAt('/users/Rose', {
+      '/api/v1/profiles/by-name/Rose': profile,
       '/api/v1/users/7/layout': layout,
     });
 
     expect(await screen.findByRole('heading', { name: 'Rose' })).toBeInTheDocument();
     expect(await screen.findByText('Hello there')).toBeInTheDocument();
+  });
+
+  it('redirects a numeric /users/{id} to the display-name url', async () => {
+    renderAt('/users/7', {
+      '/api/v1/users/7/profile': profile,
+      '/api/v1/profiles/by-name/Rose': profile,
+      '/api/v1/users/7/layout': layout,
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Rose' })).toBeInTheDocument();
   });
 
   /**
@@ -138,8 +148,8 @@ describe('Profile', () => {
   });
 
   it('offers the edit link only to the person whose profile it is', async () => {
-    renderAt('/users/7', {
-      '/api/v1/users/7/profile': { ...profile, can_edit: true },
+    renderAt('/users/Rose', {
+      '/api/v1/profiles/by-name/Rose': { ...profile, can_edit: true },
       '/api/v1/users/7/layout': layout,
     }, { user: owner });
 
@@ -147,8 +157,8 @@ describe('Profile', () => {
   });
 
   it('shows no edit link to a passer-by', async () => {
-    renderAt('/users/7', {
-      '/api/v1/users/7/profile': profile,
+    renderAt('/users/Rose', {
+      '/api/v1/profiles/by-name/Rose': profile,
       '/api/v1/users/7/layout': layout,
     });
 
@@ -161,8 +171,8 @@ describe('Profile', () => {
    * follow the profile's own can_edit, not the viewer's admin role.
    */
   it('gives the owner the layout editor without making them an admin', async () => {
-    renderAt('/users/7', {
-      '/api/v1/users/7/profile': { ...profile, can_edit: true },
+    renderAt('/users/Rose', {
+      '/api/v1/profiles/by-name/Rose': { ...profile, can_edit: true },
       '/api/v1/users/7/layout': layout,
     }, { user: owner });
 
@@ -170,8 +180,8 @@ describe('Profile', () => {
   });
 
   it('gives a passer-by no way into the editor', async () => {
-    renderAt('/users/7', {
-      '/api/v1/users/7/profile': profile,
+    renderAt('/users/Rose', {
+      '/api/v1/profiles/by-name/Rose': profile,
       '/api/v1/users/7/layout': layout,
     });
 
@@ -185,8 +195,8 @@ describe('Profile', () => {
    * profiles". Nothing is deleted; re-enabling the type brings it back.
    */
   it('stops rendering a placed widget whose type the admin has withdrawn', async () => {
-    renderAt('/users/7', {
-      '/api/v1/users/7/profile': { ...profile, allowed_widget_types: ['profile-avatar'] },
+    renderAt('/users/Rose', {
+      '/api/v1/profiles/by-name/Rose': { ...profile, allowed_widget_types: ['profile-avatar'] },
       '/api/v1/users/7/layout': layout,
     });
 
@@ -195,8 +205,8 @@ describe('Profile', () => {
   });
 
   it('keeps rendering it while the allowlist still names it', async () => {
-    renderAt('/users/7', {
-      '/api/v1/users/7/profile': profile,
+    renderAt('/users/Rose', {
+      '/api/v1/profiles/by-name/Rose': profile,
       '/api/v1/users/7/layout': layout,
     });
 
@@ -204,8 +214,8 @@ describe('Profile', () => {
   });
 
   it('tells the owner of a closed profile that it is closed', async () => {
-    renderAt('/users/7', {
-      '/api/v1/users/7/profile': { ...profile, profile_public: false, can_edit: true },
+    renderAt('/users/Rose', {
+      '/api/v1/profiles/by-name/Rose': { ...profile, profile_public: false, can_edit: true },
       '/api/v1/users/7/layout': layout,
     }, { user: owner });
 

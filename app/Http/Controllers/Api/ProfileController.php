@@ -41,7 +41,8 @@ class ProfileController extends Controller
      */
     public function showByName(Request $request, string $name): ProfileResource
     {
-        $user = User::query()->whereRaw('lower(display_name) = lower(?)', [$name])->firstOrFail();
+        $user = User::query()->whereRaw('lower(display_name) = lower(?)', [$name])->first()
+            ?? User::query()->whereRaw('lower(name) = lower(?)', [$name])->firstOrFail();
 
         return $this->respond($request, $user);
     }

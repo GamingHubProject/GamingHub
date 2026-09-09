@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from '../providers/ApiClientProvider';
 import { useAuth } from '../providers/AuthProvider';
@@ -7,10 +7,10 @@ import { PageLayoutEditor } from '../components/PageLayoutEditor';
 import type { Profile as ProfileData } from '../api/types';
 
 /**
- * Somebody's profile, reached two ways: /users/{id} (canonical, survives
- * every rename) and /@{name} (pretty). Both render this — the @ route
- * resolves the name server-side and returns the same payload rather than
- * redirecting, so a link someone shared keeps showing the URL they shared.
+ * Somebody's profile, reached three ways:
+ *   /users/{displayName}  — canonical, display-name-based
+ *   /users/{id}           — legacy, redirects to the display-name URL
+ *   /@{name}              — pretty shortcut via CatchAll
  *
  * The layout below is the same widget grid every other page uses, with one
  * difference that matters: `canEdit` comes from the profile's own
@@ -23,12 +23,17 @@ export function Profile({ handle }: { handle?: string }) {
   const { user } = useAuth();
 
   const byName = handle !== undefined;
+  const param = params.id ?? '';
+  const isNumericId = !byName && /^\d+$/.test(param);
+
   const path = byName
     ? `/api/v1/profiles/by-name/${encodeURIComponent(handle)}`
-    : `/api/v1/users/${params.id}/profile`;
+    : isNumericId
+      ? `/api/v1/users/${param}/profile`
+      : `/api/v1/profiles/by-name/${encodeURIComponent(param)}`;
 
   const { data: profile, isLoading, error } = useQuery({
-    queryKey: ['profile', byName ? `@${handle}` : params.id],
+    queryKey: ['profile', byName ? `@${handle}` : param],
     queryFn: () => api.get<ProfileData>(path),
     retry: false,
   });
@@ -38,9 +43,20 @@ export function Profile({ handle }: { handle?: string }) {
   if (error) {
     if (error instanceof ApiError && error.status === 403) {
       return (
-        <div>
-          <h1>This profile is private</h1>
-          <p>Only its owner can see it.</p>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '40vh' }}>
+          <div
+            style={{
+              textAlign: 'center',
+              padding: 'var(--space-section, 24px) var(--space-wide, 32px)',
+              border: '1px solid var(--border, #ddd)',
+              borderRadius: 'var(--radius, 8px)',
+              background: 'var(--surface, #f5f5f5)',
+              maxWidth: 400,
+            }}
+          >
+            <h1 style={{ marginBottom: 8 }}>This profile is private</h1>
+            <p style={{ margin: 0, color: 'var(--muted, #888)' }}>Only its owner can see it.</p>
+          </div>
         </div>
       );
     }
@@ -51,6 +67,10 @@ export function Profile({ handle }: { handle?: string }) {
   }
 
   if (!profile) return null;
+
+  if (isNumericId) {
+    return <Navigate to={`/users/${encodeURIComponent(profile.display_name)}`} replace />;
+  }
 
   const isOwner = user?.id === profile.id;
 
