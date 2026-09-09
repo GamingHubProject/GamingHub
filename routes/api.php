@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AssetTagController;
 use App\Http\Controllers\Api\DashboardPageController;
 use App\Http\Controllers\Api\DashboardWidgetController;
 use App\Http\Controllers\Api\GameController;
+use App\Http\Controllers\Api\GameIdentityController;
 use App\Http\Controllers\Api\GroupWidgetTemplateController;
 use App\Http\Controllers\Api\PageController;
 use App\Http\Controllers\Api\PageLayoutController;
@@ -89,6 +90,10 @@ Route::prefix('v1')->group(function () {
         // touch is the requester's own. An admin editing somebody else's
         // profile does it in Filament.
         Route::patch('/user/profile', [ProfileController::class, 'update']);
+
+        Route::get('/user/game-identities', [GameIdentityController::class, 'index']);
+        Route::post('/user/game-identities', [GameIdentityController::class, 'store']);
+        Route::delete('/user/game-identities/{gameSlug}', [GameIdentityController::class, 'destroy']);
 
         Route::get('/dashboard/pages', [DashboardPageController::class, 'index']);
         Route::post('/dashboard/pages', [DashboardPageController::class, 'store']);

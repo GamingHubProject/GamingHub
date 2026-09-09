@@ -5,10 +5,14 @@ namespace App\Console\Commands;
 use App\Capabilities\CapabilityGateway;
 use App\Capabilities\ServerAllocationSyncer;
 use App\Capabilities\ServerFieldMapper;
+use App\Contracts\PlayerStatsContract;
 use App\Models\ConnectorInstance;
+use App\Profiles\PlayerIdentityResolver;
+use App\Profiles\UserStats;
 use GamingHub\Core\Models\Provider;
 use GamingHub\Core\Models\Server;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Background auto-refresh — the piece that makes Provider.status and a
@@ -83,6 +87,7 @@ class PollProviders extends Command
 
         $this->refreshServerStatus($gateway, $mapper, $allocationSyncer, $server);
         $this->refreshPlayerList($gateway, $mapper, $server);
+        $this->refreshPlayerStats($server);
     }
 
     /**
@@ -151,5 +156,104 @@ class PollProviders extends Command
         if ($updates !== []) {
             $server->update($updates);
         }
+    }
+
+    /**
+     * Piggybacks on the same poll tick as server-status — reuses the
+     * last_raw_response already persisted on the Provider row, so there
+     * is no second HTTP call. Error-isolated: a failing extension logs
+     * and skips without affecting server-status or player-list refresh.
+     */
+    protected function refreshPlayerStats(Server $server): void
+    {
+        $gameSlug = $server->game?->slug;
+
+        if (! $gameSlug) {
+            return;
+        }
+
+        $extension = $this->findPlayerStatsExtension($gameSlug);
+
+        if (! $extension) {
+            return;
+        }
+
+        $raw = Provider::where('server_id', $server->id)
+            ->whereNotNull('last_raw_response')
+            ->orderBy('priority')
+            ->value('last_raw_response');
+
+        if (! $raw) {
+            return;
+        }
+
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true) ?? [];
+        }
+
+        try {
+            $writes = $extension->extractPlayerStats($server, $raw);
+        } catch (\Throwable $e) {
+            Log::warning('Player stats extraction failed', [
+                'server_id' => $server->id,
+                'game_slug' => $gameSlug,
+                'error' => $e->getMessage(),
+            ]);
+
+            return;
+        }
+
+        if ($writes === []) {
+            return;
+        }
+
+        $rawIds = array_values(array_unique(array_map(fn ($w) => $w->rawPlayerId, $writes)));
+        $idMap = PlayerIdentityResolver::resolve($gameSlug, $rawIds);
+
+        foreach ($writes as $write) {
+            $userId = $idMap[$write->rawPlayerId] ?? null;
+
+            if ($userId === null) {
+                continue;
+            }
+
+            if ($write->cumulative) {
+                UserStats::set(
+                    $userId,
+                    $write->source,
+                    $write->key,
+                    $write->value,
+                    $write->subjectType,
+                    $write->subjectId,
+                    $write->metadata,
+                );
+            } else {
+                UserStats::increment(
+                    $userId,
+                    $write->source,
+                    $write->key,
+                    $write->value,
+                    $write->subjectType,
+                    $write->subjectId,
+                    $write->metadata,
+                );
+            }
+        }
+    }
+
+    protected function findPlayerStatsExtension(string $gameSlug): ?PlayerStatsContract
+    {
+        try {
+            foreach (app()->tagged('player-stats-extensions') as $extension) {
+                if ($extension instanceof PlayerStatsContract
+                    && in_array($gameSlug, $extension->supportsPlayerIdentity(), true)) {
+                    return $extension;
+                }
+            }
+        } catch (\Throwable) {
+            // No extensions tagged yet — that's fine.
+        }
+
+        return null;
     }
 }

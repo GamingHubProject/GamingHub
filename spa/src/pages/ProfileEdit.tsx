@@ -5,6 +5,7 @@ import { useApi } from '../providers/ApiClientProvider';
 import { useAuth } from '../providers/AuthProvider';
 import { ApiError } from '../api/client';
 import { AvatarPicker } from '../components/AvatarPicker';
+import { GameIdentities } from '../components/GameIdentities';
 import { MarkdownField } from '../components/RichText';
 import { useAccountPlacementPreference } from '../layout/useAccountPlacement';
 import type { User } from '../api/types';
@@ -132,6 +133,8 @@ export function ProfileEdit() {
             />
           </div>
         </label>
+
+        <GameIdentities />
 
         <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input

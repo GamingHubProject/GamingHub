@@ -118,6 +118,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(UserAchievement::class)->orderByDesc('earned_at');
     }
 
+    public function gameIdentities(): HasMany
+    {
+        return $this->hasMany(PlayerGameIdentity::class);
+    }
+
     /**
      * What a profile is titled with. `display_name` is optional and falls
      * back to the account name, so an account that has never set one still
